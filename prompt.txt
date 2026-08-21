@@ -1,0 +1,113 @@
+You are working in my local clone of https://github.com/TopHatMan/mangette and website https://github.com/TopHatMan/mangette-website
+
+This is a fork of C9Glax/tranga (ASP.NET manga downloader + worker). I renamed it because I hate the original name. The official web UI is a separate repo: https://github.com/C9Glax/tranga-website (Nuxt + Nuxt UI).
+
+GOAL
+Turn this into a real standalone app that actually keeps a manga library complete:
+- No Docker required
+- One executable that serves API + frontend
+- SQLite instead of Postgres
+- Multi-source downloads (do NOT force picking one website per series)
+- Stable workers that do not spin forever
+- Neutral dark UI (remove the pink/blue trans-flag theme)
+
+CURRENT PRODUCTION PROBLEM (from live logs)
+WeebCentral returns 403. FlareSolverr then fails with Cloudflare IP ban:
+  "Probably your IP is banned for this site"
+DownloadChapterFromMangaconnectorWorker gets zero imageUrls, logs "No imageUrls", then marks the worker COMPLETED instead of Failed.
+StartNewChapterDownloadsWorker runs every 60s, sees ~11,184 missing chapters, and re-queues the same blocked ones.
+Max concurrent downloads is 2, so the queue is dead.
+
+Existing connectors: MangaDex, AsuraComic, Mangaworld, WeebCentral, Global.
+MangaPark was removed upstream.
+
+DESIGN CHANGE (this is the important product change)
+Bad current UX: pick ONE website to scrape a series from.
+Correct UX: a series can have MANY sources. The downloader should get the missing chapter from whichever source works.
+
+Rules:
+1. One logical manga, many MangaConnectorIds.
+2. If a series is monitored, refresh chapter lists from ALL attached sources, not only the originally chosen one.
+3. For each undownloaded Chapter, queue ONE download job.
+4. Pick the best available source for that chapter:
+   preference: MangaDex > AsuraComic > Mangaworld > WeebCentral > other
+5. If a source fails (403, Cloudflare, empty image list, timeout), cool it down with exponential backoff (30 min base, max 6 hours). Do not retry that chapter/source every minute.
+6. If another source has the same chapter, use that instead.
+7. Never mark a failed download as Completed/success.
+
+IMPLEMENTATION ORDER
+Do these in order. Commit after each step.
+
+STEP 1 — Stability + multi-source failover (do this first)
+Add API/MangaDownloadClients/DownloadFailureTracker.cs
+- ConcurrentDictionary cooldown keyed by chapter connector id + connector name
+- RecordFailure / RecordSuccess / IsCoolingDown / IsConnectorCoolingDown
+- ConnectorPreference ranking as above
+
+Update StartNewChapterDownloadsWorker:
+- After loading missing chapter connector IDs (!Downloaded && UseForDownload),
+  drop in-flight downloads and cooled-down sources
+- Group by logical Chapter.Key
+- Pick the best remaining source per chapter
+- Then respect MaxConcurrentDownloads
+
+Update CheckForNewChaptersWorker:
+- If ANY connector on a manga has UseForDownload, refresh ALL attached connectors for that manga
+
+Update RetrieveMangaChaptersFromMangaconnectorWorker:
+- When a manga is monitored, new chapter IDs from any attached source should be eligible for download
+- Do not create duplicate Chapter rows for the same volume/chapter number on the same manga
+
+Update DownloadChapterFromMangaconnectorWorker:
+- Empty imageUrls, 403, FlareSolverr/Cloudflare errors, missing paths: RecordFailure + Fail()
+- Do NOT return [] and leave State=Completed
+- On successful CBZ write, RecordSuccess
+- Keep existing cbz/ComicInfo behavior
+
+Also fix BaseWorker Finish path if a task faults: set Failed, not Completed.
+
+STEP 2 — SQLite, drop Postgres
+- Replace Npgsql with EF Core SQLite
+- One file next to the app, e.g. ./data/mangette.db
+- Keep existing contexts if possible (Manga, Notifications, Library, Actions) or consolidate if simpler
+- Auto-migrate on startup
+- Default download folder = ./Manga next to the executable
+- Settings folder = ./data
+- Do not require POSTGRES_* env vars
+
+STEP 3 — Embed the frontend
+- Vendor or submodule C9Glax/tranga-website
+- Build Nuxt statically
+- Serve it from the ASP.NET app (wwwroot / MapFallbackToFile)
+- API stays under /api or existing routes; make the UI talk to the same origin
+- No nginx, no second process
+
+STEP 4 — Standalone executable
+- Add publish scripts for linux-x64 (primary; I run Debian) and win-x64
+- Self-contained single-file
+- README: just run the binary, open http://localhost:6531
+- Chromium/Chrome is optional and only needed for scrape sites. Prefer HttpClient. Document that Chrome can be installed locally. Do not require Docker Chromium.
+- Flaresolverr remains optional via URL setting.
+
+STEP 5 — Rename + theme
+- User-facing name: Mangette
+- Remove Blåhaj / pink (#f5a9b8) / blue (#5bcefa) theme
+- Neutral dark theme: zinc/slate/indigo or similar
+- Update titles, compose comments, README
+- Keep internal C# namespaces if renaming everything is too risky; user-facing strings and UI must say Mangette
+
+DO NOT
+- Do not keep “you must pick one website” as the main flow
+- Do not leave the 60-second WeebCentral retry death loop
+- Do not require Docker/Postgres for the happy path
+- Do not download the same chapter twice from two sites
+- Do not rewrite the whole worker system from scratch unless the current one is blocking you. Patch it.
+
+ACCEPTANCE
+- Failed WeebCentral chapter does not get retried every minute
+- Same series can have MangaDex + WeebCentral attached
+- Missing ch.5 downloads from MangaDex if WeebCentral is banned
+- App runs as a binary with SQLite and a built-in UI
+- UI is not pink/blue
+
+After Step 1, print how to run/test it. Then continue to Step 2.
