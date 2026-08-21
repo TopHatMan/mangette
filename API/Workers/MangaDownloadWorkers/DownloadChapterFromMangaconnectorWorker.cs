@@ -117,45 +117,45 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         }
 
         Log.Info($"Downloading images: {chapter}");
-        List<Stream> images = [];
-        //Download all Images to temporary Folder
-        foreach (string imageUrl in imageUrls)
-        {
-            try
-            {
-                if (await mangaConnector.DownloadImage(imageUrl, CancellationToken) is not { } stream)
-                {
-                    images.ForEach(i => i.Dispose());
-                    return FailDownload(mangaConnectorId.MangaConnectorName, $"Failed to download image: {imageUrl}");
-                }
-                else
-                    images.Add(await ProcessImage(stream, CancellationToken));
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex);
-                images.ForEach(i => i.Dispose());
-                return FailDownload(mangaConnectorId.MangaConnectorName, ex.Message);
-            }
-        }
-        
-        await CopyCoverFromCacheToDownloadLocation(chapter.ParentManga);
-        
-        Log.Debug($"Loading collections {chapter}");
-        foreach (CollectionEntry collectionEntry in MangaContext.Entry(chapter.ParentManga).Collections)
-            await collectionEntry.LoadAsync(CancellationToken);
-
-        if (File.Exists(saveArchiveFilePath))
-        {
-            Log.Info($"Archive {saveArchiveFilePath} already existed, overwriting.");
-            File.Delete(saveArchiveFilePath);
-        }
-
-        //Create cbz archive
+        string tempDir = Path.Join(Tranga.Settings.TempDownloadPath, chapter.Key.CleanNameForWindows());
+        Directory.CreateDirectory(tempDir);
+        List<string> imageFiles = [];
         try
         {
+            for (int i = 0; i < imageUrls.Length; i++)
+            {
+                string imageUrl = imageUrls[i];
+                try
+                {
+                    if (await mangaConnector.DownloadImage(imageUrl, CancellationToken) is not { } stream)
+                        return FailDownload(mangaConnectorId.MangaConnectorName, $"Failed to download image: {imageUrl}");
+                    await using Stream processed = await ProcessImage(stream, CancellationToken);
+                    string dest = Path.Join(tempDir, $"{i:D3}.jpg");
+                    await using FileStream file = File.Create(dest);
+                    processed.Position = 0;
+                    await processed.CopyToAsync(file, CancellationToken);
+                    imageFiles.Add(dest);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex);
+                    return FailDownload(mangaConnectorId.MangaConnectorName, ex.Message);
+                }
+            }
+
+            await CopyCoverFromCacheToDownloadLocation(chapter.ParentManga);
+
+            Log.Debug($"Loading collections {chapter}");
+            foreach (CollectionEntry collectionEntry in MangaContext.Entry(chapter.ParentManga).Collections)
+                await collectionEntry.LoadAsync(CancellationToken);
+
+            if (File.Exists(saveArchiveFilePath))
+            {
+                Log.Info($"Archive {saveArchiveFilePath} already existed, overwriting.");
+                File.Delete(saveArchiveFilePath);
+            }
+
             Log.Debug($"Creating archive: {saveArchiveFilePath}");
-            //ZIP-it and ship-it
             using ZipArchive archive = ZipFile.Open(saveArchiveFilePath, ZipArchiveMode.Create);
 
             if (Constants.CreateComicInfoXml)
@@ -168,13 +168,12 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             }
             else
                 Log.Debug("Skipping ComicInfo.xml. CREATE_COMICINFO_XML is set to false");
-            
-            for (int i = 0; i < images.Count; i++)
+
+            for (int i = 0; i < imageFiles.Count; i++)
             {
                 Log.Debug($"Packaging images to archive {chapter} , image {i}");
+                await using FileStream imageStream = File.OpenRead(imageFiles[i]);
                 Stream zipStream = archive.CreateEntry($"{i}.jpg").Open();
-                Stream imageStream = images[i];
-                imageStream.Position = 0;
                 await imageStream.CopyToAsync(zipStream, CancellationToken);
                 await zipStream.DisposeAsync();
             }
@@ -186,7 +185,15 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         }
         finally
         {
-            images.ForEach(i => i.Dispose());
+            try
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
+            catch (Exception ex)
+            {
+                Log.Debug($"Could not clean temp download folder {tempDir}: {ex.Message}");
+            }
         }
 
         DownloadFailureTracker.RecordSuccess(mangaConnectorId.Key, mangaConnectorId.MangaConnectorName);

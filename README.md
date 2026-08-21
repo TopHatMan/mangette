@@ -2,7 +2,7 @@
 
 Standalone manga downloader: one process serves the API, workers, and UI.
 
-Open [http://localhost:6531](http://localhost:6531) after starting it.
+Open [http://localhost:8585](http://localhost:8585) after starting it.
 
 Mangette itself does not use Docker. **FlareSolverr does** — that is the Cloudflare bypass for sites that block plain HTTP. Run it as a sidecar, then start the Mangette binary.
 
@@ -33,18 +33,21 @@ Windows:
 .\API.exe
 ```
 
-Then open http://localhost:6531.
+Then open http://localhost:8585.
+
+On first run, Settings → **Paths and downloads** is the setup screen: library folder, temp/incomplete downloads, listen port, and how many chapters to grab at once. New series are assigned to that library automatically.
 
 Data lives next to the executable:
 
 | Path | What |
 | --- | --- |
 | `./data/mangette.db` | SQLite library |
-| `./data/settings.json` | Settings |
+| `./data/settings.json` | Settings (including listen port) |
 | `./data/imageCache/` | Cover cache |
-| `./Manga/` | Downloaded `.cbz` files |
+| `./data/incomplete/` | In-progress chapter images (cleaned up after each chapter) |
+| `./Manga/` | Finished `.cbz` files (the default library) |
 
-Override the app folder with `MANGETTE_HOME` and the download folder with `DOWNLOAD_LOCATION`. Port is `6531` (`PORT` to change).
+Override the app folder with `MANGETTE_HOME` and the default library folder with `DOWNLOAD_LOCATION`. Listen port defaults to `8585` (`PORT` env or Settings). FlareSolverr stays on `8191`.
 
 No Postgres. Docker is only for FlareSolverr.
 
@@ -103,7 +106,7 @@ Rebuild the UI as part of publish with `SKIP_FRONTEND=false` (needs Node.js).
 
 ## API
 
-Swagger stays at http://localhost:6531/swagger. Routes are under `/v2`.
+Swagger stays at http://localhost:8585/swagger. Routes are under `/v2`.
 
 ## Sources
 

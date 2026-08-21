@@ -19,7 +19,7 @@ string tranga =
     " Mangette\n" +
     $" Built at {BuildInformation.BuildAt} for {BuildInformation.Platform} version {BuildInformation.DotNetSdkVersion}\n" +
     $" branch: {ThisAssembly.Git.Branch} commit: {ThisAssembly.Git.Commit} tag: {ThisAssembly.Git.Tag}\n" +
-    $" UI: http://localhost:{TrangaSettings.Port}\n\n";
+    $" UI: http://localhost:{Tranga.Settings.ListenPort}\n\n";
 
 XmlConfigurator.ConfigureAndWatch(new FileInfo("Log4Net.config.xml"));
 ILog log = LogManager.GetLogger("Startup");
@@ -73,7 +73,10 @@ builder.Services.AddSwaggerGenNewtonsoftSupport().AddSwaggerGen(opt =>
 log.Debug("Adding Database-Connection...");
 Directory.CreateDirectory(TrangaSettings.DataDirectory);
 Directory.CreateDirectory(TrangaSettings.DefaultDownloadLocation);
+Directory.CreateDirectory(Tranga.Settings.TempDownloadPath);
 log.InfoFormat("SQLite database: {0}", TrangaSettings.DatabasePath);
+log.InfoFormat("Listening on http://*:{0}  library {1}  temp {2}",
+    Tranga.Settings.ListenPort, TrangaSettings.DefaultDownloadLocation, Tranga.Settings.TempDownloadPath);
 
 builder.Services.AddDbContext<MangaContext>(options =>
     SqliteStorage.Configure(options, SqliteStorage.MangaHistoryTable));
@@ -97,7 +100,7 @@ builder.Services.AddControllers(options =>
 });
 builder.Services.AddScoped<ILog>(_ => LogManager.GetLogger("API"));
 
-builder.WebHost.UseUrls($"http://*:{TrangaSettings.Port}");
+builder.WebHost.UseUrls($"http://*:{Tranga.Settings.ListenPort}");
 
 log.Info("Starting app...");
 WebApplication app = builder.Build();

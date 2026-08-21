@@ -259,6 +259,8 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if(!Tranga.TryGetMangaConnector(MangaConnectorName, out API.MangaConnectors.MangaConnector? _))
             return TypedResults.NotFound(nameof(MangaConnectorName));
 
+        await context.AssignDefaultLibraryIfMissing(manga, HttpContext.RequestAborted);
+
         if (manga.MangaConnectorIds.FirstOrDefault(mId => mId.MangaConnectorName == MangaConnectorName) is not { } mcId)
         {
             if(IsRequested)

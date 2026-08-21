@@ -15,4 +15,4 @@ dotnet publish (Join-Path $Root "API\API.csproj") `
 Write-Host ""
 Write-Host "Published to $Out"
 Write-Host "Run:  $Out\API.exe"
-Write-Host "Open: http://localhost:6531"
+Write-Host "Open: http://localhost:8585"

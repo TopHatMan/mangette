@@ -247,6 +247,7 @@ public static class Tranga
             }
             
             result = (manga, mcIdToUse);
+            await context.AssignDefaultLibraryIfMissing(manga, token);
         }
         else
         {
@@ -266,6 +267,7 @@ public static class Tranga
             addManga.Authors = mergedAuthors.ToList();
             
             context.Mangas.Add(addManga);
+            await context.AssignDefaultLibraryIfMissing(addManga, token);
             result = (addManga, addMcId);
         }
         
@@ -276,5 +278,16 @@ public static class Tranga
         AddWorker(downloadCoverWorker);
         
         return result;
+    }
+
+    internal static async Task AssignDefaultLibraryIfMissing(this MangaContext context, Manga manga, CancellationToken token)
+    {
+        if (manga.LibraryId is not null || manga.Library is not null)
+            return;
+        FileLibrary? library = await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(token);
+        if (library is null)
+            return;
+        manga.Library = library;
+        Log.InfoFormat("Assigned default library {0} to {1}", library.LibraryName, manga.Name);
     }
 }

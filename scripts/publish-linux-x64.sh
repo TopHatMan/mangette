@@ -17,4 +17,4 @@ dotnet publish API/API.csproj \
 echo
 echo "Published to $OUT"
 echo "Run:  $OUT/API"
-echo "Open: http://localhost:6531"
+echo "Open: http://localhost:8585"

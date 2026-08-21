@@ -1,13 +1,13 @@
-﻿using API.MangaDownloadClients;
+using API.MangaDownloadClients;
 using API.Workers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace API;
 
-public struct TrangaSettings
+public class TrangaSettings
 {
-    [JsonIgnore] public static int Port => int.Parse(Environment.GetEnvironmentVariable("PORT") ?? "6531");
+    public const int DefaultListenPort = 8585;
     [JsonIgnore] public static bool Debug => bool.Parse(Environment.GetEnvironmentVariable("DEBUG") ?? "false");
     /// <summary>Folder that contains the executable (or <c>MANGETTE_HOME</c> override).</summary>
     [JsonIgnore] public static string AppDirectory =>
@@ -25,7 +25,11 @@ public struct TrangaSettings
     [JsonIgnore] public static string CoverImageCacheSmall => Path.Join(CoverImageCache, "small");
     public static string DefaultDownloadLocation =>
         Environment.GetEnvironmentVariable("DOWNLOAD_LOCATION") ?? Path.Join(AppDirectory, "Manga");
+    [JsonIgnore] public static string DefaultTempDownloadPath => Path.Join(DataDirectory, "incomplete");
     [JsonIgnore] internal static readonly string DefaultUserAgent = $"Mangette/2.0 ({Enum.GetName(Environment.OSVersion.Platform)}; {(Environment.Is64BitOperatingSystem ? "x64" : "")})";
+
+    /// <summary>HTTP listen port. <c>PORT</c> env overrides. Restart required after changing.</summary>
+    public int ListenPort { get; set; } = DefaultListenPort;
     public string UserAgent { get; set; } = DefaultUserAgent;
     public int ImageCompression{ get; set; } = 40;
     public bool BlackWhiteImages { get; set; } = false;
@@ -52,7 +56,10 @@ public struct TrangaSettings
     public int WorkCycleTimeoutMs { get; set; } = 20000;
 
     public string DownloadLanguage { get; set; } = "en";
-    
+
+    /// <summary>Folder for in-progress chapter images. Packed into the library as .cbz when the chapter finishes.</summary>
+    public string TempDownloadPath { get; set; } = DefaultTempDownloadPath;
+
     public int MaxConcurrentDownloads { get; set; } = (int)Math.Max(Environment.ProcessorCount * 0.75, 1); // Minimum of 1 Tasks, maximum of 0.75 per Core
 
     public int MaxConcurrentWorkers { get; set; } = Math.Max(Environment.ProcessorCount, 4); // Minimum of 4 Tasks, maximum of 1 per Core
@@ -60,6 +67,10 @@ public struct TrangaSettings
     public LibraryRefreshSetting LibraryRefreshSetting { get; set; } = LibraryRefreshSetting.AfterMangaFinished;
 
     public int RefreshLibraryWhileDownloadingEveryMinutes { get; set; } = 10;
+
+    /// <summary>Resolved library default shown in Settings. Not stored; file libraries own the actual path.</summary>
+    [JsonProperty] public string DefaultLibraryPath => DefaultDownloadLocation;
+    [JsonProperty] public string DataFolder => DataDirectory;
 
     public TrangaSettings()
     {
@@ -70,20 +81,47 @@ public struct TrangaSettings
     {
         if (!File.Exists(SettingsFilePath))
             new TrangaSettings().Save();
-        TrangaSettings settings = JsonConvert.DeserializeObject<TrangaSettings>(File.ReadAllText(SettingsFilePath), new StringEnumConverter());
+        TrangaSettings settings = JsonConvert.DeserializeObject<TrangaSettings>(File.ReadAllText(SettingsFilePath), new StringEnumConverter())
+                                  ?? new TrangaSettings();
         string? envUrl = Environment.GetEnvironmentVariable("FLARESOLVERR_URL");
         if (!string.IsNullOrWhiteSpace(envUrl))
             settings.FlareSolverrUrl = envUrl;
         else if (string.IsNullOrWhiteSpace(settings.FlareSolverrUrl))
             settings.FlareSolverrUrl = DefaultFlareSolverrUrl;
+        settings.ListenPort = ResolveListenPort(settings.ListenPort);
+        settings.TempDownloadPath = NormalizeDirectory(settings.TempDownloadPath, DefaultTempDownloadPath);
         settings.ConnectorPriority = NormalizeConnectorPriority(settings.ConnectorPriority);
         DownloadFailureTracker.SetPreferenceOrder(settings.ConnectorPriority);
+        Directory.CreateDirectory(settings.TempDownloadPath);
         return settings;
     }
 
     public void Save()
     {
         File.WriteAllText(SettingsFilePath, JsonConvert.SerializeObject(this, Formatting.Indented, new StringEnumConverter()));
+    }
+
+    public static int NormalizeListenPort(int port) =>
+        port is > 0 and < 65536 ? port : DefaultListenPort;
+
+    public static int ResolveListenPort(int configured)
+    {
+        if (int.TryParse(Environment.GetEnvironmentVariable("PORT"), out int envPort))
+            return NormalizeListenPort(envPort);
+        return NormalizeListenPort(configured);
+    }
+
+    public static string NormalizeDirectory(string? path, string fallback)
+    {
+        string value = string.IsNullOrWhiteSpace(path) ? fallback : path.Trim();
+        try
+        {
+            return Path.GetFullPath(value);
+        }
+        catch
+        {
+            return Path.GetFullPath(fallback);
+        }
     }
 
     public void SetUserAgent(string value)
@@ -113,6 +151,19 @@ public struct TrangaSettings
     public void SetFlareSolverrUrl(string url)
     {
         this.FlareSolverrUrl = url;
+        Save();
+    }
+
+    public void SetListenPort(int port)
+    {
+        ListenPort = NormalizeListenPort(port);
+        Save();
+    }
+
+    public void SetTempDownloadPath(string path)
+    {
+        TempDownloadPath = NormalizeDirectory(path, DefaultTempDownloadPath);
+        Directory.CreateDirectory(TempDownloadPath);
         Save();
     }
 
@@ -155,13 +206,13 @@ public struct TrangaSettings
 
     public void SetMaxConcurrentDownloads(int value)
     {
-        this.MaxConcurrentDownloads = value;
+        this.MaxConcurrentDownloads = Math.Clamp(value, 1, 64);
         Save();
     }
 
     public void SetMaxConcurrentWorkers(int value)
     {
-        this.MaxConcurrentWorkers = value;
+        this.MaxConcurrentWorkers = Math.Clamp(value, 1, 256);
         Save();
     }
 

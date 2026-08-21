@@ -26,7 +26,7 @@ public class FileLibraryController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status500InternalServerError)]
     public async Task<Results<Ok<List<FileLibrary>>, InternalServerError>> GetFileLibraries ()
     {
-        if (await context.FileLibraries.ToListAsync(HttpContext.RequestAborted) is not { } result)
+        if (await context.FileLibraries.OrderBy(f => f.LibraryName).ToListAsync(HttpContext.RequestAborted) is not { } result)
             return TypedResults.InternalServerError();
 
         List<FileLibrary> fileLibraries = result.Select(f => new FileLibrary(f.Key, f.BasePath, f.LibraryName)).ToList();
@@ -69,7 +69,18 @@ public class FileLibraryController(MangaContext context) : ControllerBase
             return TypedResults.NotFound(nameof(FileLibraryId));
 
         if (requestData.Path is { } path)
-            library.BasePath = path;
+        {
+            string fullPath = TrangaSettings.NormalizeDirectory(path, TrangaSettings.DefaultDownloadLocation);
+            try
+            {
+                Directory.CreateDirectory(fullPath);
+            }
+            catch (Exception ex)
+            {
+                return TypedResults.InternalServerError($"Could not create library folder: {ex.Message}");
+            }
+            library.BasePath = fullPath;
+        }
         if(requestData.Name is { } name)
             library.LibraryName = name;
         
@@ -101,8 +112,18 @@ public class FileLibraryController(MangaContext context) : ControllerBase
     [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
     public async Task<Results<Created<string>, InternalServerError<string>>> CreateNewLibrary ([FromBody]CreateLibraryRecord requestData)
     {
-        //TODO Parameter check
-        Schema.MangaContext.FileLibrary library = new (requestData.BasePath, requestData.LibraryName);
+        if (string.IsNullOrWhiteSpace(requestData.BasePath) || string.IsNullOrWhiteSpace(requestData.LibraryName))
+            return TypedResults.InternalServerError("Library name and path are required.");
+        string fullPath = TrangaSettings.NormalizeDirectory(requestData.BasePath, TrangaSettings.DefaultDownloadLocation);
+        try
+        {
+            Directory.CreateDirectory(fullPath);
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.InternalServerError($"Could not create library folder: {ex.Message}");
+        }
+        Schema.MangaContext.FileLibrary library = new (fullPath, requestData.LibraryName);
         context.FileLibraries.Add(library);
         
         if(await context.Sync(HttpContext.RequestAborted, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } result)

@@ -1,8 +1,10 @@
 ﻿using API.Controllers.Requests;
 using API.MangaDownloadClients;
+using API.Schema.MangaContext;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using static Microsoft.AspNetCore.Http.StatusCodes;
 // ReSharper disable InconsistentNaming
 
@@ -11,7 +13,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class SettingsController() : ControllerBase
+public class SettingsController(MangaContext context) : ControllerBase
 {
     /// <summary>
     /// Get all <see cref="Tranga.Settings"/>
@@ -21,6 +23,83 @@ public class SettingsController() : ControllerBase
     [ProducesResponseType<TrangaSettings>(Status200OK, "application/json")]
     public Ok<TrangaSettings> GetSettings()
     {
+        return TypedResults.Ok(Tranga.Settings);
+    }
+
+    /// <summary>
+    /// Update listen port, library folder, temp downloads, and related download settings in one request.
+    /// Listen port changes take effect after restart.
+    /// </summary>
+    [HttpPatch]
+    [ProducesResponseType<TrangaSettings>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok<TrangaSettings>, BadRequest<string>, InternalServerError<string>>> PatchSetup(
+        [FromBody] PatchSetupSettingsRecord requestData)
+    {
+        if (requestData.ListenPort is { } port)
+        {
+            if (port is <= 0 or >= 65536)
+                return TypedResults.BadRequest("ListenPort must be between 1 and 65535.");
+            Tranga.Settings.SetListenPort(port);
+        }
+
+        if (requestData.TempDownloadPath is { } tempPath)
+        {
+            if (string.IsNullOrWhiteSpace(tempPath))
+                return TypedResults.BadRequest("TempDownloadPath cannot be empty.");
+            try
+            {
+                Tranga.Settings.SetTempDownloadPath(tempPath);
+            }
+            catch (Exception ex)
+            {
+                return TypedResults.BadRequest($"Could not use temp download path: {ex.Message}");
+            }
+        }
+
+        if (requestData.LibraryPath is { } libraryPath)
+        {
+            if (string.IsNullOrWhiteSpace(libraryPath))
+                return TypedResults.BadRequest("LibraryPath cannot be empty.");
+            string full = TrangaSettings.NormalizeDirectory(libraryPath, TrangaSettings.DefaultDownloadLocation);
+            try
+            {
+                Directory.CreateDirectory(full);
+            }
+            catch (Exception ex)
+            {
+                return TypedResults.BadRequest($"Could not create library folder: {ex.Message}");
+            }
+
+            FileLibrary? library = await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(HttpContext.RequestAborted);
+            if (library is null)
+            {
+                library = new FileLibrary(full, string.IsNullOrWhiteSpace(requestData.LibraryName) ? "Library" : requestData.LibraryName);
+                context.FileLibraries.Add(library);
+            }
+            else
+            {
+                library.BasePath = full;
+                if (!string.IsNullOrWhiteSpace(requestData.LibraryName))
+                    library.LibraryName = requestData.LibraryName;
+            }
+
+            if (await context.Sync(HttpContext.RequestAborted, GetType(), "Update library path") is { success: false } result)
+                return TypedResults.InternalServerError(result.exceptionMessage);
+        }
+
+        if (requestData.MaxConcurrentDownloads is { } downloads)
+            Tranga.Settings.SetMaxConcurrentDownloads(downloads);
+        if (requestData.MaxConcurrentWorkers is { } workers)
+            Tranga.Settings.SetMaxConcurrentWorkers(workers);
+        if (requestData.DownloadLanguage is { } language && !string.IsNullOrWhiteSpace(language))
+            Tranga.Settings.SetDownloadLanguage(language.Trim());
+        if (requestData.ChapterNamingScheme is { } scheme && !string.IsNullOrWhiteSpace(scheme))
+            Tranga.Settings.SetChapterNamingScheme(scheme);
+        if (requestData.FlareSolverrUrl is { } flare)
+            Tranga.Settings.SetFlareSolverrUrl(flare.Trim());
+
         return TypedResults.Ok(Tranga.Settings);
     }
     

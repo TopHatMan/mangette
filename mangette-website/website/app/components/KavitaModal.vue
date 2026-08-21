@@ -2,7 +2,7 @@
     <UModal v-bind="$props" title="Connect Kavita">
         <template #body>
             <UFormField label="URL">
-                <UInput v-model="requestData.url" placeholder="https://" class="w-full" />
+                <UInput v-model="requestData.url" placeholder="http://127.0.0.1:5000" class="w-full" />
             </UFormField>
             <UFormField label="ApiKey">
                 <UInput v-model="requestData.apiKey" class="w-full" />

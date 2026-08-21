@@ -30,7 +30,7 @@ FROM base AS runtime
 WORKDIR /publish
 
 # Expose port
-EXPOSE 6531
+EXPOSE 8585
 
 # User setup
 ARG UNAME=tranga

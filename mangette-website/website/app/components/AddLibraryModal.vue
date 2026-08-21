@@ -5,8 +5,8 @@
                 <UFormField label="Library Name" required>
                     <UInput v-model="name" placeholder="Name for the library" class="w-full" :disabled="busy" />
                 </UFormField>
-                <UFormField label="Directory Path" required>
-                    <UInput v-model="path" placeholder="Path for the library" class="w-full" :disabled="busy" />
+                <UFormField label="Directory Path" required hint="Folder is created if it does not exist.">
+                    <UInput v-model="path" placeholder="C:\\Manga or /mnt/manga" class="w-full" :disabled="busy" />
                 </UFormField>
                 <UButton icon="i-lucide-plus" :loading="busy" class="w-fit" @click="onAddClick">Add</UButton>
             </div>

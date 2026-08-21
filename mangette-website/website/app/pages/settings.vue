@@ -9,6 +9,39 @@
             </template>
             <UCard v-if="settingsStatus === 'success'">
                 <template #header>
+                    <h1>Paths and downloads</h1>
+                </template>
+                <p class="text-muted text-sm mb-4">
+                    Library is where finished <code>.cbz</code> files go. Temp is for in-progress chapter images. New series use the library automatically.
+                </p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <UFormField label="Listen port" hint="Restart Mangette after changing. Default 8585.">
+                        <UInput v-model.number="setup.listenPort" type="number" min="1" max="65535" class="w-full" />
+                    </UFormField>
+                    <UFormField label="Max concurrent downloads">
+                        <UInput v-model.number="setup.maxConcurrentDownloads" type="number" min="1" max="64" class="w-full" />
+                    </UFormField>
+                    <UFormField label="Library folder" class="sm:col-span-2" hint="Finished chapters. Created if missing.">
+                        <UInput v-model="setup.libraryPath" class="w-full" :placeholder="settings?.defaultLibraryPath || './Manga'" />
+                    </UFormField>
+                    <UFormField label="Library name">
+                        <UInput v-model="setup.libraryName" class="w-full" placeholder="Library" />
+                    </UFormField>
+                    <UFormField label="Download language">
+                        <UInput v-model="setup.downloadLanguage" class="w-full" placeholder="en" />
+                    </UFormField>
+                    <UFormField label="Temp / incomplete downloads" class="sm:col-span-2" hint="Images land here while a chapter is downloading, then the folder is cleaned up.">
+                        <UInput v-model="setup.tempDownloadPath" class="w-full" placeholder="data/incomplete" />
+                    </UFormField>
+                    <UFormField label="Chapter file name" class="sm:col-span-2" hint="%M title, %V volume, %C chapter, %T chapter title">
+                        <UInput v-model="setup.chapterNamingScheme" class="w-full" />
+                    </UFormField>
+                </div>
+                <UButton class="mt-4 w-fit" :loading="savingSetup" @click="saveSetup">Save paths and downloads</UButton>
+                <p v-if="setupMessage" class="mt-2 text-sm" :class="setupOk ? 'text-success' : 'text-error'">{{ setupMessage }}</p>
+            </UCard>
+            <UCard v-if="settingsStatus === 'success'">
+                <template #header>
                     <h1>Libraries</h1>
                 </template>
                 <template #footer>
@@ -162,6 +195,7 @@ const onKavitaClick = async () => {
 };
 
 const { data: settings, status: settingsStatus } = useApi('/v2/Settings', { key: FetchKeys.Settings.All, server: false });
+const { data: fileLibraries } = useApi('/v2/FileLibrary', { key: FetchKeys.FileLibraries, server: false });
 const flareUrl = ref('http://127.0.0.1:8191');
 const savingFlare = ref(false);
 const testingFlare = ref(false);
@@ -172,16 +206,69 @@ const connectorPriority = ref<string[]>([]);
 const savingPriority = ref(false);
 const priorityMessage = ref('');
 
-watch(
-    settings,
-    (value) => {
-        if (value?.flareSolverrUrl)
-            flareUrl.value = value.flareSolverrUrl;
-        if (value?.connectorPriority?.length)
-            connectorPriority.value = [...value.connectorPriority];
-    },
-    { immediate: true },
-);
+const setup = reactive({
+    listenPort: 8585,
+    libraryPath: '',
+    libraryName: 'Library',
+    tempDownloadPath: '',
+    maxConcurrentDownloads: 2,
+    downloadLanguage: 'en',
+    chapterNamingScheme: '%M - ?V(Vol.%V )Ch.%C?T( - %T)',
+});
+const savingSetup = ref(false);
+const setupMessage = ref('');
+const setupOk = ref(false);
+
+const applySetupFromSettings = () => {
+    const value = settings.value;
+    if (!value) return;
+    if (value.flareSolverrUrl) flareUrl.value = value.flareSolverrUrl;
+    if (value.connectorPriority?.length) connectorPriority.value = [...value.connectorPriority];
+    setup.listenPort = value.listenPort ?? 8585;
+    setup.tempDownloadPath = value.tempDownloadPath ?? '';
+    setup.maxConcurrentDownloads = value.maxConcurrentDownloads ?? 2;
+    setup.downloadLanguage = value.downloadLanguage ?? 'en';
+    setup.chapterNamingScheme = value.chapterNamingScheme ?? setup.chapterNamingScheme;
+    const first = fileLibraries.value?.[0];
+    setup.libraryPath = first?.basePath ?? value.defaultLibraryPath ?? '';
+    setup.libraryName = first?.libraryName ?? 'Library';
+};
+
+watch([settings, fileLibraries], applySetupFromSettings, { immediate: true });
+
+const saveSetup = async () => {
+    savingSetup.value = true;
+    setupMessage.value = '';
+    try {
+        const previousPort = settings.value?.listenPort;
+        const updated = await $api('/v2/Settings', {
+            method: 'PATCH',
+            body: {
+                listenPort: Number(setup.listenPort),
+                tempDownloadPath: setup.tempDownloadPath,
+                libraryPath: setup.libraryPath,
+                libraryName: setup.libraryName,
+                maxConcurrentDownloads: Number(setup.maxConcurrentDownloads),
+                downloadLanguage: setup.downloadLanguage,
+                chapterNamingScheme: setup.chapterNamingScheme,
+            },
+        });
+        if (updated?.listenPort) setup.listenPort = updated.listenPort;
+        if (updated?.tempDownloadPath) setup.tempDownloadPath = updated.tempDownloadPath;
+        await refreshNuxtData(FetchKeys.Settings.All);
+        await refreshNuxtData(FetchKeys.FileLibraries);
+        setupOk.value = true;
+        setupMessage.value =
+            updated?.listenPort && previousPort && updated.listenPort !== previousPort
+                ? `Saved. Restart Mangette so it listens on port ${updated.listenPort}.`
+                : 'Saved. New series will download into this library.';
+    } catch {
+        setupOk.value = false;
+        setupMessage.value = 'Could not save paths or download settings.';
+    } finally {
+        savingSetup.value = false;
+    }
+};
 
 const movePriority = (index: number, delta: number) => {
     const next = index + delta;
