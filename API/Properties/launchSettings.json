@@ -7,8 +7,6 @@
       "applicationUrl": "http://127.0.0.1:5976",
       "sslPort": 44332,
       "environmentVariables": {
-        "POSTGRES_HOST": "127.0.0.1:5432",
-        "POSTGRES_PASSWORD": "postgres",
         "DEBUG": "true",
         "DOWNLOAD_LOCATION": "./Manga"
       }
@@ -23,8 +21,6 @@
       "applicationUrl": "http://127.0.0.1:5287",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "POSTGRES_HOST": "127.0.0.1:5432",
-        "POSTGRES_PASSWORD": "postgres",
         "DEBUG": "true",
         "DOWNLOAD_LOCATION": "./Manga"
       }
@@ -37,8 +33,6 @@
       "applicationUrl": "https://127.0.0.1:7206;http://127.0.0.1:5287",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "POSTGRES_HOST": "127.0.0.1:5432",
-        "POSTGRES_PASSWORD": "postgres",
         "DEBUG": "true",
         "DOWNLOAD_LOCATION": "./Manga"
       }
@@ -49,8 +43,6 @@
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "POSTGRES_HOST": "127.0.0.1:5432",
-        "POSTGRES_PASSWORD": "postgres",
         "DEBUG": "true",
         "DOWNLOAD_LOCATION": "./Manga"
       }

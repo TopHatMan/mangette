@@ -5,38 +5,33 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace API.Migrations.Actions
 {
     [DbContext(typeof(ActionsContext))]
-    [Migration("20251016182526_Actions")]
-    partial class Actions
+    [Migration("20260821213659_InitialSqlite")]
+    partial class InitialSqlite
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.9")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
 
             modelBuilder.Entity("API.Schema.ActionsContext.ActionRecord", b =>
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("Action")
                         .HasMaxLength(128)
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("PerformedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Key");
 
@@ -53,13 +48,13 @@ namespace API.Migrations.Actions
 
                     b.Property<string>("ChapterId")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("ChapterId");
 
                     b.Property<string>("MangaId")
                         .IsRequired()
                         .ValueGeneratedOnUpdateSometimes()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("MangaId");
 
                     b.HasDiscriminator().HasValue(1);
@@ -72,7 +67,7 @@ namespace API.Migrations.Actions
                     b.Property<string>("MangaId")
                         .IsRequired()
                         .ValueGeneratedOnUpdateSometimes()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("MangaId");
 
                     b.HasDiscriminator().HasValue(2);
@@ -85,12 +80,12 @@ namespace API.Migrations.Actions
                     b.Property<string>("Filename")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MangaId")
                         .IsRequired()
                         .ValueGeneratedOnUpdateSometimes()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("MangaId");
 
                     b.HasDiscriminator().HasValue(3);
@@ -103,12 +98,12 @@ namespace API.Migrations.Actions
                     b.Property<string>("From")
                         .IsRequired()
                         .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("To")
                         .IsRequired()
                         .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
+                        .HasColumnType("TEXT");
 
                     b.HasDiscriminator().HasValue(4);
                 });
@@ -120,12 +115,12 @@ namespace API.Migrations.Actions
                     b.Property<string>("FileLibraryId")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MangaId")
                         .IsRequired()
                         .ValueGeneratedOnUpdateSometimes()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("MangaId");
 
                     b.HasDiscriminator().HasValue(5);
@@ -138,13 +133,13 @@ namespace API.Migrations.Actions
                     b.Property<string>("MangaId")
                         .IsRequired()
                         .ValueGeneratedOnUpdateSometimes()
-                        .HasColumnType("text")
+                        .HasColumnType("TEXT")
                         .HasColumnName("MangaId");
 
                     b.Property<string>("MetadataFetcher")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
+                        .HasColumnType("TEXT");
 
                     b.HasDiscriminator().HasValue(6);
                 });

@@ -3,7 +3,6 @@ using API.Schema.MangaContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -15,35 +14,31 @@ namespace API.Migrations.Manga
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.11")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
 
             modelBuilder.Entity("API.MangaConnectors.MangaConnector", b =>
                 {
                     b.Property<string>("Name")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasColumnType("TEXT");
 
-                    b.PrimitiveCollection<string[]>("BaseUris")
+                    b.PrimitiveCollection<string>("BaseUris")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("text[]");
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("Enabled")
-                        .HasColumnType("boolean");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("IconUrl")
                         .IsRequired()
                         .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
+                        .HasColumnType("TEXT");
 
-                    b.PrimitiveCollection<string[]>("SupportedLanguages")
+                    b.PrimitiveCollection<string>("SupportedLanguages")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("text[]");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Name");
 
@@ -58,12 +53,12 @@ namespace API.Migrations.Manga
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("AuthorName")
                         .IsRequired()
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Key");
 
@@ -74,31 +69,31 @@ namespace API.Migrations.Manga
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ChapterNumber")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("character varying(10)");
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("Downloaded")
-                        .HasColumnType("boolean");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("FileName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ParentMangaId")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int?>("VolumeNumber")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Key");
 
@@ -111,17 +106,17 @@ namespace API.Migrations.Manga
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("BasePath")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("LibraryName")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Key");
 
@@ -132,47 +127,47 @@ namespace API.Migrations.Manga
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("CoverFileNameInCache")
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("CoverUrl")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("DirectoryName")
                         .IsRequired()
                         .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)");
+                        .HasColumnType("TEXT");
 
                     b.Property<float>("IgnoreChaptersBefore")
-                        .HasColumnType("real");
+                        .HasColumnType("REAL");
 
                     b.Property<string>("LibraryId")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("OriginalLanguage")
                         .HasMaxLength(8)
-                        .HasColumnType("character varying(8)");
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("ReleaseStatus")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
-                    b.Property<long?>("Year")
-                        .HasColumnType("bigint");
+                    b.Property<uint?>("Year")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Key");
 
@@ -185,29 +180,29 @@ namespace API.Migrations.Manga
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("IdOnConnectorSite")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MangaConnectorName")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ObjId")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("UseForDownload")
-                        .HasColumnType("boolean");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("WebsiteUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Key");
 
@@ -220,29 +215,29 @@ namespace API.Migrations.Manga
                 {
                     b.Property<string>("Key")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("IdOnConnectorSite")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MangaConnectorName")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ObjId")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<bool>("UseForDownload")
-                        .HasColumnType("boolean");
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("WebsiteUrl")
                         .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Key");
 
@@ -255,7 +250,7 @@ namespace API.Migrations.Manga
                 {
                     b.Property<string>("Tag")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Tag");
 
@@ -265,14 +260,14 @@ namespace API.Migrations.Manga
             modelBuilder.Entity("API.Schema.MangaContext.MetadataFetchers.MetadataEntry", b =>
                 {
                     b.Property<string>("MetadataFetcherName")
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Identifier")
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MangaId")
                         .IsRequired()
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("MetadataFetcherName", "Identifier");
 
@@ -284,12 +279,12 @@ namespace API.Migrations.Manga
             modelBuilder.Entity("API.Schema.MangaContext.MetadataFetchers.MetadataFetcher", b =>
                 {
                     b.Property<string>("Name")
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MetadataEntry")
                         .IsRequired()
                         .HasMaxLength(21)
-                        .HasColumnType("character varying(21)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Name");
 
@@ -303,10 +298,10 @@ namespace API.Migrations.Manga
             modelBuilder.Entity("AuthorToManga", b =>
                 {
                     b.Property<string>("AuthorIds")
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MangaIds")
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("AuthorIds", "MangaIds");
 
@@ -318,10 +313,10 @@ namespace API.Migrations.Manga
             modelBuilder.Entity("MangaTagToManga", b =>
                 {
                     b.Property<string>("MangaTagIds")
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("MangaIds")
-                        .HasColumnType("character varying(64)");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("MangaTagIds", "MangaIds");
 
@@ -358,6 +353,13 @@ namespace API.Migrations.Manga
                     b.HasDiscriminator().HasValue("Mangaworld");
                 });
 
+            modelBuilder.Entity("API.MangaConnectors.WeebCentral", b =>
+                {
+                    b.HasBaseType("API.MangaConnectors.MangaConnector");
+
+                    b.HasDiscriminator().HasValue("WeebCentral");
+                });
+
             modelBuilder.Entity("API.Schema.MangaContext.MetadataFetchers.MyAnimeList", b =>
                 {
                     b.HasBaseType("API.Schema.MangaContext.MetadataFetchers.MetadataFetcher");
@@ -387,21 +389,21 @@ namespace API.Migrations.Manga
                         {
                             b1.Property<string>("Key")
                                 .HasMaxLength(64)
-                                .HasColumnType("character varying(64)");
+                                .HasColumnType("TEXT");
 
                             b1.Property<string>("Language")
                                 .IsRequired()
                                 .HasMaxLength(8)
-                                .HasColumnType("character varying(8)");
+                                .HasColumnType("TEXT");
 
                             b1.Property<string>("MangaKey")
                                 .IsRequired()
-                                .HasColumnType("character varying(64)");
+                                .HasColumnType("TEXT");
 
                             b1.Property<string>("Title")
                                 .IsRequired()
                                 .HasMaxLength(256)
-                                .HasColumnType("character varying(256)");
+                                .HasColumnType("TEXT");
 
                             b1.HasKey("Key");
 
@@ -417,21 +419,21 @@ namespace API.Migrations.Manga
                         {
                             b1.Property<string>("Key")
                                 .HasMaxLength(64)
-                                .HasColumnType("character varying(64)");
+                                .HasColumnType("TEXT");
 
                             b1.Property<string>("LinkProvider")
                                 .IsRequired()
                                 .HasMaxLength(64)
-                                .HasColumnType("character varying(64)");
+                                .HasColumnType("TEXT");
 
                             b1.Property<string>("LinkUrl")
                                 .IsRequired()
                                 .HasMaxLength(2048)
-                                .HasColumnType("character varying(2048)");
+                                .HasColumnType("TEXT");
 
                             b1.Property<string>("MangaKey")
                                 .IsRequired()
-                                .HasColumnType("character varying(64)");
+                                .HasColumnType("TEXT");
 
                             b1.HasKey("Key");
 

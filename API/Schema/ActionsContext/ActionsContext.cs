@@ -33,13 +33,13 @@ public class ActionsContext(DbContextOptions<ActionsContext> options) : TrangaBa
     }
 
     public IQueryable<ActionRecord> FilterActionsManga(string MangaId) => this.Actions
-        .FromSqlInterpolated($"""SELECT * FROM public."Actions" WHERE "MangaId" = {MangaId}""");
+        .Where(a => EF.Property<string>(a, "MangaId") == MangaId);
 
     public IQueryable<ActionRecord> FilterActionsChapter(string ChapterId) => this.Actions
-        .FromSqlInterpolated($"""SELECT * FROM public."Actions" WHERE "ChapterId" = {ChapterId}""");
+        .Where(a => EF.Property<string>(a, "ChapterId") == ChapterId);
     
     public IQueryable<ActionRecord> FilterActionsMangaAndChapter(string MangaId, string ChapterId) => this.Actions
-        .FromSqlInterpolated($"""SELECT * FROM public."Actions" WHERE "MangaId" = {MangaId} AND "ChapterId" = {ChapterId}""");
+        .Where(a => EF.Property<string>(a, "MangaId") == MangaId && EF.Property<string>(a, "ChapterId") == ChapterId);
 
     public IQueryable<ActionRecord> FilterActions(string? MangaId, string? ChapterId)
     {

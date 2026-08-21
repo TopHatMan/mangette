@@ -5,7 +5,7 @@
 namespace API.Migrations.Library
 {
     /// <inheritdoc />
-    public partial class Initial : Migration
+    public partial class InitialSqlite : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -14,10 +14,10 @@ namespace API.Migrations.Library
                 name: "LibraryConnectors",
                 columns: table => new
                 {
-                    Key = table.Column<string>(type: "text", nullable: false),
-                    LibraryType = table.Column<byte>(type: "smallint", nullable: false),
-                    BaseUrl = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false),
-                    Auth = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: false)
+                    Key = table.Column<string>(type: "TEXT", maxLength: 64, nullable: false),
+                    LibraryType = table.Column<int>(type: "INTEGER", nullable: false),
+                    BaseUrl = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                    Auth = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false)
                 },
                 constraints: table =>
                 {

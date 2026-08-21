@@ -13,7 +13,6 @@ using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Newtonsoft.Json.Converters;
-using Npgsql;
 
 string tranga =
     "\n\n" +
@@ -75,28 +74,18 @@ builder.Services.AddSwaggerGenNewtonsoftSupport().AddSwaggerGen(opt =>
 });
 
 log.Debug("Adding Database-Connection...");
-NpgsqlConnectionStringBuilder connectionStringBuilder = new()
-{
-    Host = Constants.PostgresHost,
-    Database = Constants.PostgresDb,
-    Username = Constants.PostgresUser,
-    Password = Constants.PostgresPassword,
-    ConnectionLifetime = 300,
-    Timeout = Constants.PostgresConnectionTimeout,
-    ReadBufferSize = 65536,
-    WriteBufferSize = 65536,
-    CommandTimeout = Constants.PostgresCommandTimeout,
-    ApplicationName = "Tranga"
-};
+Directory.CreateDirectory(TrangaSettings.DataDirectory);
+Directory.CreateDirectory(TrangaSettings.DefaultDownloadLocation);
+log.InfoFormat("SQLite database: {0}", TrangaSettings.DatabasePath);
 
 builder.Services.AddDbContext<MangaContext>(options =>
-    options.UseNpgsql(connectionStringBuilder.ConnectionString));
+    SqliteStorage.Configure(options, SqliteStorage.MangaHistoryTable));
 builder.Services.AddDbContext<NotificationsContext>(options =>
-    options.UseNpgsql(connectionStringBuilder.ConnectionString));
+    SqliteStorage.Configure(options, SqliteStorage.NotificationsHistoryTable));
 builder.Services.AddDbContext<LibraryContext>(options =>
-    options.UseNpgsql(connectionStringBuilder.ConnectionString));
+    SqliteStorage.Configure(options, SqliteStorage.LibraryHistoryTable));
 builder.Services.AddDbContext<ActionsContext>(options =>
-    options.UseNpgsql(connectionStringBuilder.ConnectionString));
+    SqliteStorage.Configure(options, SqliteStorage.ActionsHistoryTable));
 
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
 {
@@ -143,6 +132,12 @@ app.UseSwaggerUI(opts =>
 
 app.UseHttpsRedirection();
 
+if (IsOpenApiDocumentGeneration())
+{
+    log.Info("OpenAPI document generation — skipping host run.");
+    return;
+}
+
 try //Connect to DB and apply migrations
 {
     log.Debug("Applying Migrations...");
@@ -150,6 +145,7 @@ try //Connect to DB and apply migrations
     {
         MangaContext context = scope.ServiceProvider.GetRequiredService<MangaContext>();
         await context.Database.MigrateAsync(CancellationToken.None);
+        SqliteStorage.ApplyPragmas(context);
 
         if (!await context.FileLibraries.AnyAsync())
         {
@@ -214,3 +210,12 @@ Tranga.AddDefaultWorkers();
 
 log.Info("Running app.");
 await app.RunAsync();
+
+static bool IsOpenApiDocumentGeneration()
+{
+    string? entry = Assembly.GetEntryAssembly()?.GetName().Name;
+    if (string.Equals(entry, "GetDocument.Insider", StringComparison.OrdinalIgnoreCase))
+        return true;
+    string process = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
+    return process.Contains("GetDocument", StringComparison.OrdinalIgnoreCase);
+}

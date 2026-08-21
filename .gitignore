@@ -23,6 +23,7 @@ Tranga/Properties/launchSettings.json
 *.DotSettings.user
 
 Manga/
+data/
 debug/
 cover.jpg
 cover.png

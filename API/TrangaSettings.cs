@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using API.Workers;
+﻿using API.Workers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -9,15 +8,22 @@ public struct TrangaSettings
 {
     [JsonIgnore] public static int Port => int.Parse(Environment.GetEnvironmentVariable("PORT") ?? "6531");
     [JsonIgnore] public static bool Debug => bool.Parse(Environment.GetEnvironmentVariable("DEBUG") ?? "false");
-    [JsonIgnore] public static string AppData => RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? Debug ? "./debug" :"/usr/share" : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-    [JsonIgnore] public static string WorkingDirectory => Path.Join(AppData, "tranga-api");
-    [JsonIgnore] public static string SettingsFilePath => Path.Join(WorkingDirectory, "settings.json");
-    [JsonIgnore] public static string CoverImageCache => Path.Join(WorkingDirectory, "imageCache");
+    /// <summary>Folder that contains the executable (or <c>MANGETTE_HOME</c> override).</summary>
+    [JsonIgnore] public static string AppDirectory =>
+        Environment.GetEnvironmentVariable("MANGETTE_HOME") is { Length: > 0 } home
+            ? home
+            : AppContext.BaseDirectory;
+    [JsonIgnore] public static string DataDirectory => Path.Join(AppDirectory, "data");
+    [JsonIgnore] public static string WorkingDirectory => DataDirectory;
+    [JsonIgnore] public static string SettingsFilePath => Path.Join(DataDirectory, "settings.json");
+    [JsonIgnore] public static string DatabasePath => Path.Join(DataDirectory, "mangette.db");
+    [JsonIgnore] public static string CoverImageCache => Path.Join(DataDirectory, "imageCache");
     [JsonIgnore] public static string CoverImageCacheOriginal => Path.Join(CoverImageCache, "original");
     [JsonIgnore] public static string CoverImageCacheLarge => Path.Join(CoverImageCache, "large");
     [JsonIgnore] public static string CoverImageCacheMedium => Path.Join(CoverImageCache, "medium");
     [JsonIgnore] public static string CoverImageCacheSmall => Path.Join(CoverImageCache, "small");
-    public static string DefaultDownloadLocation => Environment.GetEnvironmentVariable("DOWNLOAD_LOCATION") ?? (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "/Manga" : Path.Join(Directory.GetCurrentDirectory(), "Manga"));
+    public static string DefaultDownloadLocation =>
+        Environment.GetEnvironmentVariable("DOWNLOAD_LOCATION") ?? Path.Join(AppDirectory, "Manga");
     [JsonIgnore] internal static readonly string DefaultUserAgent = $"Tranga/2.0 ({Enum.GetName(Environment.OSVersion.Platform)}; {(Environment.Is64BitOperatingSystem ? "x64" : "")})";
     public string UserAgent { get; set; } = DefaultUserAgent;
     public int ImageCompression{ get; set; } = 40;
