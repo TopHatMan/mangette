@@ -25,7 +25,9 @@ Windows:
 
 Then open http://localhost:8585.
 
-On first run, Settings → **Paths and downloads** is the setup screen: library folder, temp/incomplete downloads, listen port, and how many chapters to grab at once. New series are assigned to that library automatically.
+On first run, Settings → **Paths and downloads** is the setup screen: library folder, temp/incomplete downloads, listen port, and how many chapters to grab at once.
+
+**Add New** works like Sonarr/Radarr: search a title, pick **one** series, then Add. Search results are not saved to the library. New series use the default library automatically.
 
 Recovering an old Tranga library: set **Library folder** to the existing `Manga` directory, then open **Library Import**. Mangette lists series folders, searches sites for matching titles, and imports them. Existing `.cbz` files (`Ch.001` vs `Ch.1`) are marked downloaded. Settings → **Scan library for existing chapters** re-runs the file match after series exist.
 

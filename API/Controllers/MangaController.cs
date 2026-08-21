@@ -28,26 +28,28 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
 {
     
     /// <summary>
-    /// Returns all cached <see cref="DTOs.Manga"/>
+    /// Returns series in the library. Search results are not included until they are added.
+    /// Unmonitored series with no downloaded chapters (leftover from the old search-adds-everything behavior) are omitted.
     /// </summary>
-    /// <response code="200"><see cref="MinimalManga"/> exert of <see cref="Schema.MangaContext.Manga"/>. Use <see cref="GetManga"/> for more information</response>
+    /// <response code="200"><see cref="LibrarySeries"/> rows for the dashboard</response>
     /// <response code="500">Error during Database Operation</response>
     [HttpGet]
-    [ProducesResponseType<List<MinimalManga>>(Status200OK, "application/json")]
+    [ProducesResponseType<List<LibrarySeries>>(Status200OK, "application/json")]
     [ProducesResponseType(Status500InternalServerError)]
-    public async Task<Results<Ok<List<MinimalManga>>, InternalServerError>> GetAllManga ()
+    public async Task<Results<Ok<List<LibrarySeries>>, InternalServerError>> GetAllManga ()
     {
-        if (await context.Mangas.Include(m => m.MangaConnectorIds)
+        if (await context.Mangas
+                .Include(m => m.MangaConnectorIds)
+                .Include(m => m.Chapters)
                 .OrderBy(m => m.Name)
-                .ToArrayAsync(HttpContext.RequestAborted) is not
-            { } result)
+                .ToArrayAsync(HttpContext.RequestAborted) is not { } result)
             return TypedResults.InternalServerError();
-        
-        return TypedResults.Ok(result.Select(m =>
-        {
-            IEnumerable<DTOs.MangaConnectorId<Manga>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
-            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids);
-        }).ToList());
+
+        List<LibrarySeries> library = result
+            .Where(m => m.MangaConnectorIds.Any(id => id.UseForDownload) || m.Chapters.Any(c => c.Downloaded))
+            .Select(SearchController.ToLibrarySeries)
+            .ToList();
+        return TypedResults.Ok(library);
     }
     
     /// <summary>
@@ -315,15 +317,15 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     /// <response code="404"><see cref="API.MangaConnectors.MangaConnector"/> with Name not found</response>
     /// <response code="412"><see cref="API.MangaConnectors.MangaConnector"/> with Name is disabled</response>
     [HttpGet("{MangaId}/OnMangaConnector/{MangaConnectorName}")]
-    [ProducesResponseType<List<MinimalManga>>(Status200OK, "application/json")]
+    [ProducesResponseType<List<SearchHit>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     [ProducesResponseType(Status406NotAcceptable)]
-    public async Task<Results<Ok<List<MinimalManga>>, NotFound<string>, StatusCodeHttpResult>> SearchOnDifferentConnector (string MangaId, string MangaConnectorName)
+    public async Task<Results<Ok<List<SearchHit>>, NotFound<string>, StatusCodeHttpResult>> SearchOnDifferentConnector (string MangaId, string MangaConnectorName)
     {
         if (await context.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
-        return new SearchController(context).SearchManga(MangaConnectorName, manga.Name);
+        return await new SearchController(context).SearchManga(MangaConnectorName, manga.Name);
     }
     
     /// <summary>

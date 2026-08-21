@@ -6,6 +6,164 @@
     --mangacover-height: 350px;
     --mangacover-width-sm: 150px;
     --mangacover-height-sm: 220px;
+    --arr-poster-width: 150px;
+    --arr-poster-height: 225px;
+}
+
+.arr-page {
+    padding: 1rem 1.25rem 2rem;
+}
+
+.arr-page__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.arr-page__title {
+    font-size: 1.35rem;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+}
+
+.arr-page__hint {
+    color: var(--ui-text-muted);
+    font-size: 0.875rem;
+}
+
+.arr-poster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--arr-poster-width), 1fr));
+    gap: 1rem 0.75rem;
+}
+
+.series-poster {
+    width: 100%;
+    max-width: var(--arr-poster-width);
+}
+
+.series-poster__art {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--ui-bg-elevated);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.series-poster__shade {
+    position: absolute;
+    inset: 40% 0 0 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.88), transparent);
+    pointer-events: none;
+}
+
+.series-poster__title {
+    position: absolute;
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.7rem;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 650;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.series-poster__bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.series-poster__bar-fill {
+    height: 100%;
+    background: var(--ui-primary);
+}
+
+.series-poster__badge {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+}
+
+.series-poster__sub {
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--ui-text-muted);
+}
+
+.arr-result {
+    display: flex;
+    gap: 0.85rem;
+    align-items: stretch;
+    background: var(--ui-bg-elevated);
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.arr-result__poster {
+    width: 80px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 4px;
+    background: var(--ui-bg-accented);
+    flex-shrink: 0;
+}
+
+.arr-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.arr-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ui-text-muted);
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--ui-border);
+}
+
+.arr-table td {
+    padding: 0.55rem 0.6rem;
+    border-bottom: 1px solid var(--ui-border);
+    vertical-align: middle;
+}
+
+.arr-table tbody tr:hover {
+    background: var(--ui-bg-elevated);
+}
+
+.arr-progress {
+    flex: 1;
+    height: 6px;
+    border-radius: 99px;
+    background: var(--ui-bg-accented);
+    overflow: hidden;
+}
+
+.arr-progress__fill {
+    height: 100%;
+    background: var(--ui-primary);
 }
 
 @keyframes shake {

@@ -127,7 +127,9 @@
                     <UButton icon="i-lucide-folder-search" loading-auto class="w-fit mb-2" @click="rescanLibrary">
                         Scan library for existing chapters
                     </UButton>
-                    <UButton icon="i-lucide-database" loading-auto class="w-fit mb-2" @click="cleanUpDatabase">Clean database</UButton>
+                    <UButton icon="i-lucide-database" loading-auto class="w-fit mb-2" @click="cleanUpDatabase">
+                        Remove leftover search results
+                    </UButton>
                     <UButton icon="i-lucide-captions-off" loading-auto class="w-fit mb-2" @click="cleanUpActions">Clean actions</UButton>
                 </div>
                 <p v-if="rescanMessage" class="text-sm mt-1">{{ rescanMessage }}</p>

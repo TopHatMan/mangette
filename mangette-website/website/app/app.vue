@@ -2,11 +2,9 @@
     <UApp>
         <UHeader :toggle="true">
             <template #left>
-                <NuxtLink to="/">
-                    <div class="h-full flex gap-2 items-center">
-                        <img src="/favicon.svg" class="h-7 w-7" alt="Mangette" />
-                        <p class="font-bold cursor-pointer text-2xl text-highlighted">Mangette</p>
-                    </div>
+                <NuxtLink to="/" class="flex gap-2 items-center">
+                    <img src="/favicon.svg" class="h-7 w-7" alt="Mangette" />
+                    <p class="font-semibold text-lg tracking-tight">Mangette</p>
                 </NuxtLink>
             </template>
             <template #body>

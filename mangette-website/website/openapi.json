@@ -1356,16 +1356,16 @@
         "tags": [
           "Manga"
         ],
-        "summary": "Returns all cached API.Controllers.DTOs.Manga",
+        "summary": "Returns series in the library. Search results are not included until they are added.\r\nUnmonitored series with no downloaded chapters (leftover from the old search-adds-everything behavior) are omitted.",
         "responses": {
           "200": {
-            "description": "API.Controllers.DTOs.MinimalManga exert of API.Schema.MangaContext.Manga. Use M:API.Controllers.MangaController.GetManga(System.String) for more information",
+            "description": "API.Controllers.DTOs.LibrarySeries rows for the dashboard",
             "content": {
               "application/json; x-version=2.0": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MinimalManga"
+                    "$ref": "#/components/schemas/LibrarySeries"
                   }
                 }
               }
@@ -1778,7 +1778,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MinimalManga"
+                    "$ref": "#/components/schemas/SearchHit"
                   }
                 }
               }
@@ -3097,17 +3097,201 @@
         }
       }
     },
+    "/v2/Search/Lookup": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Search sites without adding anything to the library. Same idea as Sonarr/Radarr Add New.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectorName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Search/Add": {
+      "post": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Add the chosen search result to the library. Only this series is stored, not the rest of the lookup.",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSeriesRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSeriesRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSeriesRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSeriesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibrarySeries"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Search/Cover": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "summary": "Proxy a remote cover so Add New posters can render without hotlink blocks.",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v2/Search/{MangaConnectorName}/{Query}": {
       "get": {
         "tags": [
           "Search"
         ],
-        "summary": "Initiate a search for a API.Schema.MangaContext.Manga on API.Controllers.DTOs.MangaConnector with searchTerm",
+        "summary": "Search one site. Does not add results to the library.",
         "parameters": [
           {
             "name": "MangaConnectorName",
             "in": "path",
-            "description": "API.Controllers.DTOs.MangaConnector.Name",
             "required": true,
             "schema": {
               "type": "string"
@@ -3116,7 +3300,6 @@
           {
             "name": "Query",
             "in": "path",
-            "description": "searchTerm",
             "required": true,
             "schema": {
               "type": "string"
@@ -3125,20 +3308,20 @@
         ],
         "responses": {
           "200": {
-            "description": "API.Controllers.DTOs.MinimalManga exert of API.Schema.MangaContext.Manga",
+            "description": "OK",
             "content": {
               "application/json; x-version=2.0": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MinimalManga"
+                    "$ref": "#/components/schemas/SearchHit"
                   }
                 }
               }
             }
           },
           "404": {
-            "description": "API.Controllers.DTOs.MangaConnector with Name not found",
+            "description": "Not Found",
             "content": {
               "text/plain; x-version=2.0": {
                 "schema": {
@@ -3166,9 +3349,6 @@
                 }
               }
             }
-          },
-          "412": {
-            "description": "API.Controllers.DTOs.MangaConnector with Name is disabled"
           }
         }
       }
@@ -3178,12 +3358,18 @@
         "tags": [
           "Search"
         ],
-        "summary": "Returns API.Schema.MangaContext.Manga from the API.Controllers.DTOs.MangaConnector associated with url",
+        "summary": "Resolve a series URL. Does not add it to the library.",
         "parameters": [
           {
             "name": "url",
             "in": "query",
-            "description": "",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
             "schema": {
               "type": "string"
             }
@@ -3191,27 +3377,20 @@
         ],
         "responses": {
           "200": {
-            "description": "API.Controllers.DTOs.MinimalManga exert of API.Schema.MangaContext.Manga.",
+            "description": "OK",
             "content": {
               "application/json; x-version=2.0": {
                 "schema": {
-                  "$ref": "#/components/schemas/MinimalManga"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  }
                 }
               }
             }
           },
-          "404": {
-            "description": "API.Schema.MangaContext.Manga not found",
-            "content": {
-              "text/plain; x-version=2.0": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error during Database Operation",
+          "400": {
+            "description": "Bad Request",
             "content": {
               "text/plain; x-version=2.0": {
                 "schema": {
@@ -4065,6 +4244,35 @@
         },
         "additionalProperties": false
       },
+      "AddSeriesRequest": {
+        "required": [
+          "connectorName",
+          "idOnSite"
+        ],
+        "type": "object",
+        "properties": {
+          "connectorName": {
+            "type": "string",
+            "description": "Site name, e.g. WeebCentral",
+            "nullable": true
+          },
+          "idOnSite": {
+            "type": "string",
+            "description": "Series id on that site",
+            "nullable": true
+          },
+          "libraryId": {
+            "type": "string",
+            "description": "File library to store .cbz files. Default library if omitted.",
+            "nullable": true
+          },
+          "monitor": {
+            "type": "boolean",
+            "description": "Monitor and download missing chapters. Default true."
+          }
+        },
+        "additionalProperties": false
+      },
       "AltTitle": {
         "required": [
           "language",
@@ -4687,6 +4895,63 @@
         },
         "additionalProperties": false
       },
+      "LibrarySeries": {
+        "required": [
+          "description",
+          "key",
+          "mangaConnectorIds",
+          "name",
+          "releaseStatus"
+        ],
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "monitored": {
+            "type": "boolean",
+            "description": "At least one site is set to download"
+          },
+          "chapterCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "downloadedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Name of the Manga"
+          },
+          "description": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Description of the Manga"
+          },
+          "releaseStatus": {
+            "$ref": "#/components/schemas/MangaReleaseStatus"
+          },
+          "mangaConnectorIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MangaMangaConnectorId"
+            },
+            "description": "Ids of the Manga on MangaConnectors"
+          },
+          "key": {
+            "maxLength": 64,
+            "minLength": 16,
+            "type": "string",
+            "description": "Unique Identifier of the DTO"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Library row for the dashboard (poster wall / table)."
+      },
       "LibraryType": {
         "enum": [
           "Komga",
@@ -4947,6 +5212,11 @@
             "type": "string",
             "nullable": true
           },
+          "libraryPath": {
+            "type": "string",
+            "description": "Library folder from Settings. SQLite FileLibraries is the live copy; this is written so install scripts can read settings.json.",
+            "nullable": true
+          },
           "tempDownloadPath": {
             "type": "string",
             "description": "Folder for in-progress chapter images. Packed into the library as .cbz when the chapter finishes.",
@@ -4969,7 +5239,7 @@
           },
           "defaultLibraryPath": {
             "type": "string",
-            "description": "Resolved library default shown in Settings. Not stored; file libraries own the actual path.",
+            "description": "Resolved library default shown in Settings. Prefers the saved Settings path, then DOWNLOAD_LOCATION.",
             "nullable": true,
             "readOnly": true
           },
@@ -5252,6 +5522,57 @@
           }
         },
         "additionalProperties": false
+      },
+      "SearchHit": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Title on the site",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "releaseStatus": {
+            "$ref": "#/components/schemas/MangaReleaseStatus"
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "connectorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "idOnSite": {
+            "type": "string",
+            "nullable": true
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "alreadyInLibrary": {
+            "type": "boolean"
+          },
+          "existingMangaId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Preview of a series from a site. Not in the library until Add is called."
       },
       "Stats": {
         "type": "object",
