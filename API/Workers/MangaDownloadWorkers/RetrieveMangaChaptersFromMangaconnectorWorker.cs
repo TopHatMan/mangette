@@ -57,9 +57,16 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         
         Manga manga = mangaConnectorId.Obj;
         
-        // Retrieve available Chapters from Connector
-        (Chapter chapter, MangaConnectorId<Chapter> chapterId)[] allChapters =
-            mangaConnector.GetChapters(mangaConnectorId, language).DistinctBy(c => c.Item1.Key).ToArray();
+        (Chapter chapter, MangaConnectorId<Chapter> chapterId)[] allChapters;
+        try
+        {
+            allChapters = mangaConnector.GetChapters(mangaConnectorId, language).DistinctBy(c => c.Item1.Key).ToArray();
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Failed to list chapters from {mangaConnector.Name} for {manga.Name}: {ex.Message}", ex);
+            return [];
+        }
         Log.DebugFormat("Got {0} chapters from connector.", allChapters.Length);
 
         List<MangaConnectorId<Chapter>> newIds = [];

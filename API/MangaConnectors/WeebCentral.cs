@@ -34,44 +34,20 @@ public class WeebCentral : MangaConnector
 
         string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         Log.DebugFormat("Search HTML length: {0}", html.Length);
-        HtmlDocument doc = new();
-        doc.LoadHtml(html);
 
-        HtmlNodeCollection? nodes = doc.DocumentNode.SelectNodes("//a[contains(@href, 'series/')]");
-        Log.DebugFormat("Found {0} series nodes in search HTML", nodes?.Count ?? 0);
-        if (nodes is null || nodes.Count < 1)
-        {
-            Log.Error("No series links found");
-            return [];
-        }
-
-        HashSet<string> seenUrls = new(); // Dedup URLs
         List<(Manga, MangaConnectorId<Manga>)> mangas = new();
-        foreach (HtmlNode node in nodes)
+        foreach (WeebCentralParse.SearchItem item in WeebCentralParse.SearchResults(html))
         {
-            string href = node.GetAttributeValue("href", "");
-            if (!string.IsNullOrEmpty(href))
-            {
-                string fullUrl = $"{href}";
-                if (seenUrls.Add(fullUrl))
-                {
-                    Log.DebugFormat("Fetching from {0}", fullUrl); // Debug URL
-                    (Manga, MangaConnectorId<Manga>)? manga = GetMangaFromUrl(fullUrl);
-                    if (manga.HasValue)
-                    {
-                        mangas.Add(manga.Value);
-                        Log.DebugFormat("Added manga from {0}", fullUrl);
-                    }
-                    else
-                    {
-                        Log.WarnFormat("Failed to parse manga from {0}", fullUrl); // Debug fails
-                    }
-                }
-            }
+            Manga manga = new(item.Title, "", item.CoverUrl, MangaReleaseStatus.Continuing, [], [], [], [], null, 0f, null, null);
+            MangaConnectorId<Manga> mcId = new(manga, this, item.Id, item.Url);
+            manga.MangaConnectorIds.Add(mcId);
+            mangas.Add((manga, mcId));
+            if (mangas.Count >= 12)
+                break;
         }
 
-        Log.InfoFormat("Search '{0}' yielded {1} results.", mangaSearchName, mangas.Count);
-        return mangas.DistinctBy(r => r.Item1.Key).ToArray(); // Dedup by manga Key
+        Log.InfoFormat("Search '{0}' yielded {1} preview results (not saved to library).", mangaSearchName, mangas.Count);
+        return mangas.ToArray();
     }
 
    public override (Manga, MangaConnectorId<Manga>)? GetMangaFromUrl(string url)
@@ -188,9 +164,10 @@ public class WeebCentral : MangaConnector
         if (baseSlug.Contains("series/"))
             baseSlug = baseSlug.Substring(baseSlug.IndexOf("series/") + 7);
 
-        string websiteUrl = $"https://weebcentral.com/series/{baseSlug}/full-chapter-list";
+        string seriesUrl = $"https://weebcentral.com/series/{baseSlug}";
+        string websiteUrl = $"{seriesUrl}/full-chapter-list";
 
-        HttpResponseMessage response = downloadClient.MakeRequest(websiteUrl, RequestType.Default).GetAwaiter().GetResult();
+        HttpResponseMessage response = downloadClient.MakeRequest(websiteUrl, RequestType.Default, seriesUrl).GetAwaiter().GetResult();
         if (!response.IsSuccessStatusCode)
         {
             Log.Error("Failed to load chapters page");
@@ -198,62 +175,20 @@ public class WeebCentral : MangaConnector
         }
 
         string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-        HtmlDocument doc = new();
-        doc.LoadHtml(html);
-
-        // Extract chapters from page
-        HtmlNodeCollection? chapterNodes = doc.DocumentNode.SelectNodes("//a[contains(@href, '/chapters/')]");
-        if (chapterNodes is null)
-            return [];
-
         List<(Chapter, MangaConnectorId<Chapter>)> chapters = new();
-
-        foreach (HtmlNode node in chapterNodes)
+        foreach (WeebCentralParse.ChapterItem item in WeebCentralParse.Chapters(html))
         {
-            string href = node.GetAttributeValue("href", "").Trim();
-			string text = node.SelectSingleNode(".//span[@class='']").InnerText.Trim();
-
-			// Get volume/season number - if applicable
-			int? volumeNumber = null;
-			Match volMatch = Regex.Match(text, @"^(?:volume|vol\.?|season|s\.?)\s*([\d]+)", RegexOptions.IgnoreCase);
-			if (volMatch.Success)
-			{
-				if (int.TryParse(volMatch.Groups[1].Value, out int parsedVolume))
-					volumeNumber = parsedVolume;
-				else
-					Log.Warn($"Failed to parse volume number: {volMatch.Groups[1].Value}");
-			}
-			
-            // Get chapter number - supports decimals
-            string chapterNumber;
-			Match chMatch = Regex.Match(text, @"(?:chapter|ch\.?)\s*([\d]+(?:\.\d+)?)", RegexOptions.IgnoreCase);
-			if (chMatch.Success)
-				chapterNumber = chMatch.Groups[1].Value;
-			else
-			{
-				// If "chapter" or "ch" is not found, take the last number in the string
-				MatchCollection numberMatches = Regex.Matches(text, @"\d+(\.\d+)?");
-				if (numberMatches.Count > 0)
-				{
-					chapterNumber = numberMatches.Last().Value;
-					Log.Warn($"Unknown chapter format detected. Using last number in string: {chapterNumber}");
-				}
-				else
-				{
-					// For everything else, log and continue
-					Log.Warn($"Unknown chapter format ignored: {text}");
-					continue;
-				}
-			}
-
-            string? title = null;
-
-            Chapter ch = new(manga.Obj, chapterNumber, volumeNumber, title);
-			string chapterIdOnSite = new Uri(href).Segments.Last();
-			string canonicalChapterUrl = $"https://weebcentral.com/chapters/{chapterIdOnSite}";
-            MangaConnectorId<Chapter> mcId = new(ch, this, chapterIdOnSite, canonicalChapterUrl);
-            ch.MangaConnectorIds.Add(mcId);
-            chapters.Add((ch, mcId));
+            try
+            {
+                Chapter ch = new(manga.Obj, item.ChapterNumber, item.VolumeNumber, null);
+                MangaConnectorId<Chapter> mcId = new(ch, this, item.ChapterId, item.Url);
+                ch.MangaConnectorIds.Add(mcId);
+                chapters.Add((ch, mcId));
+            }
+            catch (ArgumentException ex)
+            {
+                Log.WarnFormat("Skipped chapter {0}: {1}", item.ChapterId, ex.Message);
+            }
         }
 
         Log.InfoFormat("Found {0} chapters for {1}", chapters.Count, manga.Obj.Name);

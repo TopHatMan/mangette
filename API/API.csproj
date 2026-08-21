@@ -49,6 +49,7 @@
 
     <ItemGroup>
       <Folder Include="Migrations\Manga\" />
+      <InternalsVisibleTo Include="Tests" />
     </ItemGroup>
 
     <ItemGroup>
