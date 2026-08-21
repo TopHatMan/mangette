@@ -16,6 +16,17 @@ docker compose up -d
 
 That publishes FlareSolverr at `http://127.0.0.1:8191`. Mangette uses that URL by default (`FLARESOLVERR_URL` to override).
 
+If Docker is on another machine (for example a Debian VirtualBox VM at `192.168.1.210`), bind FlareSolverr on all interfaces **on the VM**:
+
+```bash
+# on the Debian VM, in the repo folder
+echo 'FLARESOLVERR_BIND=0.0.0.0' > .env
+docker compose up -d
+sudo ufw allow 8191/tcp   # only if ufw is enabled
+```
+
+On Windows, set FlareSolverr to `http://192.168.1.210:8191` (Settings, or `FLARESOLVERR_URL`). The VM must use **bridged** networking so that IP is reachable.
+
 ### 2. Start Mangette
 
 ### Pre-built binary
@@ -53,7 +64,26 @@ Override the app folder with `MANGETTE_HOME` and the default library folder with
 
 No Postgres. Docker is only for FlareSolverr.
 
-### From source
+### Windows service (start at boot)
+
+Run PowerShell **as Administrator** from the cloned repo. Example for Docker on a Debian VM and an existing Tranga library:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\install-win-service.ps1 `
+  -FlareSolverrUrl http://192.168.1.210:8191 `
+  -LibraryPath D:\Manga
+```
+
+That publishes `Mangette.exe` to `C:\Mangette`, creates a **delayed auto-start** service (so VirtualBox can boot the VM first), opens firewall port 8585, and starts it. Open http://localhost:8585 (or `http://SERVER_IP:8585` from another PC).
+
+```powershell
+Get-Service Mangette
+Get-Content C:\Mangette\data\logs\mangette.log -Tail 50
+.\scripts\uninstall-win-service.ps1
+```
+
+### From source (manual, not auto-start)
 
 ```bash
 dotnet run --project API/API.csproj

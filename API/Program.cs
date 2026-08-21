@@ -12,7 +12,12 @@ using log4net;
 using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using Newtonsoft.Json.Converters;
+
+// Windows services start with cwd = System32. Keep data/logs/wwwroot next to the exe.
+if (OperatingSystem.IsWindows() && WindowsServiceHelpers.IsWindowsService())
+    Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
 string banner =
     "\n\n" +
@@ -28,6 +33,10 @@ log.Info("Logger Configured.");
 
 log.Info("Starting up");
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+builder.Host.UseWindowsService(options =>
+{
+    options.ServiceName = "Mangette";
+});
 
 builder.Services.AddCors(options =>
 {

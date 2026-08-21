@@ -6,7 +6,8 @@ services:
       - LOG_LEVEL=info
       - HOST=0.0.0.0
     ports:
-      - "127.0.0.1:8191:8191"
+      # Same machine: 127.0.0.1. Debian VM that Windows talks to: FLARESOLVERR_BIND=0.0.0.0
+      - "${FLARESOLVERR_BIND:-127.0.0.1}:8191:8191"
     restart: unless-stopped
     logging:
       driver: json-file
