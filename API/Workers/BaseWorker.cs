@@ -93,21 +93,39 @@ public abstract class BaseWorker : Identifiable
             DateTime startTime = DateTime.UtcNow;
             State = WorkerExecutionState.Running;
             Task<BaseWorker[]> task = DoWorkInternal();
-            task.GetAwaiter().OnCompleted(Finish(startTime, callback));
+            task.GetAwaiter().OnCompleted(Finish(task, startTime, callback));
             return task;
         }
         catch (Exception e)
         { 
             Log.Error(e.ToString());
+            Fail();
             return Task.FromException<BaseWorker[]>(e);
         }
     }
 
-    private Action Finish(DateTime startTime, Action? callback = null) => () =>
+    private Action Finish(Task<BaseWorker[]> task, DateTime startTime, Action? callback = null) => () =>
     {
         DateTime endTime = DateTime.UtcNow;
-        Log.InfoFormat("Completed {0}\n\t{1} ms", this, endTime.Subtract(startTime).TotalMilliseconds);
-        this.State = WorkerExecutionState.Completed;
+        double elapsedMs = endTime.Subtract(startTime).TotalMilliseconds;
+
+        if (State is WorkerExecutionState.Failed or WorkerExecutionState.Cancelled)
+        {
+            Log.InfoFormat("{0} {1}\n\t{2} ms", State, this, elapsedMs);
+        }
+        else if (task.IsFaulted || task.IsCanceled)
+        {
+            Log.ErrorFormat("Failed {0}\n\t{1} ms", this, elapsedMs);
+            if (task.Exception is not null)
+                Log.Error(task.Exception);
+            State = WorkerExecutionState.Failed;
+        }
+        else
+        {
+            Log.InfoFormat("Completed {0}\n\t{1} ms", this, elapsedMs);
+            State = WorkerExecutionState.Completed;
+        }
+
         if(this is IPeriodic periodic)
             periodic.LastExecution = DateTime.UtcNow;
         callback?.Invoke();

@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
 using API.MangaConnectors;
+using API.MangaDownloadClients;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
@@ -27,6 +28,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
     : BaseWorkerWithContexts(dependsOn)
 {
     public readonly string ChapterIdId = chId.Key;
+    public readonly string ChapterKey = chId.ObjId;
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
@@ -53,6 +55,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
                 .FirstOrDefaultAsync(c => c.Key == ChapterIdId, CancellationToken) is not { } mangaConnectorId)
         {
             Log.Error("Could not get MangaConnectorId.");
+            Fail();
             return [];
         }
         
@@ -60,13 +63,13 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         if (await mangaConnectorId.Obj.CheckDownloaded(MangaContext, CancellationToken))
         {
             Log.Warn("Chapter already exists!");
+            DownloadFailureTracker.RecordSuccess(mangaConnectorId.Key, mangaConnectorId.MangaConnectorName);
             return [];
         }
         
         if (!Tranga.TryGetMangaConnector(mangaConnectorId.MangaConnectorName, out MangaConnector? mangaConnector))
         {
-            Log.Error("Could not get MangaConnector.");
-            return [];
+            return FailDownload(mangaConnectorId.MangaConnectorName, "Could not get MangaConnector.");
         }
         
         Log.Debug($"Downloading chapter for MangaConnectorId {mangaConnectorId}...");
@@ -75,21 +78,29 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         if (chapter.ParentManga.LibraryId is null)
         {
             Log.Info($"Library is not set for {chapter.ParentManga} {chapter}");
+            Fail();
             return [];
         }
         
         Log.Info($"Getting imageUrls for chapter {chapter}");
-        string[] imageUrls = mangaConnector.GetChapterImageUrls(mangaConnectorId);
+        string[] imageUrls;
+        try
+        {
+            imageUrls = mangaConnector.GetChapterImageUrls(mangaConnectorId);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex);
+            return FailDownload(mangaConnectorId.MangaConnectorName, ex.Message);
+        }
         if (imageUrls.Length < 1)
         {
-            Log.Info($"No imageUrls for chapter {chapter}");
-            return [];
+            return FailDownload(mangaConnectorId.MangaConnectorName, $"No imageUrls for chapter {chapter}");
         }
 
         if (chapter.FullArchiveFilePath is not { } saveArchiveFilePath)
         {
-            Log.Error("Failed getting saveArchiveFilePath");
-            return [];
+            return FailDownload(mangaConnectorId.MangaConnectorName, "Failed getting saveArchiveFilePath");
         }
         Log.Debug($"Chapter path: {saveArchiveFilePath}");
         
@@ -97,9 +108,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         string? directoryPath = Path.GetDirectoryName(saveArchiveFilePath);
         if (directoryPath is null)
         {
-            Log.Error($"Directory path could not be found: {saveArchiveFilePath}");
-            this.Fail();
-            return [];
+            return FailDownload(mangaConnectorId.MangaConnectorName, $"Directory path could not be found: {saveArchiveFilePath}");
         }
         if (!Directory.Exists(directoryPath))
         {
@@ -116,8 +125,8 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             {
                 if (await mangaConnector.DownloadImage(imageUrl, CancellationToken) is not { } stream)
                 {
-                    Log.Error($"Failed to download image: {imageUrl}");
-                    return [];
+                    images.ForEach(i => i.Dispose());
+                    return FailDownload(mangaConnectorId.MangaConnectorName, $"Failed to download image: {imageUrl}");
                 }
                 else
                     images.Add(await ProcessImage(stream, CancellationToken));
@@ -126,7 +135,7 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             {
                 Log.Error(ex);
                 images.ForEach(i => i.Dispose());
-                return [];
+                return FailDownload(mangaConnectorId.MangaConnectorName, ex.Message);
             }
         }
         
@@ -173,12 +182,14 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         catch (Exception ex)
         {
             Log.Error(ex);
+            return FailDownload(mangaConnectorId.MangaConnectorName, ex.Message);
         }
         finally
         {
             images.ForEach(i => i.Dispose());
         }
 
+        DownloadFailureTracker.RecordSuccess(mangaConnectorId.Key, mangaConnectorId.MangaConnectorName);
         chapter.Downloaded = true;
         chapter.FileName = new FileInfo(saveArchiveFilePath).Name;
         if(await MangaContext.Sync(CancellationToken, GetType(), "Downloading complete") is { success: false } chapterContextException)
@@ -202,6 +213,14 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
             Log.Info($"Condition {Tranga.Settings.LibraryRefreshSetting} met.");
 
         return refreshLibrary? [new RefreshLibrariesWorker()] : [];
+    }
+
+    private BaseWorker[] FailDownload(string connectorName, string reason)
+    {
+        Log.Error(reason);
+        DownloadFailureTracker.RecordFailure(ChapterIdId, connectorName, reason);
+        Fail();
+        return [];
     }
 
     private async Task<bool> CheckLibraryRefresh() => Tranga.Settings.LibraryRefreshSetting switch

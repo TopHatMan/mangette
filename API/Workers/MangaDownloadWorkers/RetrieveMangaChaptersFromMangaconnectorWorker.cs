@@ -35,8 +35,10 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         // Getting MangaConnector info
         if (await MangaContext.MangaConnectorToManga
                 .Include(id => id.Obj)
-                .ThenInclude(m => m.Chapters)
-                .ThenInclude(ch => ch.MangaConnectorIds)
+                    .ThenInclude(m => m.Chapters)
+                    .ThenInclude(ch => ch.MangaConnectorIds)
+                .Include(id => id.Obj)
+                    .ThenInclude(m => m.MangaConnectorIds)
                 .FirstOrDefaultAsync(c => c.Key == _mangaConnectorIdId, CancellationToken) is not { } mangaConnectorId)
         {
             Log.Error("Could not get MangaConnectorId.");
@@ -55,38 +57,52 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         (Chapter chapter, MangaConnectorId<Chapter> chapterId)[] allChapters =
             mangaConnector.GetChapters(mangaConnectorId, language).DistinctBy(c => c.Item1.Key).ToArray();
         Log.DebugFormat("Got {0} chapters from connector.", allChapters.Length);
-        
-        // Filter for new Chapters
-        List<(Chapter chapter, MangaConnectorId<Chapter> chapterId)> newChapters = allChapters.Where<(Chapter chapter, MangaConnectorId<Chapter> chapterId)>(ch =>
-            manga.Chapters.All(c => c.Key != ch.chapter.Key)).ToList();
-        Log.DebugFormat("Got {0} new chapters.", newChapters.Count);
 
-        // Add Chapters to Manga
-        manga.Chapters = manga.Chapters.Union(newChapters.Select(ch => ch.chapter)).ToList();
-        
-        // Filter for new ChapterIds
-        List<MangaConnectorId<Chapter>> existingChapterIds = manga.Chapters.SelectMany(c => c.MangaConnectorIds).ToList();
-        List<MangaConnectorId<Chapter>> newIds = allChapters.Select(ch => ch.chapterId)
-            .Where(newCh => !existingChapterIds.Any(existing =>
-                existing.MangaConnectorName == newCh.MangaConnectorName &&
-                existing.IdOnConnectorSite == newCh.IdOnConnectorSite))
-            .ToList();
-        // Match tracked entities of Chapters
-        foreach (MangaConnectorId<Chapter> newId in newIds)
-            newId.Obj = manga.Chapters.First(ch => ch.Key == newId.ObjId);
-        Log.DebugFormat("Got {0} new download-Ids.", newIds.Count);
-        
-        // Add new ChapterIds to Database
-        MangaContext.MangaConnectorToChapter.AddRange(newIds);
+        List<MangaConnectorId<Chapter>> newIds = [];
+        int reusedChapters = 0;
 
-        // If Manga is marked for Download from Connector, mark the new Chapters as UseForDownload
-        if (mangaConnectorId.UseForDownload)
+        foreach ((Chapter incomingChapter, MangaConnectorId<Chapter> incomingId) in allChapters)
         {
-            foreach ((Chapter _, MangaConnectorId<Chapter> chapterId) in newChapters)
+            Chapter? existing = manga.Chapters.FirstOrDefault(c => c.IsSameLogicalChapter(incomingChapter));
+            Chapter target = existing ?? incomingChapter;
+            if (existing is not null)
             {
-                chapterId.UseForDownload = mangaConnectorId.UseForDownload;
+                reusedChapters++;
+                incomingId.Obj = existing;
+                incomingId.ObjId = existing.Key;
             }
+            else
+            {
+                manga.Chapters.Add(incomingChapter);
+            }
+
+            bool idExists = target.MangaConnectorIds.Any(existingId =>
+                existingId.MangaConnectorName == incomingId.MangaConnectorName &&
+                existingId.IdOnConnectorSite == incomingId.IdOnConnectorSite);
+            if (idExists)
+                continue;
+
+            if (!ReferenceEquals(incomingId.Obj, target))
+            {
+                incomingId.Obj = target;
+                incomingId.ObjId = target.Key;
+            }
+
+            target.MangaConnectorIds.Add(incomingId);
+            newIds.Add(incomingId);
         }
+
+        Log.DebugFormat("Reused {0} existing chapter rows. Got {1} new download-Ids.", reusedChapters, newIds.Count);
+
+        bool monitored = mangaConnectorId.UseForDownload || manga.MangaConnectorIds.Any(id => id.UseForDownload);
+        if (monitored)
+        {
+            foreach (MangaConnectorId<Chapter> chapterId in newIds)
+                chapterId.UseForDownload = true;
+        }
+
+        if (newIds.Count > 0)
+            MangaContext.MangaConnectorToChapter.AddRange(newIds);
 
         if(await MangaContext.Sync(CancellationToken, GetType(), "Chapters retrieved") is { success: false } mangaContextException)
             Log.ErrorFormat("Failed to save database changes: {0}", mangaContextException.exceptionMessage);

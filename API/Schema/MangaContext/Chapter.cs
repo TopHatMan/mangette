@@ -231,6 +231,30 @@ public class Chapter : Identifiable, IComparable<Chapter>
         }
     }
 
+    /// <summary>
+    /// True when both rows represent the same volume/chapter on the same manga
+    /// (including equivalent numbers such as "1" and "1.0").
+    /// </summary>
+    public bool IsSameLogicalChapter(Chapter other)
+    {
+        if (ReferenceEquals(this, other) || Key == other.Key)
+            return true;
+
+        string thisManga = ParentMangaId ?? ParentManga?.Key ?? string.Empty;
+        string otherManga = other.ParentMangaId ?? other.ParentManga?.Key ?? string.Empty;
+        if (thisManga.Length == 0 || thisManga != otherManga)
+            return false;
+
+        try
+        {
+            return new ChapterComparer().Compare(this, other) == 0;
+        }
+        catch (ArgumentException)
+        {
+            return ChapterNumber == other.ChapterNumber;
+        }
+    }
+
     private static int CompareChapterNumbers(string ch1, string ch2)
     {
         int[] ch1Arr = ch1.Split('.').Select(c => int.TryParse(c, out int result) ? result : -1).ToArray();
