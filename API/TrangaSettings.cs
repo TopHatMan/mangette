@@ -28,7 +28,9 @@ public struct TrangaSettings
     public string UserAgent { get; set; } = DefaultUserAgent;
     public int ImageCompression{ get; set; } = 40;
     public bool BlackWhiteImages { get; set; } = false;
-    public string FlareSolverrUrl { get; set; } = Environment.GetEnvironmentVariable("FLARESOLVERR_URL") ?? string.Empty;
+    public const string DefaultFlareSolverrUrl = "http://127.0.0.1:8191";
+    public string FlareSolverrUrl { get; set; } =
+        Environment.GetEnvironmentVariable("FLARESOLVERR_URL") ?? DefaultFlareSolverrUrl;
     /// <summary>
     /// Placeholders:
     /// %M Obj Name
@@ -65,7 +67,13 @@ public struct TrangaSettings
     {
         if (!File.Exists(SettingsFilePath))
             new TrangaSettings().Save();
-        return JsonConvert.DeserializeObject<TrangaSettings>(File.ReadAllText(SettingsFilePath), new StringEnumConverter());
+        TrangaSettings settings = JsonConvert.DeserializeObject<TrangaSettings>(File.ReadAllText(SettingsFilePath), new StringEnumConverter());
+        string? envUrl = Environment.GetEnvironmentVariable("FLARESOLVERR_URL");
+        if (!string.IsNullOrWhiteSpace(envUrl))
+            settings.FlareSolverrUrl = envUrl;
+        else if (string.IsNullOrWhiteSpace(settings.FlareSolverrUrl))
+            settings.FlareSolverrUrl = DefaultFlareSolverrUrl;
+        return settings;
     }
 
     public void Save()

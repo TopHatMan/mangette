@@ -11,7 +11,10 @@ internal class HttpDownloadClient : IDownloadClient
         DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
         DefaultRequestHeaders = { { "User-Agent", Tranga.Settings.UserAgent } }
     };
-    private static readonly FlareSolverrDownloadClient FlareSolverrDownloadClient = new(Client);
+    private static readonly FlareSolverrDownloadClient FlareSolverrDownloadClient = new(new HttpClient
+    {
+        Timeout = TimeSpan.FromSeconds(120)
+    });
     private ILog Log { get; } = LogManager.GetLogger(typeof(HttpDownloadClient));
     
     public async Task<HttpResponseMessage> MakeRequest(string url, RequestType requestType, string? referrer = null, CancellationToken? cancellationToken = null)
@@ -29,10 +32,12 @@ internal class HttpDownloadClient : IDownloadClient
             if(response.IsSuccessStatusCode)
                 return response;
 
-            if (response.Headers.Server.Any(s =>
-                    (s.Product?.Name ?? "").Contains("cloudflare", StringComparison.InvariantCultureIgnoreCase)))
+            bool cloudflareHint = response.Headers.Server.Any(s =>
+                    (s.Product?.Name ?? "").Contains("cloudflare", StringComparison.InvariantCultureIgnoreCase));
+            bool blocked = (int)response.StatusCode is 403 or 429 or 503;
+            if ((cloudflareHint || blocked) && !string.IsNullOrWhiteSpace(Tranga.Settings.FlareSolverrUrl))
             {
-                Log.Debug("Retrying with FlareSolverr!");
+                Log.InfoFormat("Retrying {0} via FlareSolverr ({1})", url, response.StatusCode);
                 return await FlareSolverrDownloadClient.MakeRequest(url, requestType, referrer);
             }
             

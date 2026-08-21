@@ -281,13 +281,25 @@ public class WeebCentral : MangaConnector
 
 	private async Task<string[]> GetChapterImageUrlsAsync(MangaConnectorId<Chapter> chapterId, string? referrer)
 	{
-		await using ChromiumDownloadClient chromium = new ChromiumDownloadClient();
-		
-		HttpResponseMessage response = await chromium.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+		HttpResponseMessage response = await downloadClient.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+
+		if (!response.IsSuccessStatusCode)
+		{
+			Log.Warn("HTTP/FlareSolverr failed to load chapter page; trying Chromium if available");
+			try
+			{
+				await using ChromiumDownloadClient chromium = new();
+				response = await chromium.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+			}
+			catch (Exception ex)
+			{
+				Log.Error(ex);
+			}
+		}
 
 		if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
 		{
-			Log.Error("Failed to load chapter page with Chromium");
+			Log.Error("Failed to load chapter page with FlareSolverr and Chromium");
 			return [];
 		}
 

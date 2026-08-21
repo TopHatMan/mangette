@@ -4,7 +4,19 @@ Standalone manga downloader: one process serves the API, workers, and UI.
 
 Open [http://localhost:6531](http://localhost:6531) after starting it.
 
+Mangette itself does not use Docker. **FlareSolverr does** — that is the Cloudflare bypass for sites that block plain HTTP. Run it as a sidecar, then start the Mangette binary.
+
 ## Run
+
+### 1. Start FlareSolverr (Docker)
+
+```bash
+docker compose up -d
+```
+
+That publishes FlareSolverr at `http://127.0.0.1:8191`. Mangette uses that URL by default (`FLARESOLVERR_URL` to override).
+
+### 2. Start Mangette
 
 ### Pre-built binary
 
@@ -34,7 +46,7 @@ Data lives next to the executable:
 
 Override the app folder with `MANGETTE_HOME` and the download folder with `DOWNLOAD_LOCATION`. Port is `6531` (`PORT` to change).
 
-No Docker. No Postgres.
+No Postgres. Docker is only for FlareSolverr.
 
 ### From source
 
@@ -50,21 +62,24 @@ A series can have several websites attached (MangaDex, AsuraComic, Mangaworld, W
 
 If a source returns 403, Cloudflare, or an empty image list, that source is backed off (30 minutes, doubling up to 6 hours) instead of being retried every minute. Another attached source is used for the same chapter when it has it.
 
-## Chrome / FlareSolverr
+## FlareSolverr (required for Cloudflare)
 
-Most sources use plain HTTP. Chrome is **optional** and only needed for sites that must be scraped in a browser (WeebCentral chapter pages).
+Protected sources (WeebCentral, some others) go through [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) when HTTP returns 403/429 or a Cloudflare server header.
 
-Install Chrome/Chromium locally and point at it:
+```bash
+docker compose up -d          # FlareSolverr on 127.0.0.1:8191
+docker compose logs -f        # watch challenge / IP-ban messages
+```
+
+Mangette talks to it at `http://127.0.0.1:8191`. Change that in Settings or with `FLARESOLVERR_URL`. If FlareSolverr is down, those sites will fail until you start the container.
+
+Chrome/Chromium on the host is a **fallback** only (WeebCentral chapter pages if FlareSolverr cannot load them):
 
 ```bash
 export CHROME_BIN=/usr/bin/chromium
 # or
 export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
 ```
-
-Docker Chromium is not required.
-
-[FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) is optional. Set the URL in Settings if you run one.
 
 ## Publish a single-file binary
 

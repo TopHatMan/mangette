@@ -33,7 +33,8 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         JObject requestObj = new()
         {
             ["cmd"] = "request.get",
-            ["url"] = url
+            ["url"] = url,
+            ["maxTimeout"] = 60000
         };
 
         HttpRequestMessage requestMessage = new(HttpMethod.Post, flareSolverrUri)
@@ -50,8 +51,13 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         }
         catch (HttpRequestException e)
         {
-            Log.Error(e);
+            Log.Error($"FlareSolverr at {Tranga.Settings.FlareSolverrUrl} is not reachable. Start it with: docker compose up -d. {e.Message}");
             return new (HttpStatusCode.InternalServerError);
+        }
+        catch (TaskCanceledException e)
+        {
+            Log.Error($"FlareSolverr timed out for {url}: {e.Message}");
+            return new (HttpStatusCode.GatewayTimeout);
         }
 
         if (!response.IsSuccessStatusCode)

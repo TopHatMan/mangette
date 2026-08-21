@@ -204,6 +204,20 @@ catch (Exception e)
 }
 
 log.Info("Starting Mangette.");
+log.InfoFormat("FlareSolverr URL: {0}", Tranga.Settings.FlareSolverrUrl);
+try
+{
+    using HttpClient probe = new() { Timeout = TimeSpan.FromSeconds(5) };
+    HttpResponseMessage flare = await probe.GetAsync(Tranga.Settings.FlareSolverrUrl);
+    log.InfoFormat("FlareSolverr reachable ({0}).", (int)flare.StatusCode);
+}
+catch (Exception ex)
+{
+    log.WarnFormat(
+        "FlareSolverr is not reachable at {0} ({1}). Cloudflare-protected sites will fail until you start it: docker compose up -d",
+        Tranga.Settings.FlareSolverrUrl, ex.Message);
+}
+
 Tranga.ServiceProvider = app.Services;
 Tranga.StartupTasks();
 Tranga.AddDefaultWorkers();

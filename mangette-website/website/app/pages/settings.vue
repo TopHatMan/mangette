@@ -34,6 +34,20 @@
             </UCard>
             <UCard v-if="settingsStatus === 'success'">
                 <template #header>
+                    <h1>FlareSolverr</h1>
+                </template>
+                <p class="text-muted text-sm mb-3">
+                    Cloudflare bypass. Mangette expects the Docker sidecar at this URL (`docker compose up -d`).
+                </p>
+                <div class="flex max-sm:flex-col flex-row gap-2 items-stretch">
+                    <UInput v-model="flareUrl" class="grow" placeholder="http://127.0.0.1:8191" />
+                    <UButton class="w-fit" :loading="savingFlare" @click="saveFlare">Save</UButton>
+                    <UButton class="w-fit" variant="outline" :loading="testingFlare" @click="testFlare">Test</UButton>
+                </div>
+                <p v-if="flareMessage" class="mt-2 text-sm" :class="flareOk ? 'text-success' : 'text-error'">{{ flareMessage }}</p>
+            </UCard>
+            <UCard v-if="settingsStatus === 'success'">
+                <template #header>
                     <h1>Notifications</h1>
                 </template>
                 <NotificationConnectors />
@@ -129,7 +143,52 @@ const onKavitaClick = async () => {
     }
 };
 
-const { status: settingsStatus } = useApi('/v2/Settings', { key: FetchKeys.Settings.All, server: false });
+const { data: settings, status: settingsStatus } = useApi('/v2/Settings', { key: FetchKeys.Settings.All, server: false });
+const flareUrl = ref('http://127.0.0.1:8191');
+const savingFlare = ref(false);
+const testingFlare = ref(false);
+const flareMessage = ref('');
+const flareOk = ref(false);
+
+watch(
+    settings,
+    (value) => {
+        if (value?.flareSolverrUrl)
+            flareUrl.value = value.flareSolverrUrl;
+    },
+    { immediate: true },
+);
+
+const saveFlare = async () => {
+    savingFlare.value = true;
+    flareMessage.value = '';
+    try {
+        await $api('/v2/Settings/FlareSolverr/Url', { method: 'PATCH', body: flareUrl.value });
+        await refreshNuxtData(FetchKeys.Settings.All);
+        flareOk.value = true;
+        flareMessage.value = 'Saved.';
+    } catch {
+        flareOk.value = false;
+        flareMessage.value = 'Could not save FlareSolverr URL.';
+    } finally {
+        savingFlare.value = false;
+    }
+};
+
+const testFlare = async () => {
+    testingFlare.value = true;
+    flareMessage.value = '';
+    try {
+        await $api('/v2/Settings/FlareSolverr/Test', { method: 'POST' });
+        flareOk.value = true;
+        flareMessage.value = 'FlareSolverr is reachable.';
+    } catch {
+        flareOk.value = false;
+        flareMessage.value = 'FlareSolverr is not reachable. Run: docker compose up -d';
+    } finally {
+        testingFlare.value = false;
+    }
+};
 
 const { data: stats } = useApi('/v2/Stats', { server: false });
 const deCamel = (camel: string): string =>
