@@ -1,0 +1,5 @@
+website/node_modules/
+website/.nuxt/
+website/.output/
+website/.data/
+website/dist/

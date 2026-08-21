@@ -57,4 +57,14 @@
     <ItemGroup>
         <CompilerVisibleProperty Include="IncludeGitInformation" />
     </ItemGroup>
+
+    <Target Name="EmbedFrontend" BeforeTargets="ComputeFilesToPublish" Condition="'$(SkipFrontend)' != 'true' and Exists('$(MSBuildProjectDirectory)\..\mangette-website\website\package.json')">
+        <PropertyGroup>
+            <FrontendDir>$(MSBuildProjectDirectory)\..\mangette-website\website</FrontendDir>
+            <WwwrootDir>$(MSBuildProjectDirectory)\wwwroot</WwwrootDir>
+        </PropertyGroup>
+        <Exec Command="npm ci" WorkingDirectory="$(FrontendDir)" />
+        <Exec Command="npm run generate" WorkingDirectory="$(FrontendDir)" />
+        <Exec Command="node &quot;$(MSBuildProjectDirectory)\..\scripts\embed-frontend.cjs&quot;" />
+    </Target>
 </Project>

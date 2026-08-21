@@ -114,11 +114,6 @@ ApiVersionSet apiVersionSet = app.NewApiVersionSet()
 
 app.UseCors("AllowAll");
 
-log.Debug("Mapping Controllers...");
-app.MapControllers()
-    .WithApiVersionSet(apiVersionSet)
-    .MapToApiVersion(2);
-
 log.Debug("Adding Swagger...");
 app.UseSwagger(opts =>
 {
@@ -131,6 +126,14 @@ app.UseSwaggerUI(opts =>
 });
 
 app.UseHttpsRedirection();
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+log.Debug("Mapping Controllers...");
+app.MapControllers()
+    .WithApiVersionSet(apiVersionSet)
+    .MapToApiVersion(2);
+app.MapFallbackToFile("index.html");
 
 if (IsOpenApiDocumentGeneration())
 {

@@ -24,6 +24,10 @@ Tranga/Properties/launchSettings.json
 
 /Manga/
 /data/
+mangette-website/website/node_modules/
+mangette-website/website/.nuxt/
+mangette-website/website/.output/
+mangette-website/website/.data/
 debug/
 cover.jpg
 cover.png
