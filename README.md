@@ -87,14 +87,35 @@ Default order (change it in Settings → Download source priority):
 
 If a source returns 403, Cloudflare, or an empty image list, that source is backed off (30 minutes, doubling up to 6 hours) instead of being retried every minute. The next source in the list is used for the same chapter.
 
-## Cloudflare bypass (no Docker)
+## Cloudflare bypass
 
 When a site returns 403/429/Cloudflare, Mangette retries with **built-in Chromium**:
 
 1. Google Chrome or Microsoft Edge on the machine, or
 2. A Chromium build downloaded into `data/chromium` on first use
 
-Settings → **Cloudflare bypass** → **Test Chromium**. Optional FlareSolverr URL is only if you still run one. `CHROME_BIN` / `PUPPETEER_EXECUTABLE_PATH` override the browser path.
+Settings → **Cloudflare bypass** → **Test Chromium**. `CHROME_BIN` / `PUPPETEER_EXECUTABLE_PATH` override the browser path.
+
+### Optional FlareSolverr on a Debian VM (`192.168.1.210:8181`)
+
+Mangette on Windows can use FlareSolverr in Docker on the VM. Compose binds **all interfaces** on host port **8181** (not loopback-only).
+
+On the VM (bridged adapter so `192.168.1.210` is on the LAN):
+
+```bash
+# clone or copy this repo onto the VM, then:
+docker compose up -d
+# or: bash scripts/run-flaresolverr.sh
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8181/
+```
+
+If `ufw` is active: `ufw allow 8181/tcp`. NAT-only VMs need a VirtualBox TCP 8181 → 8181 forward.
+
+On Windows, Settings → Cloudflare bypass → `http://192.168.1.210:8181` → Save → Test FlareSolverr. Or reinstall the service:
+
+```powershell
+.\scripts\install-win-service.ps1 -FlareSolverrUrl http://192.168.1.210:8181
+```
 
 ## Publish a single-file binary
 
