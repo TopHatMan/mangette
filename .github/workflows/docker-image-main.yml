@@ -42,4 +42,4 @@ jobs:
           pull: true
           push: true
           tags: |
-            glax/tranga-api:latest
+            tophatman/mangette:latest

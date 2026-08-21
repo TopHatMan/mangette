@@ -47,34 +47,37 @@ bool retVal = xyz?
 
 ### If you want to add a new Website-Connector:
 
-1. Copy one of the existing connectors, or start from scratch and inherit from `API.Schema.MangaConnectors.MangaConnector`.
-2. Add the new Connector as Object-Instance in `Tranga.cs` to the MangaConnector-Array `connectors`.
+1. Copy one of the existing connectors, or start from scratch and inherit from `API.MangaConnectors.MangaConnector`.
+2. Add the new Connector as Object-Instance in `Mangette.cs` to the MangaConnector-Array `MangaConnectors`.
 3. Add the discriminator to the `MangaContext.cs` `MangaConnector`-Entity
 
 ### Database and EF Core
 
-Tranga is using a **code-first** EF-Core approach. If you modify the database(context) schema you need to create a migration.
+Mangette uses a **code-first** EF Core approach with SQLite (`./data/mangette.db`). If you modify the database schema you need to create a migration.
 
-###### Configuration Environment-Variables:
+Useful environment variables:
 
-| variable          | default-value    |
-|-------------------|------------------|
-| POSTGRES_HOST     | `tranga-pg:5432` |
-| POSTGRES_DB       | `postgres`       |
-| POSTGRES_USER     | `postgres`       |
-| POSTGRES_PASSWORD | `postgres`       |
+| variable | default |
+| --- | --- |
+| `PORT` | `8585` |
+| `MANGETTE_HOME` | folder next to the executable |
+| `DOWNLOAD_LOCATION` | `./Manga` |
+| `FLARESOLVERR_URL` | `http://127.0.0.1:8191` |
 
 ### A broad overview of where is what:
 
 ![Image](DB-Layout.png)
 
 - `Program.cs` Configuration for ASP.NET, Swagger (also in `NamedSwaggerGenOptions.cs`)
-- `Tranga.cs` Worker-Logic
+- `Mangette.cs` Worker-Logic
 - `Schema/**` Entity-Framework Schema Definitions
 - `MangaDownloadClients/**` Networking-Clients for Scraping
 - `Controllers/**` ASP.NET Controllers (Endpoints)
 
 ### How to test locally
 
-In the Project root a `docker-compose.local.yaml` file will spin up a Postgres Database with the correct settings.
-The [launchsettings.json](https://github.com/C9Glax/tranga/blob/main/API/Properties/launchSettings.json) will take care of the ENV vars for the API.
+```bash
+dotnet run --project API/API.csproj
+```
+
+Then open http://localhost:8585. FlareSolverr: `docker compose up -d`.

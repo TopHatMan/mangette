@@ -19,10 +19,10 @@ internal static class SqliteStorage
     {
         get
         {
-            Directory.CreateDirectory(TrangaSettings.DataDirectory);
+            Directory.CreateDirectory(MangetteSettings.DataDirectory);
             return new SqliteConnectionStringBuilder
             {
-                DataSource = TrangaSettings.DatabasePath,
+                DataSource = MangetteSettings.DatabasePath,
                 Cache = SqliteCacheMode.Shared,
                 Mode = SqliteOpenMode.ReadWriteCreate,
                 Pooling = true,

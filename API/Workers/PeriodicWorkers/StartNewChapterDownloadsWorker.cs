@@ -32,14 +32,14 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
         List<MangaConnectorId<Chapter>> missingChapters = await GetMissingChapters(MangaContext, CancellationToken);
         
         Log.DebugFormat("Found {0} missing chapters.", missingChapters.Count);
-        List<DownloadChapterFromMangaconnectorWorker> runningDownloads = Tranga.GetRunningWorkers()
+        List<DownloadChapterFromMangaconnectorWorker> runningDownloads = Mangette.GetRunningWorkers()
             .OfType<DownloadChapterFromMangaconnectorWorker>()
             .ToList();
         HashSet<string> inFlightConnectorIds = runningDownloads.Select(w => w.ChapterIdId).ToHashSet();
         HashSet<string> inFlightChapterKeys = runningDownloads.Select(w => w.ChapterKey).ToHashSet();
 
         int downloadWorkers = runningDownloads.Count;
-        int amountNewWorkers = Math.Max(0, Tranga.Settings.MaxConcurrentDownloads - downloadWorkers);
+        int amountNewWorkers = Math.Max(0, Mangette.Settings.MaxConcurrentDownloads - downloadWorkers);
         
         Log.DebugFormat("{0} running download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
 

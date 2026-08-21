@@ -1,5 +1,5 @@
 <template>
-    <TrangaPage>
+    <MangettePage>
         <template #title>
             <h1 class="text-2xl">
                 Manga with Tag <UBadge variant="outline" color="primary" class="font-semibold text-xl ml-1">{{ tag }}</UBadge>
@@ -11,7 +11,7 @@
                 class="overflow-y-scroll h-full"
                 @click="(m) => navigateTo(`/manga/${m.key}?return=${$route.fullPath}`)" />
         </LoadingPage>
-    </TrangaPage>
+    </MangettePage>
 </template>
 
 <script setup lang="ts">

@@ -138,7 +138,7 @@ public abstract class BaseWorker : Identifiable
         Log.InfoFormat("Waiting for {0} Dependencies {1}:\n\t{2}", MissingDependencies.Count(), this, string.Join("\n\t", MissingDependencies.Select(d => d.ToString())));
         while (!_cancellationTokenSource.IsCancellationRequested && MissingDependencies.Any())
         {
-            Thread.Sleep(Tranga.Settings.WorkCycleTimeoutMs);  
+            Thread.Sleep(Mangette.Settings.WorkCycleTimeoutMs);  
         }
         return [this];
     }

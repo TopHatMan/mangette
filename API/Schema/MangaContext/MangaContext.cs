@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Query;
 
 namespace API.Schema.MangaContext;
 
-public class MangaContext(DbContextOptions<MangaContext> options) : TrangaBaseContext<MangaContext>(options)
+public class MangaContext(DbContextOptions<MangaContext> options) : MangetteBaseContext<MangaContext>(options)
 {
     public DbSet<Manga> Mangas { get; set; }
     public DbSet<FileLibrary> FileLibraries { get; set; }

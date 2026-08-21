@@ -113,7 +113,7 @@ internal class ChromiumDownloadClient : IDownloadClient, IAsyncDisposable
         {
             page = await _browser.NewPageAsync();
 
-            await page.SetUserAgentAsync(Tranga.Settings.UserAgent);
+            await page.SetUserAgentAsync(Mangette.Settings.UserAgent);
 
             if (!string.IsNullOrEmpty(referrer))
             {

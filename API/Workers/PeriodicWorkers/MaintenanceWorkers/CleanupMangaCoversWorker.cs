@@ -22,10 +22,10 @@ public class CleanupMangaCoversWorker(TimeSpan? interval = null, IEnumerable<Bas
     {
         Log.Info("Removing stale files...");
         string[] usedFiles = await MangaContext.Mangas.Where(m => m.CoverFileNameInCache != null).Select(m => m.CoverFileNameInCache!).ToArrayAsync(CancellationToken);
-        CleanupImageCache(usedFiles, TrangaSettings.CoverImageCacheOriginal);
-        CleanupImageCache(usedFiles, TrangaSettings.CoverImageCacheLarge);
-        CleanupImageCache(usedFiles, TrangaSettings.CoverImageCacheMedium);
-        CleanupImageCache(usedFiles, TrangaSettings.CoverImageCacheSmall);
+        CleanupImageCache(usedFiles, MangetteSettings.CoverImageCacheOriginal);
+        CleanupImageCache(usedFiles, MangetteSettings.CoverImageCacheLarge);
+        CleanupImageCache(usedFiles, MangetteSettings.CoverImageCacheMedium);
+        CleanupImageCache(usedFiles, MangetteSettings.CoverImageCacheSmall);
         return [];
     }
 

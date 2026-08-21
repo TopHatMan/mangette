@@ -1,5 +1,5 @@
 <template>
-    <TrangaPage>
+    <MangettePage>
         <UPageSection title="Settings" :ui="{ container: 'py-2 sm:py-2 lg:py-2 gap-2' }">
             <template #description>
                 <div v-if="settingsStatus === 'error'">
@@ -133,7 +133,7 @@
                 </div>
             </UCard>
         </UPageSection>
-    </TrangaPage>
+    </MangettePage>
 </template>
 
 <script setup lang="ts">

@@ -17,13 +17,13 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         Log.DebugFormat("Using {0} for {1}", typeof(FlareSolverrDownloadClient).FullName, url);
         if(referrer is not null)
             Log.Warn("Client can not set referrer");
-        if (Tranga.Settings.FlareSolverrUrl == string.Empty)
+        if (Mangette.Settings.FlareSolverrUrl == string.Empty)
         {
             Log.Error("FlareSolverr URL is empty");
             return new(HttpStatusCode.InternalServerError);
         }
         
-        Uri flareSolverrUri = new (Tranga.Settings.FlareSolverrUrl);
+        Uri flareSolverrUri = new (Mangette.Settings.FlareSolverrUrl);
         if (flareSolverrUri.Segments.Last() != "v1")
             flareSolverrUri = new UriBuilder(flareSolverrUri)
             {
@@ -51,7 +51,7 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         }
         catch (HttpRequestException e)
         {
-            Log.Error($"FlareSolverr at {Tranga.Settings.FlareSolverrUrl} is not reachable. Start it with: docker compose up -d. {e.Message}");
+            Log.Error($"FlareSolverr at {Mangette.Settings.FlareSolverrUrl} is not reachable. Start it with: docker compose up -d. {e.Message}");
             return new (HttpStatusCode.InternalServerError);
         }
         catch (TaskCanceledException e)

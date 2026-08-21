@@ -1,5 +1,5 @@
 <template>
-    <TrangaPage>
+    <MangettePage>
         <div class="flex flex-col items-center justify-center gap-10">
             <div class="flex flex-row max-sm:flex-col justify-evenly items-center">
                 <MangaCard v-if="manga" :manga="manga" :expanded="true" />
@@ -21,7 +21,7 @@
             <p class="text-red-500 animate-pulse font-bold min-sm:text-3xl">This action is irreversible!</p>
             <UButton color="warning" variant="outline" class="w-fit" @click="merge">Merge</UButton>
         </div>
-    </TrangaPage>
+    </MangettePage>
 </template>
 
 <script setup lang="ts">

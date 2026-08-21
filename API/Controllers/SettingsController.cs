@@ -16,14 +16,14 @@ namespace API.Controllers;
 public class SettingsController(MangaContext context) : ControllerBase
 {
     /// <summary>
-    /// Get all <see cref="Tranga.Settings"/>
+    /// Get all <see cref="Mangette.Settings"/>
     /// </summary>
     /// <response code="200"></response>
     [HttpGet]
-    [ProducesResponseType<TrangaSettings>(Status200OK, "application/json")]
-    public Ok<TrangaSettings> GetSettings()
+    [ProducesResponseType<MangetteSettings>(Status200OK, "application/json")]
+    public Ok<MangetteSettings> GetSettings()
     {
-        return TypedResults.Ok(Tranga.Settings);
+        return TypedResults.Ok(Mangette.Settings);
     }
 
     /// <summary>
@@ -31,17 +31,17 @@ public class SettingsController(MangaContext context) : ControllerBase
     /// Listen port changes take effect after restart.
     /// </summary>
     [HttpPatch]
-    [ProducesResponseType<TrangaSettings>(Status200OK, "application/json")]
+    [ProducesResponseType<MangetteSettings>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
     [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
-    public async Task<Results<Ok<TrangaSettings>, BadRequest<string>, InternalServerError<string>>> PatchSetup(
+    public async Task<Results<Ok<MangetteSettings>, BadRequest<string>, InternalServerError<string>>> PatchSetup(
         [FromBody] PatchSetupSettingsRecord requestData)
     {
         if (requestData.ListenPort is { } port)
         {
             if (port is <= 0 or >= 65536)
                 return TypedResults.BadRequest("ListenPort must be between 1 and 65535.");
-            Tranga.Settings.SetListenPort(port);
+            Mangette.Settings.SetListenPort(port);
         }
 
         if (requestData.TempDownloadPath is { } tempPath)
@@ -50,7 +50,7 @@ public class SettingsController(MangaContext context) : ControllerBase
                 return TypedResults.BadRequest("TempDownloadPath cannot be empty.");
             try
             {
-                Tranga.Settings.SetTempDownloadPath(tempPath);
+                Mangette.Settings.SetTempDownloadPath(tempPath);
             }
             catch (Exception ex)
             {
@@ -62,7 +62,7 @@ public class SettingsController(MangaContext context) : ControllerBase
         {
             if (string.IsNullOrWhiteSpace(libraryPath))
                 return TypedResults.BadRequest("LibraryPath cannot be empty.");
-            string full = TrangaSettings.NormalizeDirectory(libraryPath, TrangaSettings.DefaultDownloadLocation);
+            string full = MangetteSettings.NormalizeDirectory(libraryPath, MangetteSettings.DefaultDownloadLocation);
             try
             {
                 Directory.CreateDirectory(full);
@@ -90,28 +90,28 @@ public class SettingsController(MangaContext context) : ControllerBase
         }
 
         if (requestData.MaxConcurrentDownloads is { } downloads)
-            Tranga.Settings.SetMaxConcurrentDownloads(downloads);
+            Mangette.Settings.SetMaxConcurrentDownloads(downloads);
         if (requestData.MaxConcurrentWorkers is { } workers)
-            Tranga.Settings.SetMaxConcurrentWorkers(workers);
+            Mangette.Settings.SetMaxConcurrentWorkers(workers);
         if (requestData.DownloadLanguage is { } language && !string.IsNullOrWhiteSpace(language))
-            Tranga.Settings.SetDownloadLanguage(language.Trim());
+            Mangette.Settings.SetDownloadLanguage(language.Trim());
         if (requestData.ChapterNamingScheme is { } scheme && !string.IsNullOrWhiteSpace(scheme))
-            Tranga.Settings.SetChapterNamingScheme(scheme);
+            Mangette.Settings.SetChapterNamingScheme(scheme);
         if (requestData.FlareSolverrUrl is { } flare)
-            Tranga.Settings.SetFlareSolverrUrl(flare.Trim());
+            Mangette.Settings.SetFlareSolverrUrl(flare.Trim());
 
-        return TypedResults.Ok(Tranga.Settings);
+        return TypedResults.Ok(Mangette.Settings);
     }
     
     /// <summary>
-    /// Get the current UserAgent used by Tranga
+    /// Get the current UserAgent used by Mangette
     /// </summary>
     /// <response code="200"></response>
     [HttpGet("UserAgent")]
     [ProducesResponseType<string>(Status200OK, "text/plain")]
     public Ok<string> GetUserAgent()
     {
-        return TypedResults.Ok(Tranga.Settings.UserAgent);
+        return TypedResults.Ok(Mangette.Settings.UserAgent);
     }
     
     /// <summary>
@@ -123,7 +123,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     public Ok SetUserAgent([FromBody]string userAgent)
     {
         //TODO Validate
-        Tranga.Settings.SetUserAgent(userAgent);
+        Mangette.Settings.SetUserAgent(userAgent);
         return TypedResults.Ok();
     }
     
@@ -135,7 +135,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok ResetUserAgent()
     {
-        Tranga.Settings.SetUserAgent(TrangaSettings.DefaultUserAgent);
+        Mangette.Settings.SetUserAgent(MangetteSettings.DefaultUserAgent);
         return TypedResults.Ok();
     }
     
@@ -147,7 +147,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType<int>(Status200OK, "text/plain")]
     public Ok<int> GetImageCompression()
     {
-        return TypedResults.Ok(Tranga.Settings.ImageCompression);
+        return TypedResults.Ok(Mangette.Settings.ImageCompression);
     }
     
     /// <summary>
@@ -163,7 +163,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     {
         if (level < 1 || level > 100)
             return TypedResults.BadRequest();
-        Tranga.Settings.UpdateImageCompression(level);
+        Mangette.Settings.UpdateImageCompression(level);
         return TypedResults.Ok();
     }
     
@@ -175,7 +175,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType<bool>(Status200OK, "text/plain")]
     public Ok<bool> GetBwImagesToggle()
     {
-        return TypedResults.Ok(Tranga.Settings.BlackWhiteImages);
+        return TypedResults.Ok(Mangette.Settings.BlackWhiteImages);
     }
     
     /// <summary>
@@ -187,7 +187,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok SetBwImagesToggle(bool enabled)
     {
-        Tranga.Settings.SetBlackWhiteImageEnabled(enabled);
+        Mangette.Settings.SetBlackWhiteImageEnabled(enabled);
         return TypedResults.Ok();
     }
     
@@ -213,7 +213,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType<string>(Status200OK, "text/plain")]
     public Ok<string> GetCustomNamingScheme()
     {
-        return TypedResults.Ok(Tranga.Settings.ChapterNamingScheme);
+        return TypedResults.Ok(Mangette.Settings.ChapterNamingScheme);
     }
     
     /// <summary>
@@ -237,7 +237,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     public Ok SetCustomNamingScheme([FromBody]string namingScheme)
     {
         //TODO Move old Chapters
-        Tranga.Settings.SetChapterNamingScheme(namingScheme);
+        Mangette.Settings.SetChapterNamingScheme(namingScheme);
         
         return TypedResults.Ok();
     }
@@ -249,7 +249,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType<List<string>>(Status200OK, "application/json")]
     public Ok<List<string>> GetConnectorPriority()
     {
-        return TypedResults.Ok(Tranga.Settings.ConnectorPriority);
+        return TypedResults.Ok(Mangette.Settings.ConnectorPriority);
     }
 
     /// <summary>
@@ -259,8 +259,8 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType<List<string>>(Status200OK, "application/json")]
     public Ok<List<string>> SetConnectorPriority([FromBody] string[] names)
     {
-        Tranga.Settings.SetConnectorPriority(names);
-        return TypedResults.Ok(Tranga.Settings.ConnectorPriority);
+        Mangette.Settings.SetConnectorPriority(names);
+        return TypedResults.Ok(Mangette.Settings.ConnectorPriority);
     }
 
     /// <summary>
@@ -272,7 +272,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok SetFlareSolverrUrl([FromBody]string flareSolverrUrl)
     {
-        Tranga.Settings.SetFlareSolverrUrl(flareSolverrUrl);
+        Mangette.Settings.SetFlareSolverrUrl(flareSolverrUrl);
         return TypedResults.Ok();
     }
 
@@ -284,7 +284,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok ClearFlareSolverrUrl()
     {
-        Tranga.Settings.SetFlareSolverrUrl(string.Empty);
+        Mangette.Settings.SetFlareSolverrUrl(string.Empty);
         return TypedResults.Ok();
     }
 
@@ -312,7 +312,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType<string>(Status200OK,  "text/plain")]
     public Ok<string> GetDownloadLanguage()
     {
-        return TypedResults.Ok(Tranga.Settings.DownloadLanguage);
+        return TypedResults.Ok(Mangette.Settings.DownloadLanguage);
     }
 
     /// <summary>
@@ -324,7 +324,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     public Ok SetDownloadLanguage(string Language)
     {
         //TODO Validation
-        Tranga.Settings.SetDownloadLanguage(Language);
+        Mangette.Settings.SetDownloadLanguage(Language);
         return TypedResults.Ok();
     }
     
@@ -337,9 +337,9 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status200OK)]
     public Ok SetLibraryRefresh([FromBody]PatchLibraryRefreshRecord requestData)
     {
-        Tranga.Settings.SetLibraryRefreshSetting(requestData.Setting);
+        Mangette.Settings.SetLibraryRefreshSetting(requestData.Setting);
         if(requestData.RefreshLibraryWhileDownloadingEveryMinutes is { } value)
-            Tranga.Settings.SetRefreshLibraryWhileDownloadingEveryMinutes(value);
+            Mangette.Settings.SetRefreshLibraryWhileDownloadingEveryMinutes(value);
         return TypedResults.Ok();
     }
 }

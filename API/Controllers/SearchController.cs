@@ -29,7 +29,7 @@ public class SearchController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status406NotAcceptable)]
     public Results<Ok<List<MinimalManga>>, NotFound<string>, StatusCodeHttpResult> SearchManga (string MangaConnectorName, string Query)
     {
-        if(Tranga.MangaConnectors.FirstOrDefault(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
+        if(Mangette.MangaConnectors.FirstOrDefault(c => c.Name.Equals(MangaConnectorName, StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return TypedResults.NotFound(nameof(MangaConnectorName));
         if (!connector.Enabled)
             return TypedResults.StatusCode(Status412PreconditionFailed);
@@ -65,7 +65,7 @@ public class SearchController(MangaContext context) : ControllerBase
     public async Task<Results<Ok<MinimalManga>, NotFound<string>, InternalServerError<string>>> GetMangaFromUrl([FromQuery]string url)
     {
         url = url.Trim('"', '\'', ' '); //Trim extraneous values
-        if(Tranga.MangaConnectors.FirstOrDefault(c => c.Name.Equals("Global", StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
+        if(Mangette.MangaConnectors.FirstOrDefault(c => c.Name.Equals("Global", StringComparison.InvariantCultureIgnoreCase)) is not { } connector)
             return TypedResults.InternalServerError("Could not find Global Connector.");
 
         if(connector.GetMangaFromUrl(url) is not ({ } m, not null) manga)

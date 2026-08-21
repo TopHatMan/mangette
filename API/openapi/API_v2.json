@@ -3034,14 +3034,14 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Get all API.Tranga.Settings",
+        "summary": "Get all API.Mangette.Settings",
         "responses": {
           "200": {
             "description": "",
             "content": {
               "application/json; x-version=2.0": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrangaSettings"
+                  "$ref": "#/components/schemas/MangetteSettings"
                 }
               }
             }
@@ -3083,7 +3083,7 @@
             "content": {
               "application/json; x-version=2.0": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrangaSettings"
+                  "$ref": "#/components/schemas/MangetteSettings"
                 }
               }
             }
@@ -3116,7 +3116,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Get the current UserAgent used by Tranga",
+        "summary": "Get the current UserAgent used by Mangette",
         "responses": {
           "200": {
             "description": "",
@@ -4545,6 +4545,84 @@
         ],
         "type": "string"
       },
+      "MangetteSettings": {
+        "type": "object",
+        "properties": {
+          "listenPort": {
+            "type": "integer",
+            "description": "HTTP listen port. `PORT` env overrides. Restart required after changing.",
+            "format": "int32"
+          },
+          "userAgent": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageCompression": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "blackWhiteImages": {
+            "type": "boolean"
+          },
+          "flareSolverrUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "connectorPriority": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Connector names in download order. First match that is not cooling down wins the chapter.",
+            "nullable": true
+          },
+          "chapterNamingScheme": {
+            "type": "string",
+            "description": "Placeholders:\r\n%M Obj Name\r\n%V Volume\r\n%C Chapter\r\n%T Title\r\n%A Author (first in list)\r\n%I Chapter Internal ID\r\n%i Obj Internal ID\r\n%Y Year (Obj)\r\n            \r\n?_(...) replace _ with a value from above:\r\nEverything inside the braces will only be added if the value of %_ is not null",
+            "nullable": true
+          },
+          "workCycleTimeoutMs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "downloadLanguage": {
+            "type": "string",
+            "nullable": true
+          },
+          "tempDownloadPath": {
+            "type": "string",
+            "description": "Folder for in-progress chapter images. Packed into the library as .cbz when the chapter finishes.",
+            "nullable": true
+          },
+          "maxConcurrentDownloads": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxConcurrentWorkers": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "libraryRefreshSetting": {
+            "$ref": "#/components/schemas/LibraryRefreshSetting"
+          },
+          "refreshLibraryWhileDownloadingEveryMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultLibraryPath": {
+            "type": "string",
+            "description": "Resolved library default shown in Settings. Not stored; file libraries own the actual path.",
+            "nullable": true,
+            "readOnly": true
+          },
+          "dataFolder": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
       "MetadataEntry": {
         "type": "object",
         "properties": {
@@ -4837,84 +4915,6 @@
           "numberTags": {
             "type": "integer",
             "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "TrangaSettings": {
-        "type": "object",
-        "properties": {
-          "listenPort": {
-            "type": "integer",
-            "description": "HTTP listen port. `PORT` env overrides. Restart required after changing.",
-            "format": "int32"
-          },
-          "userAgent": {
-            "type": "string",
-            "nullable": true
-          },
-          "imageCompression": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "blackWhiteImages": {
-            "type": "boolean"
-          },
-          "flareSolverrUrl": {
-            "type": "string",
-            "nullable": true
-          },
-          "connectorPriority": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Connector names in download order. First match that is not cooling down wins the chapter.",
-            "nullable": true
-          },
-          "chapterNamingScheme": {
-            "type": "string",
-            "description": "Placeholders:\r\n%M Obj Name\r\n%V Volume\r\n%C Chapter\r\n%T Title\r\n%A Author (first in list)\r\n%I Chapter Internal ID\r\n%i Obj Internal ID\r\n%Y Year (Obj)\r\n            \r\n?_(...) replace _ with a value from above:\r\nEverything inside the braces will only be added if the value of %_ is not null",
-            "nullable": true
-          },
-          "workCycleTimeoutMs": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "downloadLanguage": {
-            "type": "string",
-            "nullable": true
-          },
-          "tempDownloadPath": {
-            "type": "string",
-            "description": "Folder for in-progress chapter images. Packed into the library as .cbz when the chapter finishes.",
-            "nullable": true
-          },
-          "maxConcurrentDownloads": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "maxConcurrentWorkers": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "libraryRefreshSetting": {
-            "$ref": "#/components/schemas/LibraryRefreshSetting"
-          },
-          "refreshLibraryWhileDownloadingEveryMinutes": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "defaultLibraryPath": {
-            "type": "string",
-            "description": "Resolved library default shown in Settings. Not stored; file libraries own the actual path.",
-            "nullable": true,
-            "readOnly": true
-          },
-          "dataFolder": {
-            "type": "string",
-            "nullable": true,
-            "readOnly": true
           }
         },
         "additionalProperties": false

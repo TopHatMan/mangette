@@ -5,11 +5,11 @@ namespace API.MangaDownloadClients;
 
 internal class HttpDownloadClient : IDownloadClient
 {
-    private static readonly HttpClient Client = new(handler: Tranga.RateLimitHandler)
+    private static readonly HttpClient Client = new(handler: Mangette.RateLimitHandler)
     {
         Timeout = TimeSpan.FromSeconds(Constants.HttpRequestTimeout),
         DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrHigher,
-        DefaultRequestHeaders = { { "User-Agent", Tranga.Settings.UserAgent } }
+        DefaultRequestHeaders = { { "User-Agent", Mangette.Settings.UserAgent } }
     };
     private static readonly FlareSolverrDownloadClient FlareSolverrDownloadClient = new(new HttpClient
     {
@@ -41,7 +41,7 @@ internal class HttpDownloadClient : IDownloadClient
             bool cloudflareHint = response.Headers.Server.Any(s =>
                     (s.Product?.Name ?? "").Contains("cloudflare", StringComparison.InvariantCultureIgnoreCase));
             bool blocked = (int)response.StatusCode is 403 or 429 or 503;
-            if ((cloudflareHint || blocked) && !string.IsNullOrWhiteSpace(Tranga.Settings.FlareSolverrUrl))
+            if ((cloudflareHint || blocked) && !string.IsNullOrWhiteSpace(Mangette.Settings.FlareSolverrUrl))
             {
                 Log.InfoFormat("Retrying {0} via FlareSolverr ({1})", url, response.StatusCode);
                 return await FlareSolverrDownloadClient.MakeRequest(url, requestType, referrer);

@@ -1,5 +1,5 @@
 <template>
-    <TrangaPage v-bind="$props">
+    <MangettePage v-bind="$props">
         <template #left>
             <div class="flex flex-col gap-2">
                 <MangaCover v-if="manga" :manga="manga" class="self-center" />
@@ -29,12 +29,12 @@
             <slot name="actions" />
         </template>
         <slot />
-    </TrangaPage>
+    </MangettePage>
 </template>
 
 <script setup lang="ts">
 import type { components } from '#open-fetch-schemas/api';
-import TrangaPage, { type PageProps } from '~/components/TrangaPage.vue';
+import MangettePage, { type PageProps } from '~/components/MangettePage.vue';
 type Manga = components['schemas']['Manga'];
 
 export interface MangaDetailPageProps extends PageProps {

@@ -44,7 +44,7 @@ public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<Ba
 
         Log.DebugFormat("Creating {0} update jobs...", connectorIdsManga.Count);
 
-        List<BaseWorker> newWorkers = connectorIdsManga.Select(id => new RetrieveMangaChaptersFromMangaconnectorWorker(id, Tranga.Settings.DownloadLanguage))
+        List<BaseWorker> newWorkers = connectorIdsManga.Select(id => new RetrieveMangaChaptersFromMangaconnectorWorker(id, Mangette.Settings.DownloadLanguage))
             .ToList<BaseWorker>();
 
         return newWorkers.ToArray();

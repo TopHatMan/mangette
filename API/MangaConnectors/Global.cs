@@ -12,7 +12,7 @@ public class Global : MangaConnector
     {
         Log.Debug("Searching Manga on all enabled connectors:");
         //Get all enabled Connectors
-        MangaConnector[] enabledConnectors = Tranga.MangaConnectors.Where(c => c.Enabled && c.Name != "Global").ToArray();
+        MangaConnector[] enabledConnectors = Mangette.MangaConnectors.Where(c => c.Enabled && c.Name != "Global").ToArray();
         Log.Debug(string.Join(", ", enabledConnectors.Select(c => c.Name)));
         
         //Create Task for each MangaConnector to search simultaneously
@@ -36,7 +36,7 @@ public class Global : MangaConnector
 
     public override (Manga, MangaConnectorId<Manga>)? GetMangaFromUrl(string url)
     {
-        MangaConnector? mc = Tranga.MangaConnectors.FirstOrDefault(c => c.UrlMatchesConnector(url));
+        MangaConnector? mc = Mangette.MangaConnectors.FirstOrDefault(c => c.UrlMatchesConnector(url));
         return mc?.GetMangaFromUrl(url) ?? null;
     }
 
@@ -48,14 +48,14 @@ public class Global : MangaConnector
     public override (Chapter, MangaConnectorId<Chapter>)[] GetChapters(MangaConnectorId<Manga> mangaId,
         string? language = null)
     {
-        if (!Tranga.TryGetMangaConnector(mangaId.MangaConnectorName, out MangaConnector? mangaConnector))
+        if (!Mangette.TryGetMangaConnector(mangaId.MangaConnectorName, out MangaConnector? mangaConnector))
             return [];
         return mangaConnector.GetChapters(mangaId, language);
     }
 
     internal override string[] GetChapterImageUrls(MangaConnectorId<Chapter> chapterId)
     {
-        if (!Tranga.TryGetMangaConnector(chapterId.MangaConnectorName, out MangaConnector? mangaConnector))
+        if (!Mangette.TryGetMangaConnector(chapterId.MangaConnectorName, out MangaConnector? mangaConnector))
             return [];
         return mangaConnector.GetChapterImageUrls(chapterId);
     }

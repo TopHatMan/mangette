@@ -44,7 +44,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             Log.Error("Could not get MangaConnectorId.");
             return []; //TODO Exception?
         }
-        if (!Tranga.TryGetMangaConnector(mangaConnectorId.MangaConnectorName, out MangaConnector? mangaConnector))
+        if (!Mangette.TryGetMangaConnector(mangaConnectorId.MangaConnectorName, out MangaConnector? mangaConnector))
         {
             Log.Error("Could not get MangaConnector.");
             return []; //TODO Exception?

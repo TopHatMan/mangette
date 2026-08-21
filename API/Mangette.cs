@@ -13,12 +13,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace API;
 
-public static class Tranga
+public static class Mangette
 {
     
     internal static IServiceProvider? ServiceProvider { get; set; }
     
-    private static readonly ILog Log = LogManager.GetLogger(typeof(Tranga));
+    private static readonly ILog Log = LogManager.GetLogger(typeof(Mangette));
     internal static readonly MetadataFetcher[] MetadataFetchers = [new MyAnimeList()];
     internal static readonly MangaConnector[] MangaConnectors =
     [
@@ -31,7 +31,7 @@ public static class Tranga
         new AsuraComic(),
         new Mangaworld()
     ];
-    internal static readonly TrangaSettings Settings = TrangaSettings.Load();
+    internal static readonly MangetteSettings Settings = MangetteSettings.Load();
     
     // ReSharper disable MemberCanBePrivate.Global
     internal static readonly UpdateMetadataWorker UpdateMetadataWorker = new ();

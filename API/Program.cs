@@ -14,16 +14,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Newtonsoft.Json.Converters;
 
-string tranga =
+string banner =
     "\n\n" +
     " Mangette\n" +
     $" Built at {BuildInformation.BuildAt} for {BuildInformation.Platform} version {BuildInformation.DotNetSdkVersion}\n" +
     $" branch: {ThisAssembly.Git.Branch} commit: {ThisAssembly.Git.Commit} tag: {ThisAssembly.Git.Tag}\n" +
-    $" UI: http://localhost:{Tranga.Settings.ListenPort}\n\n";
+    $" UI: http://localhost:{Mangette.Settings.ListenPort}\n\n";
 
 XmlConfigurator.ConfigureAndWatch(new FileInfo("Log4Net.config.xml"));
 ILog log = LogManager.GetLogger("Startup");
-log.Info(tranga);
+log.Info(banner);
 log.Info("Logger Configured.");
 
 log.Info("Starting up");
@@ -71,12 +71,13 @@ builder.Services.AddSwaggerGenNewtonsoftSupport().AddSwaggerGen(opt =>
 });
 
 log.Debug("Adding Database-Connection...");
-Directory.CreateDirectory(TrangaSettings.DataDirectory);
-Directory.CreateDirectory(TrangaSettings.DefaultDownloadLocation);
-Directory.CreateDirectory(Tranga.Settings.TempDownloadPath);
-log.InfoFormat("SQLite database: {0}", TrangaSettings.DatabasePath);
+Directory.CreateDirectory(MangetteSettings.DataDirectory);
+Directory.CreateDirectory(Path.Join(MangetteSettings.DataDirectory, "logs"));
+Directory.CreateDirectory(MangetteSettings.DefaultDownloadLocation);
+Directory.CreateDirectory(Mangette.Settings.TempDownloadPath);
+log.InfoFormat("SQLite database: {0}", MangetteSettings.DatabasePath);
 log.InfoFormat("Listening on http://*:{0}  library {1}  temp {2}",
-    Tranga.Settings.ListenPort, TrangaSettings.DefaultDownloadLocation, Tranga.Settings.TempDownloadPath);
+    Mangette.Settings.ListenPort, MangetteSettings.DefaultDownloadLocation, Mangette.Settings.TempDownloadPath);
 
 builder.Services.AddDbContext<MangaContext>(options =>
     SqliteStorage.Configure(options, SqliteStorage.MangaHistoryTable));
@@ -100,7 +101,7 @@ builder.Services.AddControllers(options =>
 });
 builder.Services.AddScoped<ILog>(_ => LogManager.GetLogger("API"));
 
-builder.WebHost.UseUrls($"http://*:{Tranga.Settings.ListenPort}");
+builder.WebHost.UseUrls($"http://*:{Mangette.Settings.ListenPort}");
 
 log.Info("Starting app...");
 WebApplication app = builder.Build();
@@ -152,7 +153,7 @@ try //Connect to DB and apply migrations
 
         if (!await context.FileLibraries.AnyAsync())
         {
-            await context.FileLibraries.AddAsync(new(TrangaSettings.DefaultDownloadLocation, "Default FileLibrary"),
+            await context.FileLibraries.AddAsync(new(MangetteSettings.DefaultDownloadLocation, "Default FileLibrary"),
                 CancellationToken.None);
             
 
@@ -207,23 +208,23 @@ catch (Exception e)
 }
 
 log.Info("Starting Mangette.");
-log.InfoFormat("FlareSolverr URL: {0}", Tranga.Settings.FlareSolverrUrl);
+log.InfoFormat("FlareSolverr URL: {0}", Mangette.Settings.FlareSolverrUrl);
 try
 {
     using HttpClient probe = new() { Timeout = TimeSpan.FromSeconds(5) };
-    HttpResponseMessage flare = await probe.GetAsync(Tranga.Settings.FlareSolverrUrl);
+    HttpResponseMessage flare = await probe.GetAsync(Mangette.Settings.FlareSolverrUrl);
     log.InfoFormat("FlareSolverr reachable ({0}).", (int)flare.StatusCode);
 }
 catch (Exception ex)
 {
     log.WarnFormat(
         "FlareSolverr is not reachable at {0} ({1}). Cloudflare-protected sites will fail until you start it: docker compose up -d",
-        Tranga.Settings.FlareSolverrUrl, ex.Message);
+        Mangette.Settings.FlareSolverrUrl, ex.Message);
 }
 
-Tranga.ServiceProvider = app.Services;
-Tranga.StartupTasks();
-Tranga.AddDefaultWorkers();
+Mangette.ServiceProvider = app.Services;
+Mangette.StartupTasks();
+Mangette.AddDefaultWorkers();
 
 log.Info("Running app.");
 await app.RunAsync();

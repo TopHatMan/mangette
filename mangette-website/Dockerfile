@@ -14,9 +14,9 @@ FROM nginx:alpine3.22-slim
 
 # Copy built files from Vite's dist folder
 COPY --from=builder /app/.output/public /usr/share/nginx/html
-#COPY --from=builder /app/tranga-website/media /usr/share/nginx/html/media
+#COPY --from=builder /app/media /usr/share/nginx/html/media
 COPY ./nginx /etc/nginx
 
 EXPOSE 80
-ENV API_URL=http://tranga-api:6531
+ENV API_URL=http://127.0.0.1:8585
 CMD ["nginx", "-g", "daemon off;"]

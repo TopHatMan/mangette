@@ -4,6 +4,10 @@
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <AssemblyName>Mangette</AssemblyName>
+        <RootNamespace>API</RootNamespace>
+        <Product>Mangette</Product>
+        <AssemblyTitle>Mangette</AssemblyTitle>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <NoWarn>$(NoWarn);1591</NoWarn>

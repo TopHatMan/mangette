@@ -5,7 +5,7 @@ using Newtonsoft.Json.Converters;
 
 namespace API;
 
-public class TrangaSettings
+public class MangetteSettings
 {
     public const int DefaultListenPort = 8585;
     [JsonIgnore] public static bool Debug => bool.Parse(Environment.GetEnvironmentVariable("DEBUG") ?? "false");
@@ -72,17 +72,17 @@ public class TrangaSettings
     [JsonProperty] public string DefaultLibraryPath => DefaultDownloadLocation;
     [JsonProperty] public string DataFolder => DataDirectory;
 
-    public TrangaSettings()
+    public MangetteSettings()
     {
         Directory.CreateDirectory(WorkingDirectory);
     }
 
-    public static TrangaSettings Load()
+    public static MangetteSettings Load()
     {
         if (!File.Exists(SettingsFilePath))
-            new TrangaSettings().Save();
-        TrangaSettings settings = JsonConvert.DeserializeObject<TrangaSettings>(File.ReadAllText(SettingsFilePath), new StringEnumConverter())
-                                  ?? new TrangaSettings();
+            new MangetteSettings().Save();
+        MangetteSettings settings = JsonConvert.DeserializeObject<MangetteSettings>(File.ReadAllText(SettingsFilePath), new StringEnumConverter())
+                                  ?? new MangetteSettings();
         string? envUrl = Environment.GetEnvironmentVariable("FLARESOLVERR_URL");
         if (!string.IsNullOrWhiteSpace(envUrl))
             settings.FlareSolverrUrl = envUrl;
@@ -178,7 +178,7 @@ public class TrangaSettings
 
     public static List<string> NormalizeConnectorPriority(IEnumerable<string>? names)
     {
-        HashSet<string> known = Tranga.MangaConnectors
+        HashSet<string> known = Mangette.MangaConnectors
             .Select(c => c.Name)
             .Where(n => !n.Equals("Global", StringComparison.OrdinalIgnoreCase))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);

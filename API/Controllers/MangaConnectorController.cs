@@ -21,7 +21,7 @@ public class MangaConnectorController(MangaContext context) : ControllerBase
     [ProducesResponseType<List<MangaConnector>>(Status200OK, "application/json")]
     public Ok<List<MangaConnector>> GetConnectors()
     {
-        return TypedResults.Ok(Tranga.MangaConnectors
+        return TypedResults.Ok(Mangette.MangaConnectors
             .Select(c => new MangaConnector(c.Name, c.Enabled, c.IconUrl, c.SupportedLanguages))
             .ToList());
     }
@@ -37,7 +37,7 @@ public class MangaConnectorController(MangaContext context) : ControllerBase
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public Results<Ok<MangaConnector>, NotFound<string>> GetConnector(string MangaConnectorName)
     {
-        if(!Tranga.TryGetMangaConnector(MangaConnectorName, out MangaConnectors.MangaConnector? connector))
+        if(!Mangette.TryGetMangaConnector(MangaConnectorName, out MangaConnectors.MangaConnector? connector))
             return TypedResults.NotFound(nameof(MangaConnectorName));
         
         return TypedResults.Ok(new MangaConnector(connector.Name, connector.Enabled, connector.IconUrl, connector.SupportedLanguages));
@@ -51,7 +51,7 @@ public class MangaConnectorController(MangaContext context) : ControllerBase
     [ProducesResponseType<List<MangaConnector>>(Status200OK, "application/json")]
     public Ok<List<MangaConnector>> GetEnabledConnectors(bool Enabled)
     {
-        return TypedResults.Ok(Tranga.MangaConnectors
+        return TypedResults.Ok(Mangette.MangaConnectors
             .Where(c => c.Enabled == Enabled)
             .Select(c => new MangaConnector(c.Name, c.Enabled, c.IconUrl, c.SupportedLanguages))
             .ToList());
@@ -71,7 +71,7 @@ public class MangaConnectorController(MangaContext context) : ControllerBase
     [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
     public async Task<Results<Ok, NotFound<string>, InternalServerError<string>>> SetEnabled(string MangaConnectorName, bool Enabled)
     {
-        if(!Tranga.TryGetMangaConnector(MangaConnectorName, out MangaConnectors.MangaConnector? connector))
+        if(!Mangette.TryGetMangaConnector(MangaConnectorName, out MangaConnectors.MangaConnector? connector))
             return TypedResults.NotFound(nameof(MangaConnectorName));
         
         connector.Enabled = Enabled;

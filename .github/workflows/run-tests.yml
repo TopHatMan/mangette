@@ -17,13 +17,13 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '9.x'
+          dotnet-version: '10.x'
 
       - name: Restore dependencies
-        run: dotnet restore ./Tranga.sln
+        run: dotnet restore ./Mangette.sln
 
       - name: Build the solution
-        run: dotnet build ./Tranga.sln --configuration Release --no-restore
+        run: dotnet build ./Mangette.sln --configuration Release --no-restore
 
       - name: Run unit tests with report
         run: dotnet test ./Tests/Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=TestResults.trx"

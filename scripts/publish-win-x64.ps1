@@ -14,5 +14,5 @@ dotnet publish (Join-Path $Root "API\API.csproj") `
 
 Write-Host ""
 Write-Host "Published to $Out"
-Write-Host "Run:  $Out\API.exe"
+Write-Host "Run:  $Out\Mangette.exe"
 Write-Host "Open: http://localhost:8585"

@@ -47,7 +47,7 @@ public class UpdateMetadataWorker(TimeSpan? interval = null, IEnumerable<BaseWor
         foreach (MetadataEntry metadataEntry in metadataEntriesToUpdate)
         {
             Log.DebugFormat("Updating metadata of {0}...", metadataEntry);
-            if(Tranga.MetadataFetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
+            if(Mangette.MetadataFetchers.FirstOrDefault(f => f.Name == metadataEntry.MetadataFetcherName) is not { } fetcher)
                 continue;
             await fetcher.UpdateMetadata(metadataEntry, MangaContext, CancellationToken);
             ActionsContext.Actions.Add(new MetadataUpdatedActionRecord(metadataEntry.Manga, fetcher));

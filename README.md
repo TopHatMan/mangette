@@ -23,14 +23,14 @@ That publishes FlareSolverr at `http://127.0.0.1:8191`. Mangette uses that URL b
 Linux (Debian/x64):
 
 ```bash
-chmod +x API
-./API
+chmod +x Mangette
+./Mangette
 ```
 
 Windows:
 
 ```powershell
-.\API.exe
+.\Mangette.exe
 ```
 
 Then open http://localhost:8585.
@@ -92,14 +92,14 @@ Linux x64 (primary):
 
 ```bash
 bash scripts/publish-linux-x64.sh
-# dist/linux-x64/API
+# dist/linux-x64/Mangette
 ```
 
 Windows x64:
 
 ```powershell
 .\scripts\publish-win-x64.ps1
-# dist\win-x64\API.exe
+# dist\win-x64\Mangette.exe
 ```
 
 Rebuild the UI as part of publish with `SKIP_FRONTEND=false` (needs Node.js).

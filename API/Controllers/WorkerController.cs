@@ -21,7 +21,7 @@ public class WorkerController : ControllerBase
     [ProducesResponseType<List<Worker>>(Status200OK, "application/json")]
     public Ok<List<Worker>> GetWorkers()
     {
-        IEnumerable<Worker> result = Tranga.GetKnownWorkers().Select(w =>
+        IEnumerable<Worker> result = Mangette.GetKnownWorkers().Select(w =>
             new Worker(w.Key, w.AllDependencies.Select(d => d.Key), w.MissingDependencies.Select(d => d.Key), w.AllDependenciesFulfilled, w.State));
         return TypedResults.Ok(result.ToList());
     }
@@ -35,7 +35,7 @@ public class WorkerController : ControllerBase
     [ProducesResponseType<List<Worker>>(Status200OK, "application/json")]
     public Ok<List<Worker>> GetWorkersInState(WorkerExecutionState State)
     {
-        IEnumerable<Worker> result = Tranga.GetKnownWorkers().Where(worker => worker.State == State).Select(w =>
+        IEnumerable<Worker> result = Mangette.GetKnownWorkers().Where(worker => worker.State == State).Select(w =>
             new Worker(w.Key, w.AllDependencies.Select(d => d.Key), w.MissingDependencies.Select(d => d.Key), w.AllDependenciesFulfilled, w.State));
         return TypedResults.Ok(result.ToList());
     }
@@ -51,7 +51,7 @@ public class WorkerController : ControllerBase
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     public Results<Ok<Worker>, NotFound<string>> GetWorker(string WorkerId)
     {
-        if(Tranga.GetKnownWorkers().FirstOrDefault(w => w.Key == WorkerId) is not { } w)
+        if(Mangette.GetKnownWorkers().FirstOrDefault(w => w.Key == WorkerId) is not { } w)
             return TypedResults.NotFound(nameof(WorkerId));
         
         Worker result = new (w.Key, w.AllDependencies.Select(d => d.Key), w.MissingDependencies.Select(d => d.Key), w.AllDependenciesFulfilled, w.State);
@@ -72,13 +72,13 @@ public class WorkerController : ControllerBase
     [ProducesResponseType(Status412PreconditionFailed)]
     public Results<Ok, NotFound<string>, StatusCodeHttpResult> StopWorker(string WorkerId)
     {
-        if(Tranga.GetRunningWorkers().FirstOrDefault(w => w.Key == WorkerId) is not { } worker)
+        if(Mangette.GetRunningWorkers().FirstOrDefault(w => w.Key == WorkerId) is not { } worker)
             return TypedResults.NotFound(nameof(WorkerId));
         
         if(worker.State is < WorkerExecutionState.Running or >= WorkerExecutionState.Completed)
             return TypedResults.StatusCode(Status412PreconditionFailed);
         
-        Tranga.StopWorker(worker);
+        Mangette.StopWorker(worker);
         return TypedResults.Ok();
     }
 }

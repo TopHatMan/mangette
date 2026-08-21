@@ -22,7 +22,7 @@ public class NotificationConnector(string name, string url, Dictionary<string, s
 
     [NotMapped] private readonly HttpClient Client = new()
     {
-        DefaultRequestHeaders = { { "User-Agent", Tranga.Settings.UserAgent } }
+        DefaultRequestHeaders = { { "User-Agent", Mangette.Settings.UserAgent } }
     };
     
     [JsonIgnore] protected ILog Log = LogManager.GetLogger(name);

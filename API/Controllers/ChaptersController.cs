@@ -241,7 +241,7 @@ public class ChaptersController(MangaContext context) : ControllerBase
     {
         if (await context.Chapters.FirstOrDefaultAsync(ch => ch.Key == ChapterId, HttpContext.RequestAborted) is not { } _)
             return TypedResults.NotFound(nameof(ChapterId));
-        if(!Tranga.TryGetMangaConnector(MangaConnectorName, out API.MangaConnectors.MangaConnector? _))
+        if(!Mangette.TryGetMangaConnector(MangaConnectorName, out API.MangaConnectors.MangaConnector? _))
             return TypedResults.NotFound(nameof(MangaConnectorName));
 
         if (await context.MangaConnectorToChapter
@@ -258,7 +258,7 @@ public class ChaptersController(MangaContext context) : ControllerBase
         if (IsRequested)
         {
             DownloadChapterFromMangaconnectorWorker worker = new(chId);
-            Tranga.AddWorker(worker);
+            Mangette.AddWorker(worker);
         }
         
         return TypedResults.Ok();

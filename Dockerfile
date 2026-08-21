@@ -18,7 +18,7 @@ RUN apt-get update \
 
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:$DOTNET AS build-env
 WORKDIR /src
-COPY Tranga.sln /src
+COPY Mangette.sln /src
 COPY API/API.csproj /src/API/API.csproj
 RUN dotnet restore /src/API/API.csproj
 
@@ -33,14 +33,14 @@ WORKDIR /publish
 EXPOSE 8585
 
 # User setup
-ARG UNAME=tranga
+ARG UNAME=mangette
 ARG UID=1000
 ARG GID=1000
 RUN groupadd -g $GID -o $UNAME \
   && useradd -m -u $UID -g $GID -o -s /bin/bash $UNAME \
-  && mkdir /usr/share/tranga-api \
+  && mkdir /usr/share/mangette \
   && mkdir /Manga \
-  && chown 1000:1000 /usr/share/tranga-api \
+  && chown 1000:1000 /usr/share/mangette \
   && chown 1000:1000 /Manga \
   # Ensure Chromium is executable
   && chmod +x /usr/bin/ungoogled-chromium
@@ -58,5 +58,5 @@ COPY --chown=1000:1000 --from=build-env /publish .
 
 # Root for entrypoint if needed
 USER 0
-ENTRYPOINT ["dotnet", "/publish/API.dll"]
+ENTRYPOINT ["dotnet", "/publish/Mangette.dll"]
 CMD [""]

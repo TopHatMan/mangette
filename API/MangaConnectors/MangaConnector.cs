@@ -43,7 +43,7 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
         //https?:\/\/[a-zA-Z0-9-]+\.([a-zA-Z0-9-]+\.[a-zA-Z0-9]+)\/(?:.+\/)*(.+\.([a-zA-Z]+)) for only second level domains
         Match match = urlRex.Match(mangaId.Obj.CoverUrl);
         string filename = $"{match.Groups[1].Value}-{mangaId.ObjId}.{mangaId.MangaConnectorName}.{match.Groups[3].Value}";
-        string saveImagePath = Path.Join(TrangaSettings.CoverImageCacheOriginal, filename);
+        string saveImagePath = Path.Join(MangetteSettings.CoverImageCacheOriginal, filename);
 
         if (File.Exists(saveImagePath))
             return filename;
@@ -57,24 +57,24 @@ public abstract class MangaConnector(string name, string[] supportedLanguages, s
             using MemoryStream ms = new();
             coverResult.Content.ReadAsStream().CopyTo(ms);
             byte[] imageBytes = ms.ToArray();
-            Directory.CreateDirectory(TrangaSettings.CoverImageCacheOriginal);
+            Directory.CreateDirectory(MangetteSettings.CoverImageCacheOriginal);
             File.WriteAllBytes(saveImagePath, imageBytes);
 
             using Image image = Image.Load(imageBytes);
-            Directory.CreateDirectory(TrangaSettings.CoverImageCacheLarge);
+            Directory.CreateDirectory(MangetteSettings.CoverImageCacheLarge);
             using Image large = image.Clone(x => x.Resize(new ResizeOptions
                 { Size = Constants.ImageLgSize, Mode = ResizeMode.Max }));
-            large.SaveAsJpeg(Path.Join(TrangaSettings.CoverImageCacheLarge, filename), new (){ Quality = 40 });
+            large.SaveAsJpeg(Path.Join(MangetteSettings.CoverImageCacheLarge, filename), new (){ Quality = 40 });
             
-            Directory.CreateDirectory(TrangaSettings.CoverImageCacheMedium);
+            Directory.CreateDirectory(MangetteSettings.CoverImageCacheMedium);
             using Image medium = image.Clone(x => x.Resize(new ResizeOptions
                 { Size = Constants.ImageMdSize, Mode = ResizeMode.Max }));
-            medium.SaveAsJpeg(Path.Join(TrangaSettings.CoverImageCacheMedium, filename), new (){ Quality = 40 });
+            medium.SaveAsJpeg(Path.Join(MangetteSettings.CoverImageCacheMedium, filename), new (){ Quality = 40 });
             
-            Directory.CreateDirectory(TrangaSettings.CoverImageCacheSmall);
+            Directory.CreateDirectory(MangetteSettings.CoverImageCacheSmall);
             using Image small = image.Clone(x => x.Resize(new ResizeOptions
                 { Size = Constants.ImageSmSize, Mode = ResizeMode.Max }));
-            small.SaveAsJpeg(Path.Join(TrangaSettings.CoverImageCacheSmall, filename), new (){ Quality = 40 });
+            small.SaveAsJpeg(Path.Join(MangetteSettings.CoverImageCacheSmall, filename), new (){ Quality = 40 });
         }
         catch (Exception e)
         {

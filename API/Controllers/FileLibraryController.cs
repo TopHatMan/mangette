@@ -70,7 +70,7 @@ public class FileLibraryController(MangaContext context) : ControllerBase
 
         if (requestData.Path is { } path)
         {
-            string fullPath = TrangaSettings.NormalizeDirectory(path, TrangaSettings.DefaultDownloadLocation);
+            string fullPath = MangetteSettings.NormalizeDirectory(path, MangetteSettings.DefaultDownloadLocation);
             try
             {
                 Directory.CreateDirectory(fullPath);
@@ -114,7 +114,7 @@ public class FileLibraryController(MangaContext context) : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(requestData.BasePath) || string.IsNullOrWhiteSpace(requestData.LibraryName))
             return TypedResults.InternalServerError("Library name and path are required.");
-        string fullPath = TrangaSettings.NormalizeDirectory(requestData.BasePath, TrangaSettings.DefaultDownloadLocation);
+        string fullPath = MangetteSettings.NormalizeDirectory(requestData.BasePath, MangetteSettings.DefaultDownloadLocation);
         try
         {
             Directory.CreateDirectory(fullPath);

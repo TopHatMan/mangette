@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 
 namespace API.Schema.NotificationsContext;
 
-public class NotificationsContext(DbContextOptions<NotificationsContext> options) : TrangaBaseContext<NotificationsContext>(options)
+public class NotificationsContext(DbContextOptions<NotificationsContext> options) : MangetteBaseContext<NotificationsContext>(options)
 {
     public DbSet<NotificationConnector> NotificationConnectors { get; set; }
     public DbSet<Notification> Notifications { get; set; }
