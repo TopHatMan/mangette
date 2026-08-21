@@ -80,4 +80,4 @@ Useful environment variables:
 dotnet run --project API/API.csproj
 ```
 
-Then open http://localhost:8585. FlareSolverr: `docker compose up -d`.
+Then open http://localhost:8585. Cloudflare bypass uses built-in Chromium (Chrome/Edge if installed).

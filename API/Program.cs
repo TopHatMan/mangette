@@ -1,5 +1,6 @@
 using System.Reflection;
 using API;
+using API.MangaDownloadClients;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.LibraryContext;
@@ -217,18 +218,25 @@ catch (Exception e)
 }
 
 log.Info("Starting Mangette.");
-log.InfoFormat("FlareSolverr URL: {0}", Mangette.Settings.FlareSolverrUrl);
-try
+if (!string.IsNullOrWhiteSpace(Mangette.Settings.FlareSolverrUrl))
 {
-    using HttpClient probe = new() { Timeout = TimeSpan.FromSeconds(5) };
-    HttpResponseMessage flare = await probe.GetAsync(Mangette.Settings.FlareSolverrUrl);
-    log.InfoFormat("FlareSolverr reachable ({0}).", (int)flare.StatusCode);
+    log.InfoFormat("Optional FlareSolverr URL: {0}", Mangette.Settings.FlareSolverrUrl);
+    try
+    {
+        using HttpClient probe = new() { Timeout = TimeSpan.FromSeconds(5) };
+        HttpResponseMessage flare = await probe.GetAsync(Mangette.Settings.FlareSolverrUrl);
+        log.InfoFormat("FlareSolverr reachable ({0}).", (int)flare.StatusCode);
+    }
+    catch (Exception ex)
+    {
+        log.WarnFormat("FlareSolverr is not reachable at {0} ({1}). Using built-in Chromium instead.",
+            Mangette.Settings.FlareSolverrUrl, ex.Message);
+    }
 }
-catch (Exception ex)
+else
 {
-    log.WarnFormat(
-        "FlareSolverr is not reachable at {0} ({1}). Cloudflare-protected sites will fail until you start it: docker compose up -d",
-        Mangette.Settings.FlareSolverrUrl, ex.Message);
+    log.Info("Cloudflare bypass: built-in Chromium (no Docker). First protected request may download Chrome.");
+    _ = Task.Run(ChromiumDownloadClient.WarmupAsync);
 }
 
 Mangette.ServiceProvider = app.Services;

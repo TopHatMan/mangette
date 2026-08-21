@@ -51,7 +51,7 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
         }
         catch (HttpRequestException e)
         {
-            Log.Error($"FlareSolverr at {Mangette.Settings.FlareSolverrUrl} is not reachable. Start it with: docker compose up -d. {e.Message}");
+            Log.Error($"FlareSolverr at {Mangette.Settings.FlareSolverrUrl} is not reachable. Built-in Chromium will be used instead. {e.Message}");
             return new (HttpStatusCode.InternalServerError);
         }
         catch (TaskCanceledException e)

@@ -8,7 +8,7 @@
 #>
 param(
     [string]$InstallDir = "C:\Mangette",
-    [string]$FlareSolverrUrl = "http://127.0.0.1:8191",
+    [string]$FlareSolverrUrl = "",
     [string]$LibraryPath = "",
     [int]$Port = 8585,
     [string]$ServiceName = "Mangette",
@@ -62,9 +62,11 @@ sc.exe failure $ServiceName reset= 86400 actions= restart/15000/restart/30000/re
 
 $envLines = @(
     "MANGETTE_HOME=$InstallDir",
-    "FLARESOLVERR_URL=$FlareSolverrUrl",
     "PORT=$Port"
 )
+if ($FlareSolverrUrl) {
+    $envLines += "FLARESOLVERR_URL=$FlareSolverrUrl"
+}
 if ($LibraryPath) {
     $LibraryPath = [System.IO.Path]::GetFullPath($LibraryPath)
     $envLines += "DOWNLOAD_LOCATION=$LibraryPath"
@@ -82,9 +84,10 @@ Start-Sleep -Seconds 2
 Get-Service -Name $ServiceName | Format-List Name, Status, StartType
 
 Write-Host ""
-Write-Host "Mangette service installed (delayed auto-start so a VirtualBox Docker VM can boot first)."
+Write-Host "Mangette service installed (delayed auto-start)."
 Write-Host "UI:              http://localhost:$Port"
-Write-Host "FlareSolverr:    $FlareSolverrUrl"
+Write-Host "Cloudflare:      built-in Chromium (Chrome/Edge if installed)"
+if ($FlareSolverrUrl) { Write-Host "FlareSolverr:    $FlareSolverrUrl" }
 if ($LibraryPath) { Write-Host "Library:         $LibraryPath" }
 Write-Host "Logs:            $InstallDir\data\logs\mangette.log"
 Write-Host ""

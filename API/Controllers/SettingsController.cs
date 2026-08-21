@@ -298,10 +298,22 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType(Status500InternalServerError)]
     public async Task<Results<Ok, InternalServerError>> TestFlareSolverrReachable()
     {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.FlareSolverrUrl))
+            return TypedResults.InternalServerError();
         const string knownProtectedUrl = "https://prowlarr.servarr.com/v1/ping";
         FlareSolverrDownloadClient client = new(new ());
         HttpResponseMessage result = await client.MakeRequest(knownProtectedUrl, RequestType.Default);
         return result.IsSuccessStatusCode ? TypedResults.Ok() : TypedResults.InternalServerError(); 
+    }
+
+    /// <summary>Load a page with the built-in Chromium Cloudflare bypass (no Docker).</summary>
+    [HttpPost("CloudflareBypass/Test")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType(Status500InternalServerError)]
+    public async Task<Results<Ok, InternalServerError>> TestChromiumBypass()
+    {
+        HttpResponseMessage result = await ChromiumDownloadClient.Shared.MakeRequest("https://example.com", RequestType.Default);
+        return result.IsSuccessStatusCode ? TypedResults.Ok() : TypedResults.InternalServerError();
     }
 
     /// <summary>

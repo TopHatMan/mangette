@@ -16,6 +16,14 @@ internal class HttpDownloadClient : IDownloadClient
         Timeout = TimeSpan.FromSeconds(120)
     });
     private ILog Log { get; } = LogManager.GetLogger(typeof(HttpDownloadClient));
+    private readonly bool _allowCloudflareBypass;
+
+    public HttpDownloadClient() : this(true) { }
+
+    public HttpDownloadClient(bool allowCloudflareBypass)
+    {
+        _allowCloudflareBypass = allowCloudflareBypass;
+    }
     
     public async Task<HttpResponseMessage> MakeRequest(string url, RequestType requestType, string? referrer = null, CancellationToken? cancellationToken = null)
     {
@@ -41,11 +49,8 @@ internal class HttpDownloadClient : IDownloadClient
             bool cloudflareHint = response.Headers.Server.Any(s =>
                     (s.Product?.Name ?? "").Contains("cloudflare", StringComparison.InvariantCultureIgnoreCase));
             bool blocked = (int)response.StatusCode is 403 or 429 or 503;
-            if ((cloudflareHint || blocked) && !string.IsNullOrWhiteSpace(Mangette.Settings.FlareSolverrUrl))
-            {
-                Log.InfoFormat("Retrying {0} via FlareSolverr ({1})", url, response.StatusCode);
-                return await FlareSolverrDownloadClient.MakeRequest(url, requestType, referrer);
-            }
+            if (_allowCloudflareBypass && (cloudflareHint || blocked))
+                return await BypassCloudflare(url, requestType, referrer, response.StatusCode, cancellationToken);
             
             Log.Debug($"Request returned status code {(int)response.StatusCode} {response.StatusCode}:\n" +
                       $"=====\n" +
@@ -66,5 +71,20 @@ internal class HttpDownloadClient : IDownloadClient
             Log.Error(e);
             return new(HttpStatusCode.InternalServerError);
         }
+    }
+
+    private async Task<HttpResponseMessage> BypassCloudflare(string url, RequestType requestType, string? referrer, HttpStatusCode status, CancellationToken? cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(Mangette.Settings.FlareSolverrUrl))
+        {
+            Log.InfoFormat("Retrying {0} via FlareSolverr ({1})", url, status);
+            HttpResponseMessage flare = await FlareSolverrDownloadClient.MakeRequest(url, requestType, referrer, cancellationToken);
+            if (flare.IsSuccessStatusCode)
+                return flare;
+            Log.WarnFormat("FlareSolverr failed for {0} ({1}); trying built-in Chromium.", url, flare.StatusCode);
+        }
+
+        Log.InfoFormat("Retrying {0} via built-in Chromium ({1})", url, status);
+        return await ChromiumDownloadClient.Shared.MakeRequest(url, requestType, referrer, cancellationToken);
     }
 }

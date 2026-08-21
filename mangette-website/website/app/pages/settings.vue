@@ -67,15 +67,21 @@
             </UCard>
             <UCard v-if="settingsStatus === 'success'">
                 <template #header>
-                    <h1>FlareSolverr</h1>
+                    <h1>Cloudflare bypass</h1>
                 </template>
                 <p class="text-muted text-sm mb-3">
-                    Cloudflare bypass. Mangette expects the Docker sidecar at this URL (`docker compose up -d`).
+                    Mangette uses a built-in Chromium browser on this machine. Docker is not required. First protected request may
+                    download Chrome into the data folder. Optional FlareSolverr URL if you still run one.
                 </p>
+                <div class="flex flex-wrap gap-2 mb-3">
+                    <UButton variant="outline" :loading="testingChromium" @click="testChromium">Test Chromium</UButton>
+                </div>
                 <div class="flex max-sm:flex-col flex-row gap-2 items-stretch">
-                    <UInput v-model="flareUrl" class="grow" placeholder="http://127.0.0.1:8191" />
+                    <UInput v-model="flareUrl" class="grow" placeholder="optional, e.g. http://127.0.0.1:8191" />
                     <UButton class="w-fit" :loading="savingFlare" @click="saveFlare">Save</UButton>
-                    <UButton class="w-fit" variant="outline" :loading="testingFlare" @click="testFlare">Test</UButton>
+                    <UButton class="w-fit" variant="outline" :disabled="!flareUrl" :loading="testingFlare" @click="testFlare">
+                        Test FlareSolverr
+                    </UButton>
                 </div>
                 <p v-if="flareMessage" class="mt-2 text-sm" :class="flareOk ? 'text-success' : 'text-error'">{{ flareMessage }}</p>
             </UCard>
@@ -211,9 +217,10 @@ const onKavitaClick = async () => {
 
 const { data: settings, status: settingsStatus } = useApi('/v2/Settings', { key: FetchKeys.Settings.All, server: false });
 const { data: fileLibraries } = useApi('/v2/FileLibrary', { key: FetchKeys.FileLibraries, server: false });
-const flareUrl = ref('http://127.0.0.1:8191');
+const flareUrl = ref('');
 const savingFlare = ref(false);
 const testingFlare = ref(false);
+const testingChromium = ref(false);
 const flareMessage = ref('');
 const flareOk = ref(false);
 
@@ -237,7 +244,7 @@ const setupOk = ref(false);
 const applySetupFromSettings = () => {
     const value = settings.value;
     if (!value) return;
-    if (value.flareSolverrUrl) flareUrl.value = value.flareSolverrUrl;
+    flareUrl.value = value.flareSolverrUrl ?? '';
     if (value.connectorPriority?.length) connectorPriority.value = [...value.connectorPriority];
     setup.listenPort = value.listenPort ?? 8585;
     setup.tempDownloadPath = value.tempDownloadPath ?? '';
@@ -335,9 +342,24 @@ const testFlare = async () => {
         flareMessage.value = 'FlareSolverr is reachable.';
     } catch {
         flareOk.value = false;
-        flareMessage.value = 'FlareSolverr is not reachable. Run: docker compose up -d';
+        flareMessage.value = 'FlareSolverr is not reachable. Leave the URL empty to use built-in Chromium.';
     } finally {
         testingFlare.value = false;
+    }
+};
+
+const testChromium = async () => {
+    testingChromium.value = true;
+    flareMessage.value = '';
+    try {
+        await $api('/v2/Settings/CloudflareBypass/Test', { method: 'POST' });
+        flareOk.value = true;
+        flareMessage.value = 'Built-in Chromium loaded a page. Docker is not required.';
+    } catch {
+        flareOk.value = false;
+        flareMessage.value = 'Chromium failed. Install Google Chrome or Edge on this machine.';
+    } finally {
+        testingChromium.value = false;
     }
 };
 

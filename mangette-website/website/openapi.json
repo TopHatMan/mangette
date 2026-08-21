@@ -3683,6 +3683,22 @@
         }
       }
     },
+    "/v2/Settings/CloudflareBypass/Test": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Load a page with the built-in Chromium Cloudflare bypass (no Docker).",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/v2/Settings/DownloadLanguage": {
       "get": {
         "tags": [

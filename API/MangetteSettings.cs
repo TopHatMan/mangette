@@ -33,7 +33,7 @@ public class MangetteSettings
     public string UserAgent { get; set; } = DefaultUserAgent;
     public int ImageCompression{ get; set; } = 40;
     public bool BlackWhiteImages { get; set; } = false;
-    public const string DefaultFlareSolverrUrl = "http://127.0.0.1:8191";
+    public const string DefaultFlareSolverrUrl = "";
     public string FlareSolverrUrl { get; set; } =
         Environment.GetEnvironmentVariable("FLARESOLVERR_URL") ?? DefaultFlareSolverrUrl;
     /// <summary>Connector names in download order. First match that is not cooling down wins the chapter.</summary>
@@ -86,8 +86,9 @@ public class MangetteSettings
         string? envUrl = Environment.GetEnvironmentVariable("FLARESOLVERR_URL");
         if (!string.IsNullOrWhiteSpace(envUrl))
             settings.FlareSolverrUrl = envUrl;
-        else if (string.IsNullOrWhiteSpace(settings.FlareSolverrUrl))
-            settings.FlareSolverrUrl = DefaultFlareSolverrUrl;
+        else if (string.Equals(settings.FlareSolverrUrl, "http://127.0.0.1:8191", StringComparison.OrdinalIgnoreCase) &&
+                 string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FLARESOLVERR_URL")))
+            settings.FlareSolverrUrl = "";
         settings.ListenPort = ResolveListenPort(settings.ListenPort);
         settings.TempDownloadPath = NormalizeDirectory(settings.TempDownloadPath, DefaultTempDownloadPath);
         settings.ConnectorPriority = NormalizeConnectorPriority(settings.ConnectorPriority);

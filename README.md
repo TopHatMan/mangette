@@ -4,30 +4,9 @@ Standalone manga downloader: one process serves the API, workers, and UI.
 
 Open [http://localhost:8585](http://localhost:8585) after starting it.
 
-Mangette itself does not use Docker. **FlareSolverr does** — that is the Cloudflare bypass for sites that block plain HTTP. Run it as a sidecar, then start the Mangette binary.
+No Docker and no Postgres. Cloudflare-protected sites use a **built-in Chromium** on the same machine (Chrome/Edge if installed, otherwise Chromium is downloaded into `data/chromium` on first use). FlareSolverr is optional.
 
 ## Run
-
-### 1. Start FlareSolverr (Docker)
-
-```bash
-docker compose up -d
-```
-
-That publishes FlareSolverr at `http://127.0.0.1:8191`. Mangette uses that URL by default (`FLARESOLVERR_URL` to override).
-
-If Docker is on another machine (for example a Debian VirtualBox VM at `192.168.1.210`), bind FlareSolverr on all interfaces **on the VM**:
-
-```bash
-# on the Debian VM, in the repo folder
-echo 'FLARESOLVERR_BIND=0.0.0.0' > .env
-docker compose up -d
-sudo ufw allow 8191/tcp   # only if ufw is enabled
-```
-
-On Windows, set FlareSolverr to `http://192.168.1.210:8191` (Settings, or `FLARESOLVERR_URL`). The VM must use **bridged** networking so that IP is reachable.
-
-### 2. Start Mangette
 
 ### Pre-built binary
 
@@ -60,9 +39,7 @@ Data lives next to the executable:
 | `./data/incomplete/` | In-progress chapter images (cleaned up after each chapter) |
 | `./Manga/` | Finished `.cbz` files (the default library) |
 
-Override the app folder with `MANGETTE_HOME` and the default library folder with `DOWNLOAD_LOCATION`. Listen port defaults to `8585` (`PORT` env or Settings). FlareSolverr stays on `8191`.
-
-No Postgres. Docker is only for FlareSolverr.
+Override the app folder with `MANGETTE_HOME` and the default library folder with `DOWNLOAD_LOCATION`. Listen port defaults to `8585` (`PORT` env or Settings).
 
 ### Windows service (start at boot)
 
@@ -75,16 +52,14 @@ dotnet --list-sdks
 
 You must see a `10.x` line. `C:\Program Files\dotnet` must be on PATH ahead of any `...\sdk\5.0...` folder.
 
-Run PowerShell **as Administrator** from the cloned repo. Example for Docker on a Debian VM and an existing Tranga library:
+Run PowerShell **as Administrator** from the cloned repo:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\install-win-service.ps1 `
-  -FlareSolverrUrl http://192.168.1.210:8191 `
-  -LibraryPath D:\Manga
+.\scripts\install-win-service.ps1 -LibraryPath D:\Manga
 ```
 
-That publishes `Mangette.exe` to `C:\Mangette`, creates a **delayed auto-start** service (so VirtualBox can boot the VM first), opens firewall port 8585, and starts it. Open http://localhost:8585 (or `http://SERVER_IP:8585` from another PC).
+That publishes `Mangette.exe` to `C:\Mangette`, creates a delayed auto-start service, opens firewall port 8585, and starts it. Open http://localhost:8585 (or `http://SERVER_IP:8585` from another PC). Chrome or Edge on Windows is enough for Cloudflare; no Docker VM is required.
 
 ```powershell
 Get-Service Mangette
@@ -110,24 +85,14 @@ Default order (change it in Settings → Download source priority):
 
 If a source returns 403, Cloudflare, or an empty image list, that source is backed off (30 minutes, doubling up to 6 hours) instead of being retried every minute. The next source in the list is used for the same chapter.
 
-## FlareSolverr (required for Cloudflare)
+## Cloudflare bypass (no Docker)
 
-Protected sources (WeebCentral, some others) go through [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) when HTTP returns 403/429 or a Cloudflare server header.
+When a site returns 403/429/Cloudflare, Mangette retries with **built-in Chromium**:
 
-```bash
-docker compose up -d          # FlareSolverr on 127.0.0.1:8191
-docker compose logs -f        # watch challenge / IP-ban messages
-```
+1. Google Chrome or Microsoft Edge on the machine, or
+2. A Chromium build downloaded into `data/chromium` on first use
 
-Mangette talks to it at `http://127.0.0.1:8191`. Change that in Settings or with `FLARESOLVERR_URL`. If FlareSolverr is down, those sites will fail until you start the container.
-
-Chrome/Chromium on the host is a **fallback** only (WeebCentral chapter pages if FlareSolverr cannot load them):
-
-```bash
-export CHROME_BIN=/usr/bin/chromium
-# or
-export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
-```
+Settings → **Cloudflare bypass** → **Test Chromium**. Optional FlareSolverr URL is only if you still run one. `CHROME_BIN` / `PUPPETEER_EXECUTABLE_PATH` override the browser path.
 
 ## Publish a single-file binary
 
