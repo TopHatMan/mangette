@@ -86,6 +86,11 @@ public class FileLibraryController(MangaContext context) : ControllerBase
         
         if(await context.Sync(HttpContext.RequestAborted, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
+
+        Schema.MangaContext.FileLibrary? first = await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(HttpContext.RequestAborted);
+        if (first is not null && first.Key == library.Key)
+            Mangette.Settings.SetLibraryPath(library.BasePath);
+
         return TypedResults.Ok();
     }
 

@@ -83,11 +83,11 @@ builder.Services.AddSwaggerGenNewtonsoftSupport().AddSwaggerGen(opt =>
 log.Debug("Adding Database-Connection...");
 Directory.CreateDirectory(MangetteSettings.DataDirectory);
 Directory.CreateDirectory(Path.Join(MangetteSettings.DataDirectory, "logs"));
-Directory.CreateDirectory(MangetteSettings.DefaultDownloadLocation);
+Directory.CreateDirectory(Mangette.Settings.DefaultLibraryPath);
 Directory.CreateDirectory(Mangette.Settings.TempDownloadPath);
 log.InfoFormat("SQLite database: {0}", MangetteSettings.DatabasePath);
 log.InfoFormat("Listening on http://*:{0}  library {1}  temp {2}",
-    Mangette.Settings.ListenPort, MangetteSettings.DefaultDownloadLocation, Mangette.Settings.TempDownloadPath);
+    Mangette.Settings.ListenPort, Mangette.Settings.DefaultLibraryPath, Mangette.Settings.TempDownloadPath);
 
 builder.Services.AddDbContext<MangaContext>(options =>
     SqliteStorage.Configure(options, SqliteStorage.MangaHistoryTable));
@@ -163,12 +163,31 @@ try //Connect to DB and apply migrations
 
         if (!await context.FileLibraries.AnyAsync())
         {
-            await context.FileLibraries.AddAsync(new(MangetteSettings.DefaultDownloadLocation, "Default FileLibrary"),
+            string seedPath = !string.IsNullOrWhiteSpace(Mangette.Settings.LibraryPath)
+                ? Mangette.Settings.LibraryPath
+                : MangetteSettings.DefaultDownloadLocation;
+            await context.FileLibraries.AddAsync(new(seedPath, "Default FileLibrary"),
                 CancellationToken.None);
-            
 
             if(await context.Sync(CancellationToken.None, reason: "Add default library") is { success: false } contextException)
                 log.ErrorFormat("Failed to save database changes: {0}", contextException.exceptionMessage);
+            if (string.IsNullOrWhiteSpace(Mangette.Settings.LibraryPath))
+                Mangette.Settings.SetLibraryPath(seedPath);
+        }
+        else if (string.IsNullOrWhiteSpace(Mangette.Settings.LibraryPath))
+        {
+            FileLibrary? existing = await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync();
+            if (existing is not null)
+            {
+                try
+                {
+                    Mangette.Settings.SetLibraryPath(existing.BasePath);
+                }
+                catch (Exception ex)
+                {
+                    log.WarnFormat("Could not persist library path to settings.json: {0}", ex.Message);
+                }
+            }
         }
     }
 

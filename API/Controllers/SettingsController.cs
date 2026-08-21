@@ -87,6 +87,8 @@ public class SettingsController(MangaContext context) : ControllerBase
 
             if (await context.Sync(HttpContext.RequestAborted, GetType(), "Update library path") is { success: false } result)
                 return TypedResults.InternalServerError(result.exceptionMessage);
+
+            Mangette.Settings.SetLibraryPath(full);
         }
 
         if (requestData.MaxConcurrentDownloads is { } downloads)

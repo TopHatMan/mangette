@@ -57,6 +57,9 @@ public class MangetteSettings
 
     public string DownloadLanguage { get; set; } = "en";
 
+    /// <summary>Library folder from Settings. SQLite FileLibraries is the live copy; this is written so install scripts can read settings.json.</summary>
+    public string? LibraryPath { get; set; }
+
     /// <summary>Folder for in-progress chapter images. Packed into the library as .cbz when the chapter finishes.</summary>
     public string TempDownloadPath { get; set; } = DefaultTempDownloadPath;
 
@@ -68,8 +71,9 @@ public class MangetteSettings
 
     public int RefreshLibraryWhileDownloadingEveryMinutes { get; set; } = 10;
 
-    /// <summary>Resolved library default shown in Settings. Not stored; file libraries own the actual path.</summary>
-    [JsonProperty] public string DefaultLibraryPath => DefaultDownloadLocation;
+    /// <summary>Resolved library default shown in Settings. Prefers the saved Settings path, then DOWNLOAD_LOCATION.</summary>
+    [JsonProperty] public string DefaultLibraryPath =>
+        !string.IsNullOrWhiteSpace(LibraryPath) ? LibraryPath : DefaultDownloadLocation;
     [JsonProperty] public string DataFolder => DataDirectory;
 
     public MangetteSettings()
@@ -90,6 +94,8 @@ public class MangetteSettings
                  string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FLARESOLVERR_URL")))
             settings.FlareSolverrUrl = "";
         settings.ListenPort = ResolveListenPort(settings.ListenPort);
+        if (!string.IsNullOrWhiteSpace(settings.LibraryPath))
+            settings.LibraryPath = NormalizeDirectory(settings.LibraryPath, DefaultDownloadLocation);
         settings.TempDownloadPath = NormalizeDirectory(settings.TempDownloadPath, DefaultTempDownloadPath);
         settings.ConnectorPriority = NormalizeConnectorPriority(settings.ConnectorPriority);
         DownloadFailureTracker.SetPreferenceOrder(settings.ConnectorPriority);
@@ -165,6 +171,13 @@ public class MangetteSettings
     {
         TempDownloadPath = NormalizeDirectory(path, DefaultTempDownloadPath);
         Directory.CreateDirectory(TempDownloadPath);
+        Save();
+    }
+
+    public void SetLibraryPath(string path)
+    {
+        LibraryPath = NormalizeDirectory(path, DefaultDownloadLocation);
+        Directory.CreateDirectory(LibraryPath);
         Save();
     }
 

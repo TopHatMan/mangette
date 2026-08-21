@@ -56,10 +56,12 @@ Run PowerShell **as Administrator** from the cloned repo:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\install-win-service.ps1 -LibraryPath D:\Manga
+.\scripts\install-win-service.ps1
 ```
 
 That publishes `Mangette.exe` to `C:\Mangette`, creates a delayed auto-start service, opens firewall port 8585, and starts it. Open http://localhost:8585 (or `http://SERVER_IP:8585` from another PC). Chrome or Edge on Windows is enough for Cloudflare; no Docker VM is required.
+
+You do **not** need `-LibraryPath` if Settings already has your library folder (it lives in `C:\Mangette\data\settings.json` and `mangette.db`). The script reads those files and keeps the existing service environment. Use `-LibraryPath D:\Manga` only on a brand-new install before you have saved Settings.
 
 ```powershell
 Get-Service Mangette
