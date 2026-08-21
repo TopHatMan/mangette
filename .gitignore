@@ -24,6 +24,7 @@ Tranga/Properties/launchSettings.json
 
 /Manga/
 /data/
+/dist/
 mangette-website/website/node_modules/
 mangette-website/website/.nuxt/
 mangette-website/website/.output/
