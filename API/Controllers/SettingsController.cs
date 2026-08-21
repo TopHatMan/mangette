@@ -291,21 +291,48 @@ public class SettingsController(MangaContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Test FlareSolverr
+    /// Ping FlareSolverr itself (sessions.list). Does not browse a random third-party site.
     /// </summary>
-    /// <response code="200">FlareSolverr is working!</response>
-    /// <response code="500">FlareSolverr is not working</response>
     [HttpPost("FlareSolverr/Test")]
-    [ProducesResponseType(Status200OK)]
-    [ProducesResponseType(Status500InternalServerError)]
-    public async Task<Results<Ok, InternalServerError>> TestFlareSolverrReachable()
+    [ProducesResponseType<string>(Status200OK, "text/plain")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<string>, BadRequest<string>>> TestFlareSolverrReachable()
     {
-        if (string.IsNullOrWhiteSpace(Mangette.Settings.FlareSolverrUrl))
-            return TypedResults.InternalServerError();
-        const string knownProtectedUrl = "https://prowlarr.servarr.com/v1/ping";
-        FlareSolverrDownloadClient client = new(new ());
-        HttpResponseMessage result = await client.MakeRequest(knownProtectedUrl, RequestType.Default);
-        return result.IsSuccessStatusCode ? TypedResults.Ok() : TypedResults.InternalServerError(); 
+        string baseUrl = MangetteSettings.NormalizeFlareSolverrUrl(Mangette.Settings.FlareSolverrUrl);
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            return TypedResults.BadRequest("FlareSolverr URL is empty. Set http://192.168.1.210:8181 and Save first.");
+
+        Uri v1 = MangetteSettings.FlareSolverrV1Uri(baseUrl);
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
+        try
+        {
+            HttpResponseMessage get = await client.GetAsync(baseUrl, HttpContext.RequestAborted);
+            string getBody = await get.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            if (!get.IsSuccessStatusCode)
+                return TypedResults.BadRequest($"GET {baseUrl} returned {(int)get.StatusCode}. {TrimBody(getBody)}");
+
+            HttpRequestMessage post = new(HttpMethod.Post, v1)
+            {
+                Content = new StringContent("""{"cmd":"sessions.list"}""", System.Text.Encoding.UTF8, "application/json")
+            };
+            HttpResponseMessage listed = await client.SendAsync(post, HttpContext.RequestAborted);
+            string listedBody = await listed.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            if (!listed.IsSuccessStatusCode)
+                return TypedResults.BadRequest($"POST {v1} returned {(int)listed.StatusCode}. {TrimBody(listedBody)}");
+
+            return TypedResults.Ok($"Reached {baseUrl} (GET {(int)get.StatusCode}) and {v1} sessions.list ok.");
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.BadRequest(
+                $"Cannot connect to {baseUrl}: {ex.Message}. From Windows try: curl {baseUrl}  On the Debian VM use host networking on port 8181 (docker compose up -d). Bridged adapter, not NAT, unless you port-forward 8181.");
+        }
+    }
+
+    private static string TrimBody(string body)
+    {
+        string flat = string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return flat.Length <= 240 ? flat : flat[..240] + "…";
     }
 
     /// <summary>Load a page with the built-in Chromium Cloudflare bypass (no Docker).</summary>

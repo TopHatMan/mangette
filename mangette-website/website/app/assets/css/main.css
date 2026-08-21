@@ -8,6 +8,118 @@
     --mangacover-height-sm: 220px;
     --arr-poster-width: 150px;
     --arr-poster-height: 225px;
+    --arr-sidebar: #1d1f27;
+    --arr-topbar: #25272e;
+}
+
+.arr-shell {
+    display: flex;
+    min-height: 100dvh;
+    background: var(--ui-bg);
+}
+
+.arr-sidebar {
+    width: 13rem;
+    flex-shrink: 0;
+    background: var(--arr-sidebar);
+    color: #d6d8de;
+    display: flex;
+    flex-direction: column;
+    padding: 0.9rem 0.7rem;
+    gap: 1rem;
+}
+
+.arr-sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    font-size: 1.05rem;
+    color: #fff;
+    padding: 0.25rem 0.4rem;
+}
+
+.arr-sidebar__brand img {
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.arr-sidebar__nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.arr-sidebar__link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+    color: #c5c8d0;
+    font-size: 0.9rem;
+}
+
+.arr-sidebar__link:hover,
+.arr-sidebar__link.router-link-active,
+.arr-sidebar__link.router-link-exact-active {
+    background: rgba(56, 189, 248, 0.16);
+    color: #7dd3fc;
+}
+
+.arr-sidebar__build {
+    margin-top: auto;
+    font-size: 0.7rem;
+    color: #8b8f9a;
+    padding: 0.4rem;
+}
+
+.arr-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.arr-topbar {
+    height: 3.25rem;
+    background: var(--arr-topbar);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 1.1rem;
+}
+
+.arr-topbar__title {
+    font-weight: 650;
+    letter-spacing: -0.02em;
+}
+
+.arr-content__main {
+    flex: 1;
+    overflow: auto;
+}
+
+@media (max-width: 768px) {
+    .arr-shell {
+        flex-direction: column;
+    }
+    .arr-sidebar {
+        width: 100%;
+        flex-direction: row;
+        align-items: center;
+        padding: 0.5rem 0.7rem;
+    }
+    .arr-sidebar__nav {
+        flex-direction: row;
+        overflow-x: auto;
+        flex: 1;
+    }
+    .arr-sidebar__build {
+        display: none;
+    }
 }
 
 .arr-page {

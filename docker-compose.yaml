@@ -1,26 +1,25 @@
-# FlareSolverr sidecar for the Debian VM (or any Linux host).
-# Windows Mangette talks to it at http://192.168.1.210:8181
+# FlareSolverr on the Debian VM so Windows Mangette can use
+# http://192.168.1.210:8181
 #
-# On the VM:
+# Host networking (Linux only) binds 8181 on the VM itself. Docker port-publish
+# often fails inside VirtualBox even with ufw off.
+#
 #   docker compose up -d
-#   # or: bash scripts/run-flaresolverr.sh
+#   curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8181/
 #
-# VirtualBox: use a Bridged adapter so 192.168.1.210 is on the LAN.
-# If the VM is NAT-only, add a TCP 8181 -> 8181 port forward.
+# VirtualBox: Bridged adapter so 192.168.1.210 is on the LAN.
+# NAT-only: add a TCP 8181 -> 8181 port forward.
 services:
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: mangette-flaresolverr
+    network_mode: host
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
       - HOST=0.0.0.0
-      - PORT=8191
+      - PORT=${FLARESOLVERR_PORT:-8181}
       - TZ=${TZ:-UTC}
-    ports:
-      # Bind all interfaces so the Windows host can reach the VM IP.
-      # Host 8181 -> container 8191 (FlareSolverr's default listen port).
-      - "${FLARESOLVERR_BIND:-0.0.0.0}:${FLARESOLVERR_PORT:-8181}:8191"
     shm_size: "2gb"
     restart: unless-stopped
     logging:

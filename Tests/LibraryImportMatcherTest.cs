@@ -26,3 +26,16 @@ public class LibraryImportMatcherTest
         Assert.False(API.LibraryImportMatcher.IsSkippableFolder("One Piece"));
     }
 }
+
+public class FlareSolverrUrlTest
+{
+    [Theory]
+    [InlineData("192.168.1.210:8181", "http://192.168.1.210:8181")]
+    [InlineData("http://192.168.1.210:8181/", "http://192.168.1.210:8181")]
+    [InlineData("http://192.168.1.210:8181/v1", "http://192.168.1.210:8181/v1")]
+    [InlineData("", "")]
+    public void NormalizeFlareSolverrUrl_AddsSchemeAndTrimsSlash(string input, string expected)
+    {
+        Assert.Equal(expected, API.MangetteSettings.NormalizeFlareSolverrUrl(input));
+    }
+}

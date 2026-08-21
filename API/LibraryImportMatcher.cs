@@ -42,4 +42,26 @@ public static class LibraryImportMatcher
             return true;
         return folderName is "@eaDir" or "lost+found" or "#recycle" or "$RECYCLE.BIN" or "System Volume Information";
     }
+
+    /// <summary>
+    /// Windows services run as LocalSystem and cannot see user-mapped drives (Z:\). UNC paths work.
+    /// </summary>
+    public static string? LibraryPathWarning(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root) || root.Length < 2 || root[1] != ':')
+            return null;
+        try
+        {
+            DriveInfo drive = new(root[..1]);
+            if (!drive.IsReady)
+                return $"Drive {root[..2]} is not available to Mangette. Mapped network drives are invisible to the Windows service. Use a UNC path like \\\\server\\share\\Manga.";
+            if (drive.DriveType == DriveType.Network)
+                return $"Library is on a network drive ({root[..2]}). If Scan finds 0 folders, use a UNC path instead of a mapped letter.";
+        }
+        catch (Exception ex)
+        {
+            return $"Cannot inspect {root[..2]}: {ex.Message}";
+        }
+        return null;
+    }
 }

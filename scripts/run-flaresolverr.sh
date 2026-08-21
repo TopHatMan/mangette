@@ -7,7 +7,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-export FLARESOLVERR_BIND="${FLARESOLVERR_BIND:-0.0.0.0}"
 export FLARESOLVERR_PORT="${FLARESOLVERR_PORT:-8181}"
 
 if ! command -v docker >/dev/null 2>&1; then
@@ -37,7 +36,7 @@ if command -v ufw >/dev/null 2>&1; then
 fi
 
 echo
-echo "FlareSolverr is published on ${FLARESOLVERR_BIND}:${FLARESOLVERR_PORT}"
+echo "FlareSolverr is on host port ${FLARESOLVERR_PORT} (docker network_mode: host)"
 echo "  this VM:  http://127.0.0.1:${FLARESOLVERR_PORT}"
 echo "  Windows:  http://192.168.1.210:${FLARESOLVERR_PORT}"
 echo

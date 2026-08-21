@@ -3851,13 +3851,27 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Test FlareSolverr",
+        "summary": "Ping FlareSolverr itself (sessions.list). Does not browse a random third-party site.",
         "responses": {
           "200": {
-            "description": "FlareSolverr is working!"
+            "description": "OK",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
-          "500": {
-            "description": "FlareSolverr is not working"
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -4889,6 +4903,14 @@
             "nullable": true
           },
           "mappedFolderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "warning": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalFoldersSeen": {
             "type": "integer",
             "format": "int32"
           }

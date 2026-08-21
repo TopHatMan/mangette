@@ -1,5 +1,4 @@
 using API.MangaConnectors;
-using API.MangaDownloadClients;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
 using Asp.Versioning;
@@ -36,49 +35,78 @@ public class LibraryImportController(MangaContext context) : ControllerBase
         }
 
         if (!Directory.Exists(root))
-            return TypedResults.BadRequest($"Library folder does not exist: {root}");
+            return TypedResults.BadRequest($"Library folder does not exist: {root}. Set Settings → Library folder to the directory that contains one folder per series.");
 
-        List<string> mappedNames = await context.Mangas
+        List<Manga> inLibrary = await context.Mangas
+            .Include(m => m.MangaConnectorIds)
+            .Include(m => m.Chapters)
             .Where(m => m.LibraryId == library.Key)
-            .Select(m => m.DirectoryName)
             .ToListAsync(HttpContext.RequestAborted);
-        HashSet<string> mapped = mappedNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> mapped = inLibrary
+            .Where(m => m.MangaConnectorIds.Any(id => id.UseForDownload) || m.Chapters.Any(c => c.Downloaded))
+            .Select(m => NormalizeFolderKey(m.DirectoryName))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        List<string> dirs;
+        try
+        {
+            dirs = Directory.EnumerateDirectories(root).ToList();
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.BadRequest($"Cannot read {root}: {ex.Message}. The Windows service cannot see mapped drives (Z:\\). Use D:\\Manga or \\\\server\\share\\Manga.");
+        }
 
         List<LibraryFolderRecord> unmapped = [];
         int mappedCount = 0;
-        foreach (string dir in Directory.EnumerateDirectories(root))
+        int seen = 0;
+        foreach (string dir in dirs)
         {
-            string name = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (LibraryImportMatcher.IsSkippableFolder(name))
-                continue;
-            if (mapped.Contains(name))
+            foreach ((string relative, string full) in SeriesFolders(root, dir))
             {
-                mappedCount++;
-                continue;
+                seen++;
+                if (mapped.Contains(NormalizeFolderKey(relative)))
+                {
+                    mappedCount++;
+                    continue;
+                }
+                int archives = CountArchives(full);
+                unmapped.Add(new LibraryFolderRecord(relative, archives, LibraryImportMatcher.CleanFolderQuery(Path.GetFileName(relative))));
             }
-            int archives = CountArchives(dir);
-            unmapped.Add(new LibraryFolderRecord(name, archives, LibraryImportMatcher.CleanFolderQuery(name)));
         }
 
         unmapped = unmapped.OrderBy(f => f.FolderName, StringComparer.OrdinalIgnoreCase).ToList();
-        return TypedResults.Ok(new LibraryScanResult(library.Key, library.LibraryName, root, unmapped, mappedCount));
+        string? warning = LibraryImportMatcher.LibraryPathWarning(root);
+        if (seen == 0 && warning is null)
+            warning = $"No series folders under {root}. Mangette expects Library\\\\SeriesName\\\\*.cbz.";
+        return TypedResults.Ok(new LibraryScanResult(library.Key, library.LibraryName, root, unmapped, mappedCount, warning, seen));
     }
 
     [HttpPost("Match")]
     [ProducesResponseType<LibraryMatchResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
-    public Results<Ok<LibraryMatchResult>, BadRequest<string>> Match([FromBody] LibraryMatchRequest request)
+    public async Task<Results<Ok<LibraryMatchResult>, BadRequest<string>>> Match([FromBody] LibraryMatchRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.FolderName))
             return TypedResults.BadRequest("FolderName is required.");
 
         string query = string.IsNullOrWhiteSpace(request.Query)
-            ? LibraryImportMatcher.CleanFolderQuery(request.FolderName)
+            ? LibraryImportMatcher.CleanFolderQuery(Path.GetFileName(request.FolderName.Replace('/', Path.DirectorySeparatorChar)))
             : request.Query.Trim();
         if (query.Length == 0)
             return TypedResults.BadRequest("Could not build a search query from that folder name.");
 
-        List<LibraryMatchCandidate> candidates = SearchCandidates(request.FolderName, query);
+        List<SeriesSearch.ExistingSeries> existing = await SeriesSearch.LoadExisting(context, HttpContext.RequestAborted);
+        List<LibraryMatchCandidate> candidates = SeriesSearch.Lookup(query, null, existing)
+            .Select(h => new LibraryMatchCandidate(
+                h.Name,
+                h.ConnectorName,
+                h.IdOnSite,
+                h.WebsiteUrl,
+                h.CoverUrl,
+                h.Score))
+            .Take(8)
+            .ToList();
         return TypedResults.Ok(new LibraryMatchResult(request.FolderName, candidates));
     }
 
@@ -131,7 +159,7 @@ public class LibraryImportController(MangaContext context) : ControllerBase
         DownloadCoverFromMangaconnectorWorker cover = new(monitor);
         Mangette.AddWorkers([cover, retrieve]);
 
-        string seriesDir = Path.Combine(library.BasePath, request.FolderName);
+        string seriesDir = Path.Combine(library.BasePath, request.FolderName.Replace('/', Path.DirectorySeparatorChar));
         int archives = Directory.Exists(seriesDir) ? CountArchives(seriesDir) : 0;
         return TypedResults.Ok(new LibraryImportResult(manga.Key, manga.Name, archives));
     }
@@ -143,47 +171,43 @@ public class LibraryImportController(MangaContext context) : ControllerBase
         return await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(HttpContext.RequestAborted);
     }
 
-    private static List<LibraryMatchCandidate> SearchCandidates(string folderName, string query)
-    {
-        List<LibraryMatchCandidate> found = [];
-        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
-        int connectorsTried = 0;
-        foreach (string connectorName in DownloadFailureTracker.GetPreferenceOrder())
-        {
-            if (!Mangette.TryGetMangaConnector(connectorName, out MangaConnector? connector) || !connector.Enabled)
-                continue;
-            if (connectorName.Equals("Global", StringComparison.OrdinalIgnoreCase))
-                continue;
-            if (connectorsTried >= 3 && found.Count > 0)
-                break;
-            connectorsTried++;
-            (Manga manga, MangaConnectorId<Manga> id)[] hits;
-            try
-            {
-                hits = connector.SearchManga(query);
-            }
-            catch
-            {
-                continue;
-            }
+    private static string NormalizeFolderKey(string name) =>
+        name.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
 
-            foreach ((Manga manga, MangaConnectorId<Manga> id) in hits)
-            {
-                string key = $"{id.MangaConnectorName}:{id.IdOnConnectorSite}";
-                if (!seen.Add(key))
-                    continue;
-                double score = LibraryImportMatcher.ScoreTitle(folderName, manga.Name);
-                found.Add(new LibraryMatchCandidate(
-                    manga.Name,
-                    id.MangaConnectorName,
-                    id.IdOnConnectorSite,
-                    id.WebsiteUrl,
-                    manga.CoverUrl,
-                    Math.Round(score, 1)));
-            }
+    private static IEnumerable<(string Relative, string Full)> SeriesFolders(string root, string topLevel)
+    {
+        string name = Path.GetFileName(topLevel.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (LibraryImportMatcher.IsSkippableFolder(name))
+            yield break;
+
+        int archivesHere = CountArchives(topLevel);
+        string[] children;
+        try
+        {
+            children = Directory.GetDirectories(topLevel);
+        }
+        catch
+        {
+            children = [];
         }
 
-        return found.OrderByDescending(c => c.Score).ThenBy(c => c.Name, StringComparer.OrdinalIgnoreCase).Take(8).ToList();
+        bool nestedSeries = archivesHere == 0 && children.Length > 0 &&
+                            children.Any(c => CountArchives(c) > 0);
+        if (!nestedSeries)
+        {
+            yield return (name, topLevel);
+            yield break;
+        }
+
+        foreach (string child in children)
+        {
+            string childName = Path.GetFileName(child);
+            if (LibraryImportMatcher.IsSkippableFolder(childName))
+                continue;
+            if (CountArchives(child) == 0 && Directory.GetDirectories(child).Length == 0)
+                continue;
+            yield return ($"{name}/{childName}", child);
+        }
     }
 
     private static int CountArchives(string directory)
@@ -208,7 +232,7 @@ public class LibraryImportController(MangaContext context) : ControllerBase
 }
 
 public sealed record LibraryFolderRecord(string FolderName, int ArchiveCount, string SuggestedQuery);
-public sealed record LibraryScanResult(string LibraryId, string LibraryName, string BasePath, List<LibraryFolderRecord> UnmappedFolders, int MappedFolderCount);
+public sealed record LibraryScanResult(string LibraryId, string LibraryName, string BasePath, List<LibraryFolderRecord> UnmappedFolders, int MappedFolderCount, string? Warning, int TotalFoldersSeen);
 public sealed record LibraryMatchRequest(string FolderName, string? Query);
 public sealed record LibraryMatchCandidate(string Name, string ConnectorName, string IdOnSite, string? WebsiteUrl, string CoverUrl, double Score);
 public sealed record LibraryMatchResult(string FolderName, List<LibraryMatchCandidate> Matches);

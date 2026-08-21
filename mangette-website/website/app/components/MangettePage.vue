@@ -1,5 +1,5 @@
 <template>
-    <UPageBody v-bind="$props" class="mt-0 pb-0 h-[calc(100dvh-var(--ui-header-height))] relative min-xl:overflow-clip">
+    <UPageBody v-bind="$props" class="mt-0 pb-0 h-full min-h-[calc(100dvh-3.25rem)] relative min-xl:overflow-clip">
         <div class="flex min-md:flex-row max-md:flex-col gap-4 h-full relative">
             <div v-if="$slots.left" class="flex flex-col gap-2 bg-elevated min-md:w-3/7 min-xl:w-2/7 max-md:w-full py-4 pl-4 pr-2">
                 <slot name="left" />

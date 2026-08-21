@@ -89,9 +89,11 @@ public class MangetteSettings
                                   ?? new MangetteSettings();
         string? envUrl = Environment.GetEnvironmentVariable("FLARESOLVERR_URL");
         if (!string.IsNullOrWhiteSpace(envUrl))
-            settings.FlareSolverrUrl = envUrl;
-        else if (string.Equals(settings.FlareSolverrUrl, "http://127.0.0.1:8191", StringComparison.OrdinalIgnoreCase) &&
-                 string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FLARESOLVERR_URL")))
+            settings.FlareSolverrUrl = NormalizeFlareSolverrUrl(envUrl);
+        else
+            settings.FlareSolverrUrl = NormalizeFlareSolverrUrl(settings.FlareSolverrUrl);
+        if (string.Equals(settings.FlareSolverrUrl, "http://127.0.0.1:8191", StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FLARESOLVERR_URL")))
             settings.FlareSolverrUrl = "";
         settings.ListenPort = ResolveListenPort(settings.ListenPort);
         if (!string.IsNullOrWhiteSpace(settings.LibraryPath))
@@ -157,8 +159,28 @@ public class MangetteSettings
 
     public void SetFlareSolverrUrl(string url)
     {
-        this.FlareSolverrUrl = url;
+        FlareSolverrUrl = NormalizeFlareSolverrUrl(url);
         Save();
+    }
+
+    public static string NormalizeFlareSolverrUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return "";
+        string value = url.Trim();
+        if (value is "-" or "none" or "off")
+            return "";
+        if (!value.Contains("://", StringComparison.Ordinal))
+            value = "http://" + value;
+        return value.TrimEnd('/');
+    }
+
+    public static Uri FlareSolverrV1Uri(string baseUrl)
+    {
+        Uri parsed = new(NormalizeFlareSolverrUrl(baseUrl));
+        if (parsed.AbsolutePath.TrimEnd('/').EndsWith("v1", StringComparison.OrdinalIgnoreCase))
+            return parsed;
+        return new UriBuilder(parsed) { Path = "v1" }.Uri;
     }
 
     public void SetListenPort(int port)

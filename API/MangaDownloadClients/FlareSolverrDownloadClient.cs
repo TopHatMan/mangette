@@ -23,12 +23,7 @@ public class FlareSolverrDownloadClient(HttpClient client) : IDownloadClient
             return new(HttpStatusCode.InternalServerError);
         }
         
-        Uri flareSolverrUri = new (Mangette.Settings.FlareSolverrUrl);
-        if (flareSolverrUri.Segments.Last() != "v1")
-            flareSolverrUri = new UriBuilder(flareSolverrUri)
-            {
-                Path = "v1"
-            }.Uri;
+        Uri flareSolverrUri = MangetteSettings.FlareSolverrV1Uri(Mangette.Settings.FlareSolverrUrl);
         
         JObject requestObj = new()
         {

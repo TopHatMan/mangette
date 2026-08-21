@@ -339,12 +339,15 @@ const testFlare = async () => {
     testingFlare.value = true;
     flareMessage.value = '';
     try {
-        await $api('/v2/Settings/FlareSolverr/Test', { method: 'POST' });
+        const msg = await $fetch<string>('/v2/Settings/FlareSolverr/Test', { method: 'POST' });
         flareOk.value = true;
-        flareMessage.value = 'FlareSolverr is reachable.';
-    } catch {
+        flareMessage.value = msg || 'FlareSolverr is reachable.';
+    } catch (e: unknown) {
         flareOk.value = false;
-        flareMessage.value = 'FlareSolverr is not reachable. Leave the URL empty to use built-in Chromium.';
+        const body = typeof e === 'object' && e && 'data' in e ? String((e as { data?: unknown }).data ?? '') : '';
+        flareMessage.value =
+            body ||
+            'Cannot reach FlareSolverr. On the Debian VM: docker compose up -d (host port 8181). From Windows: curl http://192.168.1.210:8181 then save that URL here.';
     } finally {
         testingFlare.value = false;
     }

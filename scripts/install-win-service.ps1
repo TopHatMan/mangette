@@ -185,3 +185,4 @@ if ($LibraryPath) {
 Write-Host "Logs:            $InstallDir\data\logs\mangette.log"
 Write-Host ""
 Write-Host "Uninstall:  .\scripts\uninstall-win-service.ps1"
+Write-Host "If the UI looks unchanged, hard-refresh the browser (Ctrl+F5)."

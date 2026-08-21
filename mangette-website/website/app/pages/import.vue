@@ -22,12 +22,19 @@
                     Import matches ≥ 90%
                 </UButton>
                 <p v-if="scanResult" class="text-muted text-sm">
-                    {{ scanResult.basePath }} — {{ scanResult.unmappedFolders.length }} new folders, {{ scanResult.mappedFolderCount }} already in library
+                    Scanning <code>{{ scanResult.basePath }}</code> — {{ scanResult.unmappedFolders.length }} to import,
+                    {{ scanResult.mappedFolderCount }} already in library, {{ scanResult.totalFoldersSeen }} folders seen.
                 </p>
             </div>
             <p v-if="message" class="text-sm mb-3" :class="error ? 'text-error' : 'text-muted'">{{ message }}</p>
             <UAlert
-                v-if="!scanning && scanResult && rows.length === 0"
+                v-if="scanResult?.warning"
+                color="warning"
+                :title="scanResult.warning"
+                icon="i-lucide-triangle-alert"
+                class="mb-3" />
+            <UAlert
+                v-if="!scanning && scanResult && rows.length === 0 && !scanResult.warning"
                 title="Nothing new to import"
                 description="Every series folder is already in Mangette, or the library path is empty. Set the library folder in Settings if this looks wrong."
                 icon="i-lucide-circle-check" />
@@ -91,9 +98,15 @@ const matching = ref(false);
 const importing = ref(false);
 const message = ref('');
 const error = ref(false);
-const scanResult = ref<{ libraryId: string; libraryName: string; basePath: string; unmappedFolders: Row[]; mappedFolderCount: number } | null>(
-    null,
-);
+const scanResult = ref<{
+    libraryId: string;
+    libraryName: string;
+    basePath: string;
+    unmappedFolders: Row[];
+    mappedFolderCount: number;
+    warning?: string | null;
+    totalFoldersSeen: number;
+} | null>(null);
 const rows = ref<Row[]>([]);
 
 const keyOf = (m: Candidate) => `${m.connectorName}::${m.idOnSite}`;
@@ -118,9 +131,10 @@ const scan = async () => {
         }));
         if (!rows.value.length)
             message.value = data?.mappedFolderCount ? 'All folders are already in the library.' : 'No series folders found in the library path.';
-    } catch {
+    } catch (e: unknown) {
         error.value = true;
-        message.value = 'Could not scan the library folder. Check the path in Settings.';
+        const body = typeof e === 'object' && e && 'data' in e ? String((e as { data?: unknown }).data ?? '') : '';
+        message.value = body || 'Could not scan the library folder. Check Settings → Library folder. The Windows service cannot see mapped drives (Z:\\); use D:\\Manga or \\\\server\\share\\Manga.';
     } finally {
         scanning.value = false;
     }

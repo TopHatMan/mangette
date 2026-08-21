@@ -138,7 +138,14 @@ app.UseSwaggerUI(opts =>
 
 app.UseHttpsRedirection();
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        if (ctx.File.Name is "index.html" or "200.html" or "404.html")
+            ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
+    }
+});
 
 log.Debug("Mapping Controllers...");
 app.MapControllers()
