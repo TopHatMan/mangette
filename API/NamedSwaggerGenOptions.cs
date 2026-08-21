@@ -34,7 +34,7 @@ public class NamedSwaggerGenOptions : IConfigureNamedOptions<SwaggerGenOptions>
     {
         var info = new OpenApiInfo()
         {
-            Title = "Tranga " + description.GroupName,
+            Title = "Mangette " + description.GroupName,
             Version = description.ApiVersion.ToString()
         };
         if (description.IsDeprecated)

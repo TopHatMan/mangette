@@ -16,13 +16,10 @@ using Newtonsoft.Json.Converters;
 
 string tranga =
     "\n\n" +
-    " _______                                 v2\n" +
-    "|_     _|.----..---.-..-----..-----..---.-.\n" +
-    "  |   |  |   _||  _  ||     ||  _  ||  _  |\n" +
-    "  |___|  |__|  |___._||__|__||___  ||___._|\n" +
-    "                             |_____|       \n" +
-    $"Built at {BuildInformation.BuildAt} for {BuildInformation.Platform} version {BuildInformation.DotNetSdkVersion}\n" +
-    $"branch: {ThisAssembly.Git.Branch} commit: {ThisAssembly.Git.Commit} tag: {ThisAssembly.Git.Tag}\n\n";
+    " Mangette\n" +
+    $" Built at {BuildInformation.BuildAt} for {BuildInformation.Platform} version {BuildInformation.DotNetSdkVersion}\n" +
+    $" branch: {ThisAssembly.Git.Branch} commit: {ThisAssembly.Git.Commit} tag: {ThisAssembly.Git.Tag}\n" +
+    $" UI: http://localhost:{TrangaSettings.Port}\n\n";
 
 XmlConfigurator.ConfigureAndWatch(new FileInfo("Log4Net.config.xml"));
 ILog log = LogManager.GetLogger("Startup");
@@ -175,7 +172,7 @@ try //Connect to DB and apply migrations
             "(\u02c3ᆺ\u02c2)", "(=\ud83d\udf66 \u0f1d \ud83d\udf66=)"
         ];
         await context.Notifications.AddAsync(
-            new("Tranga Started", emojis[Random.Shared.Next(0, emojis.Length - 1)], NotificationUrgency.High),
+            new("Mangette Started", emojis[Random.Shared.Next(0, emojis.Length - 1)], NotificationUrgency.High),
             CancellationToken.None);
 
         if(await context.Sync(CancellationToken.None, reason: "Startup notification") is { success: false } contextException)
@@ -206,7 +203,7 @@ catch (Exception e)
     return;
 }
 
-log.Info("Starting Tranga.");
+log.Info("Starting Mangette.");
 Tranga.ServiceProvider = app.Services;
 Tranga.StartupTasks();
 Tranga.AddDefaultWorkers();

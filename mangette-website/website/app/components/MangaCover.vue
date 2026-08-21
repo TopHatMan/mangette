@@ -5,8 +5,8 @@
             v-if="blur"
             class="absolute l-0 t-0 w-full h-full rounded-lg overflow-clip"
             style="
-                background: linear-gradient(150deg, rgba(245, 169, 184, 0.3) 50%, rgba(91, 206, 250, 0.2));
-                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+                background: linear-gradient(150deg, rgba(24, 24, 27, 0.55) 40%, rgba(99, 102, 241, 0.2));
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
                 backdrop-filter: blur(2px) brightness(70%);
                 -webkit-backdrop-filter: blur(2px) brightness(70%);
             ">

@@ -8,5 +8,5 @@
 const { data: manga, refresh, status } = await useApi('/v2/Manga', { key: FetchKeys.Manga.All, lazy: true, server: false });
 onMounted(() => refresh());
 
-useHead({ title: 'Tranga' });
+useHead({ title: 'Mangette' });
 </script>

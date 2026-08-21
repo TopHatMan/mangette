@@ -24,7 +24,7 @@ public struct TrangaSettings
     [JsonIgnore] public static string CoverImageCacheSmall => Path.Join(CoverImageCache, "small");
     public static string DefaultDownloadLocation =>
         Environment.GetEnvironmentVariable("DOWNLOAD_LOCATION") ?? Path.Join(AppDirectory, "Manga");
-    [JsonIgnore] internal static readonly string DefaultUserAgent = $"Tranga/2.0 ({Enum.GetName(Environment.OSVersion.Platform)}; {(Environment.Is64BitOperatingSystem ? "x64" : "")})";
+    [JsonIgnore] internal static readonly string DefaultUserAgent = $"Mangette/2.0 ({Enum.GetName(Environment.OSVersion.Platform)}; {(Environment.Is64BitOperatingSystem ? "x64" : "")})";
     public string UserAgent { get; set; } = DefaultUserAgent;
     public int ImageCompression{ get; set; } = 40;
     public bool BlackWhiteImages { get; set; } = false;

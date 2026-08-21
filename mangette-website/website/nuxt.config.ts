@@ -21,11 +21,12 @@ export default defineNuxtConfig({
         preset: 'static',
         prerender: { failOnError: false, crawlLinks: false, routes: ['/'] },
     },
+    colorMode: { preference: 'dark', fallback: 'dark' },
     app: {
         head: {
             title: 'Mangette',
             htmlAttrs: { lang: 'en' },
-            link: [{ rel: 'icon', type: 'image/png', href: '/blahaj.png' }],
+            link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
         },
     },
     spaLoadingTemplate: false,

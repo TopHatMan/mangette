@@ -1,11 +1,6 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
-@theme {
-    --color-pink: #f5a9b8;
-    --color-blue: #5bcefa;
-}
-
 :root {
     --mangacover-width: 240px;
     --mangacover-height: 350px;
@@ -55,6 +50,6 @@
         background-color: initial;
     }
     50% {
-        background-color: var(--color-secondary);
+        background-color: var(--ui-bg-elevated);
     }
 }
