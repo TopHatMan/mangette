@@ -9,13 +9,18 @@ namespace API.MangaDownloadClients;
 /// </summary>
 public static class DownloadFailureTracker
 {
-    private static readonly string[] PreferenceOrder =
+    public static readonly string[] DefaultPreferenceOrder =
     [
+        "WeebCentral",
         "MangaDex",
+        "NeloManga",
+        "MangaTown",
+        "FanFox",
         "AsuraComic",
-        "Mangaworld",
-        "WeebCentral"
+        "Mangaworld"
     ];
+
+    private static string[] PreferenceOrder = DefaultPreferenceOrder;
 
     /// <summary>Consecutive failures on a connector before the whole connector is cooled down.</summary>
     public const int ConnectorFailureThreshold = 3;
@@ -26,6 +31,17 @@ public static class DownloadFailureTracker
 
     private static readonly ConcurrentDictionary<string, FailureState> ChapterFailures = new();
     private static readonly ConcurrentDictionary<string, FailureState> ConnectorFailures = new();
+
+    public static void SetPreferenceOrder(IEnumerable<string>? names)
+    {
+        string[] next = (names ?? [])
+            .Where(n => !string.IsNullOrWhiteSpace(n) && !n.Equals("Global", StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        PreferenceOrder = next.Length > 0 ? next : DefaultPreferenceOrder;
+    }
+
+    public static IReadOnlyList<string> GetPreferenceOrder() => PreferenceOrder;
 
     public static int Rank(string connectorName)
     {
@@ -98,6 +114,7 @@ public static class DownloadFailureTracker
     {
         ChapterFailures.Clear();
         ConnectorFailures.Clear();
+        PreferenceOrder = DefaultPreferenceOrder;
         BaseCooldown = TimeSpan.FromMinutes(30);
         MaxCooldown = TimeSpan.FromHours(6);
         UtcNow = static () => DateTime.UtcNow;

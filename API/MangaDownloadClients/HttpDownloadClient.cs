@@ -23,6 +23,12 @@ internal class HttpDownloadClient : IDownloadClient
         HttpRequestMessage requestMessage = new(HttpMethod.Get, url);
         if (referrer is not null)
             requestMessage.Headers.Referrer = new (referrer);
+        if (Uri.TryCreate(url, UriKind.Absolute, out Uri? uri) &&
+            (uri.Host.Contains("fanfox", StringComparison.OrdinalIgnoreCase) ||
+             uri.Host.Contains("mangafox", StringComparison.OrdinalIgnoreCase)))
+        {
+            requestMessage.Headers.TryAddWithoutValidation("Cookie", "isAdult=1");
+        }
         Log.DebugFormat("Requesting {0}", url);
         
         try

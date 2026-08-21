@@ -3282,6 +3282,86 @@
         }
       }
     },
+    "/v2/Settings/ConnectorPriority": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Connector names in download-failover order. The first source that has the chapter and is not cooling down is used.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Set connector download-failover order. Unknown names are ignored. Missing known connectors are appended.",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Settings/FlareSolverr/Url": {
       "patch": {
         "tags": [
@@ -4666,6 +4746,14 @@
           },
           "flareSolverrUrl": {
             "type": "string",
+            "nullable": true
+          },
+          "connectorPriority": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Connector names in download order. First match that is not cooling down wins the chapter.",
             "nullable": true
           },
           "chapterNamingScheme": {

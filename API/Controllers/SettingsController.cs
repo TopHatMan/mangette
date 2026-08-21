@@ -164,6 +164,27 @@ public class SettingsController() : ControllerBase
     }
 
     /// <summary>
+    /// Connector names in download-failover order. The first source that has the chapter and is not cooling down is used.
+    /// </summary>
+    [HttpGet("ConnectorPriority")]
+    [ProducesResponseType<List<string>>(Status200OK, "application/json")]
+    public Ok<List<string>> GetConnectorPriority()
+    {
+        return TypedResults.Ok(Tranga.Settings.ConnectorPriority);
+    }
+
+    /// <summary>
+    /// Set connector download-failover order. Unknown names are ignored. Missing known connectors are appended.
+    /// </summary>
+    [HttpPatch("ConnectorPriority")]
+    [ProducesResponseType<List<string>>(Status200OK, "application/json")]
+    public Ok<List<string>> SetConnectorPriority([FromBody] string[] names)
+    {
+        Tranga.Settings.SetConnectorPriority(names);
+        return TypedResults.Ok(Tranga.Settings.ConnectorPriority);
+    }
+
+    /// <summary>
     /// Sets the FlareSolverr-URL
     /// </summary>
     /// <param name="flareSolverrUrl">URL of FlareSolverr-Instance</param>

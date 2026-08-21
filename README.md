@@ -56,11 +56,13 @@ dotnet run --project API/API.csproj
 
 ## Multi-source downloads
 
-A series can have several websites attached (MangaDex, AsuraComic, Mangaworld, WeebCentral, …). Missing chapters are taken from the best source that is not cooling down:
+A series can have several websites attached. For each missing chapter, Mangette uses the **first source in your priority list** that has that chapter and is not cooling down.
 
-**MangaDex → AsuraComic → Mangaworld → WeebCentral → other**
+Default order (change it in Settings → Download source priority):
 
-If a source returns 403, Cloudflare, or an empty image list, that source is backed off (30 minutes, doubling up to 6 hours) instead of being retried every minute. Another attached source is used for the same chapter when it has it.
+**WeebCentral → MangaDex → NeloManga → MangaTown → FanFox → AsuraComic → Mangaworld**
+
+If a source returns 403, Cloudflare, or an empty image list, that source is backed off (30 minutes, doubling up to 6 hours) instead of being retried every minute. The next source in the list is used for the same chapter.
 
 ## FlareSolverr (required for Cloudflare)
 
@@ -105,10 +107,13 @@ Swagger stays at http://localhost:6531/swagger. Routes are under `/v2`.
 
 ## Sources
 
-- [MangaDex](https://mangadex.org/)
-- [MangaWorld](https://www.mangaworld.cx)
-- [AsuraComic](https://asurascanz.com)
 - [WeebCentral](https://weebcentral.com/)
+- [MangaDex](https://mangadex.org/)
+- [NeloManga](https://nelomanga.net/)
+- [MangaTown](https://www.mangatown.com/)
+- [FanFox](https://fanfox.net/)
+- [AsuraComic](https://asurascanz.com)
+- [MangaWorld](https://www.mangaworld.cx)
 
 Library scan: [Komga](https://komga.org/), [Kavita](https://www.kavitareader.com/).  
 Notifications: Gotify, Ntfy, Pushover, or a generic webhook.

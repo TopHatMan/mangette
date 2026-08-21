@@ -48,6 +48,24 @@
             </UCard>
             <UCard v-if="settingsStatus === 'success'">
                 <template #header>
+                    <h1>Download source priority</h1>
+                </template>
+                <p class="text-muted text-sm mb-3">
+                    For each missing chapter, Mangette uses the first source in this list that has it and is not cooling down.
+                </p>
+                <ol class="flex flex-col gap-2">
+                    <li v-for="(name, index) in connectorPriority" :key="name" class="flex items-center gap-2">
+                        <span class="w-6 text-muted">{{ index + 1 }}</span>
+                        <span class="grow">{{ name }}</span>
+                        <UButton size="xs" variant="ghost" icon="i-lucide-chevron-up" :disabled="index === 0" @click="movePriority(index, -1)" />
+                        <UButton size="xs" variant="ghost" icon="i-lucide-chevron-down" :disabled="index === connectorPriority.length - 1" @click="movePriority(index, 1)" />
+                    </li>
+                </ol>
+                <UButton class="mt-3 w-fit" :loading="savingPriority" @click="savePriority">Save priority</UButton>
+                <p v-if="priorityMessage" class="mt-2 text-sm">{{ priorityMessage }}</p>
+            </UCard>
+            <UCard v-if="settingsStatus === 'success'">
+                <template #header>
                     <h1>Notifications</h1>
                 </template>
                 <NotificationConnectors />
@@ -150,14 +168,45 @@ const testingFlare = ref(false);
 const flareMessage = ref('');
 const flareOk = ref(false);
 
+const connectorPriority = ref<string[]>([]);
+const savingPriority = ref(false);
+const priorityMessage = ref('');
+
 watch(
     settings,
     (value) => {
         if (value?.flareSolverrUrl)
             flareUrl.value = value.flareSolverrUrl;
+        if (value?.connectorPriority?.length)
+            connectorPriority.value = [...value.connectorPriority];
     },
     { immediate: true },
 );
+
+const movePriority = (index: number, delta: number) => {
+    const next = index + delta;
+    if (next < 0 || next >= connectorPriority.value.length)
+        return;
+    const copy = [...connectorPriority.value];
+    const [item] = copy.splice(index, 1);
+    copy.splice(next, 0, item);
+    connectorPriority.value = copy;
+};
+
+const savePriority = async () => {
+    savingPriority.value = true;
+    priorityMessage.value = '';
+    try {
+        const updated = await $api('/v2/Settings/ConnectorPriority', { method: 'PATCH', body: connectorPriority.value });
+        connectorPriority.value = updated ?? connectorPriority.value;
+        await refreshNuxtData(FetchKeys.Settings.All);
+        priorityMessage.value = 'Saved. First in the list is tried first for each chapter.';
+    } catch {
+        priorityMessage.value = 'Could not save source priority.';
+    } finally {
+        savingPriority.value = false;
+    }
+};
 
 const saveFlare = async () => {
     savingFlare.value = true;

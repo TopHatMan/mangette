@@ -16,15 +16,27 @@ public class DownloadFailureTrackerTest : IDisposable
     }
 
     [Theory]
-    [InlineData("MangaDex", 0)]
-    [InlineData("AsuraComic", 1)]
-    [InlineData("Mangaworld", 2)]
-    [InlineData("WeebCentral", 3)]
-    [InlineData("Global", 4)]
-    [InlineData("UnknownSite", 4)]
+    [InlineData("WeebCentral", 0)]
+    [InlineData("MangaDex", 1)]
+    [InlineData("NeloManga", 2)]
+    [InlineData("MangaTown", 3)]
+    [InlineData("FanFox", 4)]
+    [InlineData("AsuraComic", 5)]
+    [InlineData("Mangaworld", 6)]
+    [InlineData("Global", 7)]
+    [InlineData("UnknownSite", 7)]
     public void Rank_MatchesPreferenceOrder(string connector, int expectedRank)
     {
         Assert.Equal(expectedRank, DownloadFailureTracker.Rank(connector));
+    }
+
+    [Fact]
+    public void SetPreferenceOrder_MakesFirstConnectorWin()
+    {
+        DownloadFailureTracker.SetPreferenceOrder(["WeebCentral", "MangaDex"]);
+        Assert.Equal(0, DownloadFailureTracker.Rank("WeebCentral"));
+        Assert.Equal(1, DownloadFailureTracker.Rank("MangaDex"));
+        Assert.True(DownloadFailureTracker.Rank("FanFox") > DownloadFailureTracker.Rank("MangaDex"));
     }
 
     [Fact]
@@ -132,8 +144,8 @@ public class DownloadFailureTrackerTest : IDisposable
             take: 10);
 
         Assert.Equal(2, selected.Count);
-        Assert.Contains(selected, s => s.MangaConnectorName == "MangaDex" && s.Obj.ChapterNumber == "5");
-        Assert.DoesNotContain(selected, s => s.MangaConnectorName == "WeebCentral");
+        Assert.Contains(selected, s => s.MangaConnectorName == "WeebCentral" && s.Obj.ChapterNumber == "5");
+        Assert.DoesNotContain(selected, s => s.MangaConnectorName == "MangaDex");
         Assert.Contains(selected, s => s.MangaConnectorName == "AsuraComic" && s.Obj.ChapterNumber == "6");
     }
 
@@ -146,7 +158,7 @@ public class DownloadFailureTrackerTest : IDisposable
         MangaConnectorId<Chapter> weeb = Source("One Piece", "5", "WeebCentral", "wc-5");
         MangaConnectorId<Chapter> dex = Source("One Piece", "5", "MangaDex", "md-5");
 
-        DownloadFailureTracker.RecordFailure(dex.Key, "MangaDex", "timeout");
+        DownloadFailureTracker.RecordFailure(weeb.Key, "WeebCentral", "timeout");
 
         List<MangaConnectorId<Chapter>> selected = DownloadFailureTracker.SelectDownloadSources(
             [weeb, dex],
@@ -155,7 +167,7 @@ public class DownloadFailureTrackerTest : IDisposable
             take: 1);
 
         Assert.Single(selected);
-        Assert.Equal("WeebCentral", selected[0].MangaConnectorName);
+        Assert.Equal("MangaDex", selected[0].MangaConnectorName);
     }
 
     [Fact]

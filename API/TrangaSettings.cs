@@ -1,4 +1,5 @@
-﻿using API.Workers;
+﻿using API.MangaDownloadClients;
+using API.Workers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -31,6 +32,8 @@ public struct TrangaSettings
     public const string DefaultFlareSolverrUrl = "http://127.0.0.1:8191";
     public string FlareSolverrUrl { get; set; } =
         Environment.GetEnvironmentVariable("FLARESOLVERR_URL") ?? DefaultFlareSolverrUrl;
+    /// <summary>Connector names in download order. First match that is not cooling down wins the chapter.</summary>
+    public List<string> ConnectorPriority { get; set; } = new(DownloadFailureTracker.DefaultPreferenceOrder);
     /// <summary>
     /// Placeholders:
     /// %M Obj Name
@@ -73,6 +76,8 @@ public struct TrangaSettings
             settings.FlareSolverrUrl = envUrl;
         else if (string.IsNullOrWhiteSpace(settings.FlareSolverrUrl))
             settings.FlareSolverrUrl = DefaultFlareSolverrUrl;
+        settings.ConnectorPriority = NormalizeConnectorPriority(settings.ConnectorPriority);
+        DownloadFailureTracker.SetPreferenceOrder(settings.ConnectorPriority);
         return settings;
     }
 
@@ -109,6 +114,37 @@ public struct TrangaSettings
     {
         this.FlareSolverrUrl = url;
         Save();
+    }
+
+    public void SetConnectorPriority(IEnumerable<string> names)
+    {
+        List<string> normalized = NormalizeConnectorPriority(names);
+        ConnectorPriority.Clear();
+        ConnectorPriority.AddRange(normalized);
+        DownloadFailureTracker.SetPreferenceOrder(ConnectorPriority);
+        Save();
+    }
+
+    public static List<string> NormalizeConnectorPriority(IEnumerable<string>? names)
+    {
+        HashSet<string> known = Tranga.MangaConnectors
+            .Select(c => c.Name)
+            .Where(n => !n.Equals("Global", StringComparison.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<string> ordered = [];
+        foreach (string name in names ?? [])
+        {
+            string? match = known.FirstOrDefault(k => k.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (match is null || ordered.Contains(match, StringComparer.OrdinalIgnoreCase))
+                continue;
+            ordered.Add(match);
+        }
+        foreach (string name in DownloadFailureTracker.DefaultPreferenceOrder.Concat(known))
+        {
+            if (!ordered.Contains(name, StringComparer.OrdinalIgnoreCase) && known.Contains(name))
+                ordered.Add(known.First(k => k.Equals(name, StringComparison.OrdinalIgnoreCase)));
+        }
+        return ordered;
     }
 
     public void SetDownloadLanguage(string language)
