@@ -111,5 +111,5 @@ const items = ref<StepperItem[]>([
     { title: 'Results', icon: 'i-lucide-logs' },
 ]);
 
-useHead({ title: 'Search Manga' });
+useHead({ title: 'Add New' });
 </script>

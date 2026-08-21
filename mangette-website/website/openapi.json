@@ -1113,6 +1113,170 @@
         }
       }
     },
+    "/v2/LibraryImport/Scan": {
+      "get": {
+        "tags": [
+          "LibraryImport"
+        ],
+        "parameters": [
+          {
+            "name": "FileLibraryId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryScanResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/LibraryImport/Match": {
+      "post": {
+        "tags": [
+          "LibraryImport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryMatchRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryMatchRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryMatchRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryMatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryMatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/LibraryImport/Import": {
+      "post": {
+        "tags": [
+          "LibraryImport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryImportRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryImportRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryImportRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LibraryImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Maintenance/CleanupNoDownloadManga": {
       "post": {
         "tags": [
@@ -4350,6 +4514,125 @@
         },
         "additionalProperties": false
       },
+      "LibraryFolderRecord": {
+        "type": "object",
+        "properties": {
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "archiveCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "suggestedQuery": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LibraryImportRequest": {
+        "type": "object",
+        "properties": {
+          "libraryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "connectorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "idOnSite": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LibraryImportResult": {
+        "type": "object",
+        "properties": {
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "archivesOnDisk": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LibraryMatchCandidate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "connectorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "idOnSite": {
+            "type": "string",
+            "nullable": true
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LibraryMatchRequest": {
+        "type": "object",
+        "properties": {
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "query": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LibraryMatchResult": {
+        "type": "object",
+        "properties": {
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryMatchCandidate"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "LibraryRefreshSetting": {
         "enum": [
           "AfterAllFinished",
@@ -4358,6 +4641,35 @@
           "WhileDownloading"
         ],
         "type": "string"
+      },
+      "LibraryScanResult": {
+        "type": "object",
+        "properties": {
+          "libraryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "libraryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "basePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "unmappedFolders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryFolderRecord"
+            },
+            "nullable": true
+          },
+          "mappedFolderCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
       },
       "LibraryType": {
         "enum": [
@@ -5029,6 +5341,9 @@
     },
     {
       "name": "LibraryConnector"
+    },
+    {
+      "name": "LibraryImport"
     },
     {
       "name": "Maintenance"

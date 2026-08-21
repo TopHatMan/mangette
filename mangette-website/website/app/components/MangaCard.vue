@@ -3,7 +3,7 @@
         :ui="{ body: 'p-0 sm:p-0', root: 'overflow-visible' }"
         class="relative max-sm:w-[var(--mangacover-width-sm)] max-sm:h-[var(--mangacover-height-sm)] w-(--mangacover-width) h-(--mangacover-height) mt-4 mr-4">
         <MangaCover :manga="manga" blur />
-        <div class="absolute -top-4 -right-4 flex flex-col bg-pink rounded-full">
+        <div class="absolute -top-4 -right-4 flex flex-col bg-elevated rounded-full">
             <MangaconnectorIcon v-for="m in manga.mangaConnectorIds" v-bind="m" :key="m.key" />
         </div>
     </UCard>
