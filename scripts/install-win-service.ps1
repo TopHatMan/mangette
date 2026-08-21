@@ -16,6 +16,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+& (Join-Path $PSScriptRoot "require-dotnet10.ps1")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $Root = Split-Path -Parent $PSScriptRoot
 $ExeName = "Mangette.exe"
 $InstallDir = [System.IO.Path]::GetFullPath($InstallDir)

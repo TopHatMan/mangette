@@ -66,6 +66,15 @@ No Postgres. Docker is only for FlareSolverr.
 
 ### Windows service (start at boot)
 
+Mangette needs the **.NET 10 SDK** to build. `NETSDK1045` means this PC still has an old SDK (5.0, 6, 8, …). Install 10, then open a **new** PowerShell:
+
+```powershell
+winget install Microsoft.DotNet.SDK.10 --source winget
+dotnet --list-sdks
+```
+
+You must see a `10.x` line. `C:\Program Files\dotnet` must be on PATH ahead of any `...\sdk\5.0...` folder.
+
 Run PowerShell **as Administrator** from the cloned repo. Example for Docker on a Debian VM and an existing Tranga library:
 
 ```powershell
@@ -85,7 +94,9 @@ Get-Content C:\Mangette\data\logs\mangette.log -Tail 50
 
 ### From source (manual, not auto-start)
 
-```bash
+Needs the **.NET 10 SDK** (`dotnet --list-sdks` must show `10.x`):
+
+```powershell
 dotnet run --project API/API.csproj
 ```
 

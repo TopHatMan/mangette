@@ -1,5 +1,7 @@
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
+& (Join-Path $PSScriptRoot "require-dotnet10.ps1")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $Out = Join-Path $Root "dist\win-x64"
 
 dotnet publish (Join-Path $Root "API\API.csproj") `
