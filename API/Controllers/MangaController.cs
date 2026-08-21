@@ -206,27 +206,41 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     {
         if (await context.Mangas
                 .Include(m => m.Library)
+                .Include(m => m.AltTitles)
                 .Include(m => m.Chapters)
                 .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
         if (await context.FileLibraries.FirstOrDefaultAsync(l => l.Key == LibraryId, HttpContext.RequestAborted) is not { } library)
             return TypedResults.NotFound(nameof(LibraryId));
-        
-        if(manga.LibraryId == library.Key)
-            return TypedResults.Ok();
 
-        Dictionary<Chapter, string?> oldPaths = manga.Chapters.Where(ch => ch.Downloaded).ToDictionary(ch => ch, ch => ch.FullArchiveFilePath);
-        manga.Library = library;
-        Dictionary<Chapter, string?> newPaths = oldPaths.ToDictionary(kv => kv.Key, kv => kv.Key.FullArchiveFilePath);
-        IEnumerable<MoveFileOrFolderWorker> workers = oldPaths.Select(kv => new MoveFileOrFolderWorker(newPaths[kv.Key]!, kv.Value!));
-        Mangette.AddWorkers(workers);
+        bool moved = manga.LibraryId != library.Key;
+        if (moved)
+        {
+            Dictionary<Chapter, string?> oldPaths = manga.Chapters.Where(ch => ch.Downloaded).ToDictionary(ch => ch, ch => ch.FullArchiveFilePath);
+            manga.Library = library;
+            Dictionary<Chapter, string?> newPaths = oldPaths.ToDictionary(kv => kv.Key, kv => kv.Key.FullArchiveFilePath);
+            IEnumerable<MoveFileOrFolderWorker> workers = oldPaths.Select(kv => new MoveFileOrFolderWorker(newPaths[kv.Key]!, kv.Value!));
+            Mangette.AddWorkers(workers);
+        }
+        else
+            manga.Library = library;
+
+        manga.TryAttachExistingSeriesFolder();
+        foreach (Chapter chapter in manga.Chapters)
+        {
+            chapter.ParentManga = manga;
+            chapter.ApplyDownloadedMatch();
+        }
         
         if(await context.Sync(HttpContext.RequestAborted, GetType(), "Move Manga") is { success: false } mangaContextResult)
             return TypedResults.InternalServerError(mangaContextResult.exceptionMessage);
-        
-        actionsContext.Actions.Add(new LibraryMovedActionRecord(manga, library));
-        if(await actionsContext.Sync(HttpContext.RequestAborted, GetType(), "Move Manga") is { success: false } actionsContextResult)
-            return TypedResults.InternalServerError(actionsContextResult.exceptionMessage);
+
+        if (moved)
+        {
+            actionsContext.Actions.Add(new LibraryMovedActionRecord(manga, library));
+            if(await actionsContext.Sync(HttpContext.RequestAborted, GetType(), "Move Manga") is { success: false } actionsContextResult)
+                return TypedResults.InternalServerError(actionsContextResult.exceptionMessage);
+        }
         
         return TypedResults.Ok();
     }

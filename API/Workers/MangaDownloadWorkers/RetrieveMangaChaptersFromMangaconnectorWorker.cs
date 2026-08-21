@@ -39,6 +39,10 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
                     .ThenInclude(ch => ch.MangaConnectorIds)
                 .Include(id => id.Obj)
                     .ThenInclude(m => m.MangaConnectorIds)
+                .Include(id => id.Obj)
+                    .ThenInclude(m => m.Library)
+                .Include(id => id.Obj)
+                    .ThenInclude(m => m.AltTitles)
                 .FirstOrDefaultAsync(c => c.Key == _mangaConnectorIdId, CancellationToken) is not { } mangaConnectorId)
         {
             Log.Error("Could not get MangaConnectorId.");
@@ -103,6 +107,17 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
 
         if (newIds.Count > 0)
             MangaContext.MangaConnectorToChapter.AddRange(newIds);
+
+        manga.TryAttachExistingSeriesFolder();
+        int alreadyOnDisk = 0;
+        foreach (Chapter chapter in manga.Chapters)
+        {
+            chapter.ParentManga = manga;
+            if (chapter.ApplyDownloadedMatch())
+                alreadyOnDisk++;
+        }
+        if (alreadyOnDisk > 0)
+            Log.InfoFormat("Recognized {0} existing archives on disk for {1}.", alreadyOnDisk, manga.Name);
 
         if(await MangaContext.Sync(CancellationToken, GetType(), "Chapters retrieved") is { success: false } mangaContextException)
             Log.ErrorFormat("Failed to save database changes: {0}", mangaContextException.exceptionMessage);

@@ -50,5 +50,39 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
         int rows = await actionContext.Actions.ExecuteDeleteAsync(HttpContext.RequestAborted);
         return TypedResults.Ok(rows);
     }
-    
+
+    /// <summary>
+    /// Scan library folders for existing .cbz files and mark matching chapters as downloaded.
+    /// Use this when recovering an old Tranga/Mangette library so chapters are not re-downloaded.
+    /// </summary>
+    [HttpPost("RescanDownloadedChapters")]
+    [ProducesResponseType<RescanDownloadedChaptersResult>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok<RescanDownloadedChaptersResult>, InternalServerError<string>>> RescanDownloadedChapters()
+    {
+        List<Manga> mangas = await mangaContext.Mangas
+            .Include(m => m.Library)
+            .Include(m => m.AltTitles)
+            .Include(m => m.Chapters)
+            .ToListAsync(HttpContext.RequestAborted);
+
+        int matched = 0;
+        foreach (Manga manga in mangas)
+        {
+            manga.TryAttachExistingSeriesFolder();
+            foreach (Chapter chapter in manga.Chapters)
+            {
+                chapter.ParentManga = manga;
+                if (chapter.ApplyDownloadedMatch())
+                    matched++;
+            }
+        }
+
+        if (await mangaContext.Sync(HttpContext.RequestAborted, GetType(), "Rescan downloaded chapters") is { success: false } result)
+            return TypedResults.InternalServerError(result.exceptionMessage);
+
+        return TypedResults.Ok(new RescanDownloadedChaptersResult(mangas.Sum(m => m.Chapters.Count), matched));
+    }
+
+    public sealed record RescanDownloadedChaptersResult(int ChaptersChecked, int MarkedDownloaded);
 }

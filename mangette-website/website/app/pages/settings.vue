@@ -117,10 +117,14 @@
                 <template #header>
                     <h1>Maintenance</h1>
                 </template>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <UButton icon="i-lucide-folder-search" loading-auto class="w-fit mb-2" @click="rescanLibrary">
+                        Scan library for existing chapters
+                    </UButton>
                     <UButton icon="i-lucide-database" loading-auto class="w-fit mb-2" @click="cleanUpDatabase">Clean database</UButton>
                     <UButton icon="i-lucide-captions-off" loading-auto class="w-fit mb-2" @click="cleanUpActions">Clean actions</UButton>
                 </div>
+                <p v-if="rescanMessage" class="text-sm mt-1">{{ rescanMessage }}</p>
             </UCard>
             <UCard>
                 <template #header>
@@ -166,6 +170,17 @@ const cleanUpDatabase = async () => {
 };
 const cleanUpActions = async () => {
     await useApi('/v2/Maintenance/CleanupActions', { method: 'POST' });
+};
+const rescanMessage = ref('');
+const rescanLibrary = async () => {
+    rescanMessage.value = '';
+    try {
+        const result = await $api('/v2/Maintenance/RescanDownloadedChapters', { method: 'POST' });
+        await refreshNuxtData(FetchKeys.Manga.All);
+        rescanMessage.value = `Checked ${result?.chaptersChecked ?? 0} chapters, marked ${result?.markedDownloaded ?? 0} as already on disk.`;
+    } catch {
+        rescanMessage.value = 'Could not scan the library folder.';
+    }
 };
 
 const { data: libraries } = useApi('/v2/LibraryConnector', { key: FetchKeys.Libraries.All });

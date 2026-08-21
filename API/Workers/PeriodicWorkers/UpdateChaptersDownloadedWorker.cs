@@ -24,22 +24,31 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Checking chapter files...");
-        List<Chapter> chapters = await MangaContext.Chapters.ToListAsync(CancellationToken);
-        Log.DebugFormat("Checking {0} chapters...", chapters.Count);
-        foreach (Chapter chapter in chapters)
+        List<Manga> mangas = await MangaContext.Mangas
+            .Include(m => m.Library)
+            .Include(m => m.AltTitles)
+            .Include(m => m.Chapters)
+            .ToListAsync(CancellationToken);
+        int matched = 0;
+        foreach (Manga manga in mangas)
         {
             try
             {
-                bool downloaded = await chapter.CheckDownloaded(MangaContext, CancellationToken);
-                chapter.Downloaded = downloaded;
-                if (!downloaded)
-                    chapter.FileName = null;
+                manga.TryAttachExistingSeriesFolder();
+                foreach (Chapter chapter in manga.Chapters)
+                {
+                    chapter.ParentManga = manga;
+                    if (chapter.ApplyDownloadedMatch())
+                        matched++;
+                }
             }
             catch (Exception exception)
             {
                 Log.Error(exception);
             }
         }
+        Log.InfoFormat("Library scan: {0} chapters already on disk out of {1}.", matched,
+            mangas.Sum(m => m.Chapters.Count));
 
         if(await MangaContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } e)
             Log.ErrorFormat("Failed to save database changes: {0}", e.exceptionMessage);

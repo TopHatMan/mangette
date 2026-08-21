@@ -24,6 +24,37 @@ public class Manga : Identifiable
     public ICollection<AltTitle> AltTitles { get; internal set; } = null!;
     public float IgnoreChaptersBefore { get; internal set; }
     [StringLength(1024)] [Required] public string DirectoryName { get; private set; }
+
+    internal void SetDirectoryName(string directoryName) => DirectoryName = directoryName;
+
+    /// <summary>
+    /// If this series already exists on disk under a matching folder (old Tranga library),
+    /// point <see cref="DirectoryName"/> at that folder instead of creating an empty one.
+    /// </summary>
+    internal bool TryAttachExistingSeriesFolder()
+    {
+        if (Library is null || string.IsNullOrWhiteSpace(Library.BasePath))
+            return false;
+        string root;
+        try
+        {
+            root = Path.GetFullPath(Library.BasePath);
+        }
+        catch
+        {
+            return false;
+        }
+        string? existing = DownloadedChapterMatcher.FindSeriesFolder(
+            root,
+            DirectoryName,
+            Name,
+            AltTitles?.Select(t => t.Title));
+        if (existing is null)
+            return false;
+        if (!DirectoryName.Equals(existing, StringComparison.OrdinalIgnoreCase))
+            DirectoryName = existing;
+        return true;
+    }
     [StringLength(512)] public string? CoverFileNameInCache { get; internal set; }
     public uint? Year { get; internal init; }
     [StringLength(8)] public string? OriginalLanguage { get; internal init; }

@@ -4,8 +4,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
-using Soenneker.Utils.String.NeedlemanWunsch;
-
 namespace API.Schema.MangaContext;
 
 [PrimaryKey("Key")]
@@ -74,63 +72,69 @@ public class Chapter : Identifiable, IComparable<Chapter>
     }
 
 
-    private readonly Regex _chRex = new Regex(@"C(?:(?:h?\.?)|(?:hapter\.?))?.?([0-9]+)");
     /// <summary>
-    /// Checks the filesystem if an archive at the ArchiveFilePath exists
+    /// Checks the filesystem if an archive for this chapter exists (exact name, padded numbers, or Ch.N in the filename).
     /// </summary>
-    /// <param name="context"></param>
-    /// <param name="token"></param>
-    /// <returns>True if archive exists on disk</returns>
-    /// <exception cref="KeyNotFoundException">Unable to load Chapter, Parent or Library</exception>
-    public async Task<bool> CheckDownloaded(MangaContext context, CancellationToken? token = null)
+    public async Task<bool> CheckDownloaded(MangaContext context, CancellationToken? token = null, bool persist = true)
     {
-        if(await context.Chapters
-               .Include(c => c.ParentManga)
-               .ThenInclude(p => p.Library)
-               .FirstOrDefaultAsync(c => c.Key == this.Key, token??CancellationToken.None) is not { } chapter)
-            throw new KeyNotFoundException("Unable to find chapter");
-
-        if (chapter.ParentManga.Library is null || (chapter.FileName is null && Constants.DownloadedChaptersCheckMatchExactName))
+        if (ParentManga?.Library is null)
         {
-            this.Downloaded = false;
-            this.FileName = null;
+            if (await context.Chapters
+                    .Include(c => c.ParentManga)
+                    .ThenInclude(p => p.Library)
+                    .Include(c => c.ParentManga)
+                    .ThenInclude(p => p.AltTitles)
+                    .FirstOrDefaultAsync(c => c.Key == Key, token ?? CancellationToken.None) is not { } loaded)
+                throw new KeyNotFoundException("Unable to find chapter");
+            ParentManga = loaded.ParentManga;
+        }
+
+        ApplyDownloadedMatch();
+        if (persist)
+            await context.Sync(token ?? CancellationToken.None, GetType(), $"CheckDownloaded {this} {Downloaded}");
+        return Downloaded;
+    }
+
+    internal bool ApplyDownloadedMatch()
+    {
+        if (ParentManga?.Library is null || string.IsNullOrWhiteSpace(ParentManga.Library.BasePath))
+        {
+            Downloaded = false;
+            FileName = null;
             return false;
         }
-        
-        if (File.Exists(chapter.FullArchiveFilePath))
-        {
-            this.Downloaded = true;
-            this.FileName = new FileInfo(chapter.FullArchiveFilePath).Name;
-        }else if (Constants.DownloadedChaptersCheckMatchExactName)
-        {
-            this.Downloaded = false;
-            this.FileName = null;
-        }else
-        {
-            string directoryPath = chapter.ParentManga.FullDirectoryPath;
-            if (!Directory.Exists(directoryPath))
-            {
-                this.Downloaded = false;
-                return false;
-            }
 
-            string? existingFile = Directory.EnumerateFiles(directoryPath).Select(path => new FileInfo(path).Name).FirstOrDefault(file =>
-            {
-                double similarity = NeedlemanWunschStringUtil.CalculateSimilarityPercentage(file, this.FileName ?? GetArchiveFileName());
-                if (similarity > 90)
-                    return true;
-
-                Match chMatch = _chRex.Match(file);
-                if (!chMatch.Groups[1].Success)
-                    return false;
-                return chMatch.Groups[1].Value == this.ChapterNumber;
-            });
-            this.Downloaded = existingFile is not null;
-            this.FileName = existingFile is not null ? new FileInfo(existingFile).Name : null;
+        ParentManga.TryAttachExistingSeriesFolder();
+        string seriesDirectory;
+        try
+        {
+            seriesDirectory = Path.GetFullPath(Path.Combine(ParentManga.Library.BasePath, ParentManga.DirectoryName));
         }
-        
-        await context.Sync(token??CancellationToken.None, GetType(), $"CheckDownloaded {this} {this.Downloaded}");
-        return this.Downloaded;
+        catch
+        {
+            Downloaded = false;
+            FileName = null;
+            return false;
+        }
+
+        string? expected = FileName ?? GetArchiveFileName();
+        string? found = DownloadedChapterMatcher.FindExistingChapterFile(
+            seriesDirectory,
+            ChapterNumber,
+            expected,
+            exactNameOnly: Constants.DownloadedChaptersCheckMatchExactName);
+
+        if (found is not null)
+        {
+            Downloaded = true;
+            FileName = found;
+            return true;
+        }
+
+        Downloaded = false;
+        if (FileName is not null && !File.Exists(Path.Combine(seriesDirectory, FileName)))
+            FileName = null;
+        return false;
     } 
     
     /// Placeholders:

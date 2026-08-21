@@ -1157,6 +1157,36 @@
         }
       }
     },
+    "/v2/Maintenance/RescanDownloadedChapters": {
+      "post": {
+        "tags": [
+          "Maintenance"
+        ],
+        "summary": "Scan library folders for existing .cbz files and mark matching chapters as downloaded.\r\nUse this when recovering an old Tranga/Mangette library so chapters are not re-downloaded.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/RescanDownloadedChaptersResult"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Manga": {
       "get": {
         "tags": [
@@ -4880,6 +4910,20 @@
           }
         },
         "additionalProperties": { }
+      },
+      "RescanDownloadedChaptersResult": {
+        "type": "object",
+        "properties": {
+          "chaptersChecked": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "markedDownloaded": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
       },
       "Stats": {
         "type": "object",

@@ -1,0 +1,111 @@
+namespace Tests;
+
+public class DownloadedChapterMatcherTest : IDisposable
+{
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "mangette-scan-" + Guid.NewGuid().ToString("N"));
+
+    public DownloadedChapterMatcherTest()
+    {
+        Directory.CreateDirectory(_root);
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            if (Directory.Exists(_root))
+                Directory.Delete(_root, true);
+        }
+        catch
+        {
+            // ignore leftover temp files
+        }
+    }
+
+    [Theory]
+    [InlineData("1", "1")]
+    [InlineData("001", "1")]
+    [InlineData("1.0", "1")]
+    [InlineData("1.5", "1.5")]
+    [InlineData("10.20", "10.20")]
+    public void NormalizeChapterNumber_StripsPaddingAndTrailingZero(string input, string expected)
+    {
+        Assert.Equal(expected, API.DownloadedChapterMatcher.NormalizeChapterNumber(input));
+    }
+
+    [Fact]
+    public void ChapterNumbersEqual_TreatsPaddingAsSameChapter()
+    {
+        Assert.True(API.DownloadedChapterMatcher.ChapterNumbersEqual("1", "001"));
+        Assert.True(API.DownloadedChapterMatcher.ChapterNumbersEqual("1.0", "1"));
+        Assert.False(API.DownloadedChapterMatcher.ChapterNumbersEqual("1", "1.5"));
+        Assert.False(API.DownloadedChapterMatcher.ChapterNumbersEqual("1", "2"));
+    }
+
+    [Theory]
+    [InlineData("One Piece - Ch.1.cbz", "1")]
+    [InlineData("One Piece - Ch.001.cbz", "1")]
+    [InlineData("One Piece - Vol.1 Ch.5 - Title.cbz", "5")]
+    [InlineData("chapter-12.cbz", "12")]
+    [InlineData("c001.cbz", "1")]
+    [InlineData("Ch.1.5.cbz", "1.5")]
+    [InlineData("0007.cbz", "7")]
+    public void TryParseChapterNumber_ReadsCommonArchiveNames(string fileName, string expected)
+    {
+        Assert.True(API.DownloadedChapterMatcher.TryParseChapterNumber(fileName, out string parsed));
+        Assert.Equal(expected, parsed);
+    }
+
+    [Fact]
+    public void FindExistingChapterFile_MatchesTrangaStyleName()
+    {
+        string series = Path.Combine(_root, "One Piece");
+        Directory.CreateDirectory(series);
+        File.WriteAllText(Path.Combine(series, "One Piece - Ch.001.cbz"), "x");
+
+        string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(series, "1", "One Piece - Ch.1.cbz");
+        Assert.Equal("One Piece - Ch.001.cbz", found);
+    }
+
+    [Fact]
+    public void FindExistingChapterFile_MatchesExactGeneratedName()
+    {
+        string series = Path.Combine(_root, "Series");
+        Directory.CreateDirectory(series);
+        File.WriteAllText(Path.Combine(series, "Series - Ch.2.cbz"), "x");
+
+        string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(series, "2", "Series - Ch.2.cbz");
+        Assert.Equal("Series - Ch.2.cbz", found);
+    }
+
+    [Fact]
+    public void FindExistingChapterFile_FindsNestedVolumeFolder()
+    {
+        string series = Path.Combine(_root, "Nested");
+        string vol = Path.Combine(series, "Vol.1");
+        Directory.CreateDirectory(vol);
+        File.WriteAllText(Path.Combine(vol, "Ch.3.cbz"), "x");
+
+        string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(series, "3", "Nested - Ch.3.cbz");
+        Assert.Equal(Path.Combine("Vol.1", "Ch.3.cbz"), found);
+    }
+
+    [Fact]
+    public void FindExistingChapterFile_ExactOnlyIgnoresDifferentName()
+    {
+        string series = Path.Combine(_root, "Exact");
+        Directory.CreateDirectory(series);
+        File.WriteAllText(Path.Combine(series, "Exact - Ch.001.cbz"), "x");
+
+        Assert.Null(API.DownloadedChapterMatcher.FindExistingChapterFile(
+            series, "1", "Exact - Ch.1.cbz", exactNameOnly: true));
+    }
+
+    [Fact]
+    public void FindSeriesFolder_MatchesQualifierSuffix()
+    {
+        Directory.CreateDirectory(Path.Combine(_root, "One Piece (EN)"));
+        string? found = API.DownloadedChapterMatcher.FindSeriesFolder(_root, "One Piece", "One Piece", []);
+        Assert.Equal("One Piece (EN)", found);
+    }
+}
