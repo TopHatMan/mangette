@@ -48,6 +48,17 @@ public class LibraryImportMatcherTest
         Assert.Contains("<Summary>Pirates</Summary>", xml);
     }
 
+    [Theory]
+    [InlineData(API.Schema.MangaContext.MangaReleaseStatus.Continuing, true)]
+    [InlineData(API.Schema.MangaContext.MangaReleaseStatus.OnHiatus, true)]
+    [InlineData(API.Schema.MangaContext.MangaReleaseStatus.Unreleased, true)]
+    [InlineData(API.Schema.MangaContext.MangaReleaseStatus.Completed, false)]
+    [InlineData(API.Schema.MangaContext.MangaReleaseStatus.Cancelled, false)]
+    public void CheckForNewChapters_OnlyOngoing(API.Schema.MangaContext.MangaReleaseStatus status, bool expected)
+    {
+        Assert.Equal(expected, API.Workers.PeriodicWorkers.CheckForNewChaptersWorker.IsOngoing(status));
+    }
+
     [Fact]
     public void AniList_MapStatus_CoversReleasingAndFinished()
     {

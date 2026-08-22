@@ -7,14 +7,20 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Workers.PeriodicWorkers;
 
 /// <summary>
-/// Creates Jobs to update available Chapters for all Manga that are marked for Download.
-/// If any connector on a manga is monitored, every attached connector is refreshed.
+/// Refresh chapter lists for monitored <em>ongoing</em> series.
+/// Completed/cancelled titles are skipped. Default interval is 3 hours.
 /// </summary>
 public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
 {
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
     public TimeSpan Interval { get; set; } = interval??Constants.CheckForNewChaptersInterval;
+
+    /// <summary>Continuing, hiatus, and unknown still get searched. Finished/cancelled do not.</summary>
+    internal static bool IsOngoing(MangaReleaseStatus status) =>
+        status is MangaReleaseStatus.Continuing
+            or MangaReleaseStatus.OnHiatus
+            or MangaReleaseStatus.Unreleased;
     
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
@@ -26,16 +32,32 @@ public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<Ba
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        Log.Debug("Checking for new chapters...");
-        List<string> monitoredMangaIds = await MangaContext.MangaConnectorToManga
+        Log.Debug("Checking ongoing series for new chapters...");
+        int monitoredAll = await MangaContext.MangaConnectorToManga
             .Where(id => id.UseForDownload)
+            .Select(id => id.ObjId)
+            .Distinct()
+            .CountAsync(CancellationToken);
+
+        List<string> ongoingMangaIds = await MangaContext.MangaConnectorToManga
+            .Where(id => id.UseForDownload &&
+                         (id.Obj.ReleaseStatus == MangaReleaseStatus.Continuing
+                          || id.Obj.ReleaseStatus == MangaReleaseStatus.OnHiatus
+                          || id.Obj.ReleaseStatus == MangaReleaseStatus.Unreleased))
             .Select(id => id.ObjId)
             .Distinct()
             .ToListAsync(CancellationToken);
 
+        int skipped = monitoredAll - ongoingMangaIds.Count;
+        Log.InfoFormat("New-chapter search: {0} ongoing series every {1}h ({2} completed/cancelled skipped).",
+            ongoingMangaIds.Count, Interval.TotalHours, skipped);
+
+        if (ongoingMangaIds.Count == 0)
+            return [];
+
         List<MangaConnectorId<Manga>> connectorIdsManga = await MangaContext.MangaConnectorToManga
             .Include(id => id.Obj)
-            .Where(id => monitoredMangaIds.Contains(id.ObjId))
+            .Where(id => ongoingMangaIds.Contains(id.ObjId))
             .ToListAsync(CancellationToken);
 
         connectorIdsManga = connectorIdsManga

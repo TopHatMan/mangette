@@ -8,9 +8,8 @@
                         <h1 class="font-semibold">Download</h1>
                     </template>
                     <p class="text-muted text-xs mb-3">
-                        Monitored sites are checked every 3 hours. A new chapter on WeebCentral / MangaDex / others is queued
-                        automatically. AniList and MyAnimeList do not publish exact drop times — link them under Metadata for
-                        status and listed chapter count.
+                        Ongoing (and hiatus) series are searched every 3 hours on monitored sites. Finished and cancelled series
+                        are skipped. New chapters on WeebCentral / MangaDex / others are queued automatically.
                     </p>
                     <LibrarySelect
                         :manga-id="mangaId"
