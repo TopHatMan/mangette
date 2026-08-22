@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using API.MangaDownloadClients;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
+using log4net;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.PeriodicWorkers;
@@ -16,6 +17,7 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
 
     public DateTime LastExecution { get; set; } = DateTime.UnixEpoch;
     public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromMinutes(1);
+    private static readonly ILog QueueLog = LogManager.GetLogger(typeof(StartNewChapterDownloadsWorker));
     
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
@@ -28,10 +30,26 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Checking for missing chapters...");
-        
-        List<MangaConnectorId<Chapter>> missingChapters = await GetMissingChapters(MangaContext, CancellationToken);
-        
-        Log.DebugFormat("Found {0} missing chapters.", missingChapters.Count);
+        List<DownloadChapterFromMangaconnectorWorker> workers = await SelectNewDownloadWorkers(MangaContext, CancellationToken);
+        return workers.ToArray<BaseWorker>();
+    }
+
+    /// <summary>Queue missing monitored chapters up to MaxConcurrentDownloads. Used after a disk scan.</summary>
+    internal static async Task<int> EnqueueAvailableDownloads(MangaContext ctx, CancellationToken cancellationToken)
+    {
+        List<DownloadChapterFromMangaconnectorWorker> workers = await SelectNewDownloadWorkers(ctx, cancellationToken);
+        if (workers.Count > 0)
+            Mangette.AddWorkers(workers);
+        return workers.Count;
+    }
+
+    internal static async Task<List<DownloadChapterFromMangaconnectorWorker>> SelectNewDownloadWorkers(
+        MangaContext ctx,
+        CancellationToken cancellationToken)
+    {
+        List<MangaConnectorId<Chapter>> missingChapters = await GetMissingChapters(ctx, cancellationToken);
+
+        QueueLog.DebugFormat("Found {0} missing chapters.", missingChapters.Count);
         List<DownloadChapterFromMangaconnectorWorker> runningDownloads = Mangette.GetRunningWorkers()
             .OfType<DownloadChapterFromMangaconnectorWorker>()
             .ToList();
@@ -40,8 +58,8 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
 
         int downloadWorkers = runningDownloads.Count;
         int amountNewWorkers = Math.Max(0, Mangette.Settings.MaxConcurrentDownloads - downloadWorkers);
-        
-        Log.DebugFormat("{0} running download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
+
+        QueueLog.DebugFormat("{0} running download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
 
         Dictionary<string, string> chapterToSeries = missingChapters
             .GroupBy(id => id.ObjId)
@@ -61,11 +79,8 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
             amountNewWorkers,
             inFlightBySeries);
 
-        Log.DebugFormat("{0} chapters queued after failover/cooldown filter.", newDownloadChapters.Count);
-
-        List<BaseWorker> newWorkers = newDownloadChapters.Select(mcId => new DownloadChapterFromMangaconnectorWorker(mcId)).ToList<BaseWorker>();
-        
-        return newWorkers.ToArray();
+        QueueLog.DebugFormat("{0} chapters queued after failover/cooldown filter.", newDownloadChapters.Count);
+        return newDownloadChapters.Select(mcId => new DownloadChapterFromMangaconnectorWorker(mcId)).ToList();
     }
     
     internal static async Task<List<MangaConnectorId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken)

@@ -1,3 +1,5 @@
+using System.IO.Compression;
+
 namespace Tests;
 
 public class DownloadedChapterMatcherTest : IDisposable
@@ -65,7 +67,7 @@ public class DownloadedChapterMatcherTest : IDisposable
     {
         string series = Path.Combine(_root, "One Piece");
         Directory.CreateDirectory(series);
-        File.WriteAllText(Path.Combine(series, "One Piece - Ch.001.cbz"), "x");
+        WriteDummyCbz(Path.Combine(series, "One Piece - Ch.001.cbz"));
 
         string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(series, "1", "One Piece - Ch.1.cbz");
         Assert.Equal("One Piece - Ch.001.cbz", found);
@@ -76,7 +78,7 @@ public class DownloadedChapterMatcherTest : IDisposable
     {
         string series = Path.Combine(_root, "Series");
         Directory.CreateDirectory(series);
-        File.WriteAllText(Path.Combine(series, "Series - Ch.2.cbz"), "x");
+        WriteDummyCbz(Path.Combine(series, "Series - Ch.2.cbz"));
 
         string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(series, "2", "Series - Ch.2.cbz");
         Assert.Equal("Series - Ch.2.cbz", found);
@@ -88,7 +90,7 @@ public class DownloadedChapterMatcherTest : IDisposable
         string series = Path.Combine(_root, "Nested");
         string vol = Path.Combine(series, "Vol.1");
         Directory.CreateDirectory(vol);
-        File.WriteAllText(Path.Combine(vol, "Ch.3.cbz"), "x");
+        WriteDummyCbz(Path.Combine(vol, "Ch.3.cbz"));
 
         string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(series, "3", "Nested - Ch.3.cbz");
         Assert.Equal(Path.Combine("Vol.1", "Ch.3.cbz"), found);
@@ -99,7 +101,7 @@ public class DownloadedChapterMatcherTest : IDisposable
     {
         string series = Path.Combine(_root, "Exact");
         Directory.CreateDirectory(series);
-        File.WriteAllText(Path.Combine(series, "Exact - Ch.001.cbz"), "x");
+        WriteDummyCbz(Path.Combine(series, "Exact - Ch.001.cbz"));
 
         Assert.Null(API.DownloadedChapterMatcher.FindExistingChapterFile(
             series, "1", "Exact - Ch.1.cbz", exactNameOnly: true));
@@ -110,7 +112,7 @@ public class DownloadedChapterMatcherTest : IDisposable
     {
         string series = Path.Combine(_root, "Bobobo");
         Directory.CreateDirectory(series);
-        File.WriteAllText(Path.Combine(series, "Bobobo-bo Bo-bobo - Vol.01.cbz"), "x");
+        WriteDummyCbz(Path.Combine(series, "Bobobo-bo Bo-bobo - Vol.01.cbz"));
 
         string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(
             series, "1", "Bobobo - Ch.1.cbz", volumeNumber: 1);
@@ -134,5 +136,30 @@ public class DownloadedChapterMatcherTest : IDisposable
         Directory.CreateDirectory(Path.Combine(_root, "One Piece (EN)"));
         string? found = API.DownloadedChapterMatcher.FindSeriesFolder(_root, "One Piece", "One Piece", []);
         Assert.Equal("One Piece (EN)", found);
+    }
+
+    [Fact]
+    public void FindExistingChapterFile_SkipsEmptyAndCorruptArchives()
+    {
+        string series = Path.Combine(_root, "Holes");
+        Directory.CreateDirectory(series);
+        File.WriteAllBytes(Path.Combine(series, "Holes - Ch.1.cbz"), []);
+        File.WriteAllText(Path.Combine(series, "Holes - Ch.2.cbz"), "not a zip");
+        WriteDummyCbz(Path.Combine(series, "Holes - Ch.3.cbz"));
+
+        Assert.Null(API.DownloadedChapterMatcher.FindExistingChapterFile(series, "1", "Holes - Ch.1.cbz"));
+        Assert.Null(API.DownloadedChapterMatcher.FindExistingChapterFile(series, "2", "Holes - Ch.2.cbz"));
+        Assert.Equal("Holes - Ch.3.cbz", API.DownloadedChapterMatcher.FindExistingChapterFile(series, "3", "Holes - Ch.3.cbz"));
+        Assert.True(File.Exists(Path.Combine(series, "Holes - Ch.1.cbz.corrupt")));
+        Assert.True(File.Exists(Path.Combine(series, "Holes - Ch.2.cbz.corrupt")));
+        Assert.False(API.DownloadedChapterMatcher.IsUsableArchive(Path.Combine(series, "Holes - Ch.1.cbz.corrupt")));
+    }
+
+    private static void WriteDummyCbz(string path)
+    {
+        using FileStream fs = File.Create(path);
+        using ZipArchive zip = new(fs, ZipArchiveMode.Create);
+        using Stream entry = zip.CreateEntry("001.jpg").Open();
+        entry.Write([0xFF, 0xD8, 0xFF, 0xD9]);
     }
 }

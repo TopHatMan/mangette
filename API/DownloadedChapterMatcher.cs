@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.RegularExpressions;
 using Soenneker.Utils.String.NeedlemanWunsch;
 
@@ -114,12 +115,56 @@ public static class DownloadedChapterMatcher
         return want.Equals(fileVolume.Value.ToString(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Empty, truncated, or unreadable archives (bad disk) are not treated as downloaded.
+    /// </summary>
+    public static bool IsUsableArchive(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return false;
+        FileInfo info;
+        try
+        {
+            info = new FileInfo(path);
+        }
+        catch
+        {
+            return false;
+        }
+        if (info.Length < 32)
+            return false;
+
+        string ext = info.Extension;
+        if (ext.Equals(".cbz", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
+            return ZipLooksReadable(path);
+        return true;
+    }
+
+    public static bool TryQuarantineCorrupt(string path)
+    {
+        try
+        {
+            string dest = path + ".corrupt";
+            int n = 2;
+            while (File.Exists(dest))
+                dest = path + $".corrupt{n++}";
+            File.Move(path, dest);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static string? FindExistingChapterFile(
         string seriesDirectory,
         string chapterNumber,
         string? expectedFileName,
         bool exactNameOnly = false,
-        int? volumeNumber = null)
+        int? volumeNumber = null,
+        List<string>? quarantinedFiles = null)
     {
         if (string.IsNullOrWhiteSpace(seriesDirectory) || !Directory.Exists(seriesDirectory))
             return null;
@@ -131,8 +176,9 @@ public static class DownloadedChapterMatcher
         if (!string.IsNullOrWhiteSpace(expectedFileName))
         {
             string expectedPath = Path.Combine(seriesDirectory, expectedFileName);
-            if (File.Exists(expectedPath))
-                return ToRelative(seriesDirectory, expectedPath);
+            string? accepted = AcceptArchive(seriesDirectory, expectedPath, quarantinedFiles);
+            if (accepted is not null)
+                return accepted;
         }
 
         List<string> archives = [];
@@ -154,15 +200,15 @@ public static class DownloadedChapterMatcher
             string expectedName = Path.GetFileName(expectedFileName);
             string? exact = archives.FirstOrDefault(path =>
                 Path.GetFileName(path).Equals(expectedName, StringComparison.OrdinalIgnoreCase));
-            if (exact is not null)
-                return ToRelative(seriesDirectory, exact);
+            string? acceptedExact = exact is null ? null : AcceptArchive(seriesDirectory, exact, quarantinedFiles);
+            if (acceptedExact is not null)
+                return acceptedExact;
         }
 
         if (exactNameOnly)
             return null;
 
-        string? best = null;
-        int bestScore = -1;
+        List<(string Path, int Score)> ranked = [];
         foreach (string path in archives)
         {
             string name = Path.GetFileName(path);
@@ -177,14 +223,41 @@ public static class DownloadedChapterMatcher
                 name.Equals(Path.GetFileName(expectedFileName), StringComparison.OrdinalIgnoreCase))
                 score += 100;
             score += Math.Max(0, 40 - Path.GetRelativePath(seriesDirectory, path).Count(c => c is '/' or '\\'));
-            if (score > bestScore)
-            {
-                bestScore = score;
-                best = path;
-            }
+            ranked.Add((path, score));
         }
 
-        return best is null ? null : ToRelative(seriesDirectory, best);
+        foreach ((string path, int _) in ranked.OrderByDescending(r => r.Score))
+        {
+            string? accepted = AcceptArchive(seriesDirectory, path, quarantinedFiles);
+            if (accepted is not null)
+                return accepted;
+        }
+
+        return null;
+    }
+
+    private static bool ZipLooksReadable(string path)
+    {
+        try
+        {
+            using ZipArchive zip = ZipFile.OpenRead(path);
+            return zip.Entries.Any(e => !string.IsNullOrEmpty(e.Name) && e.Length > 0);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string? AcceptArchive(string seriesDirectory, string path, List<string>? quarantinedFiles)
+    {
+        if (!File.Exists(path))
+            return null;
+        if (IsUsableArchive(path))
+            return ToRelative(seriesDirectory, path);
+        if (TryQuarantineCorrupt(path))
+            quarantinedFiles?.Add(Path.GetFileName(path));
+        return null;
     }
 
     public static string? FindSeriesFolder(string libraryRoot, string directoryName, string mangaName, IEnumerable<string>? altTitles)

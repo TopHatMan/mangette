@@ -30,6 +30,7 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
             .Include(m => m.Chapters)
             .ToListAsync(CancellationToken);
         int matched = 0;
+        List<string> quarantined = [];
         foreach (Manga manga in mangas)
         {
             try
@@ -38,7 +39,7 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
                 foreach (Chapter chapter in manga.Chapters)
                 {
                     chapter.ParentManga = manga;
-                    if (chapter.ApplyDownloadedMatch())
+                    if (chapter.ApplyDownloadedMatch(quarantined))
                         matched++;
                 }
             }
@@ -47,8 +48,8 @@ public class UpdateChaptersDownloadedWorker(TimeSpan? interval = null, IEnumerab
                 Log.Error(exception);
             }
         }
-        Log.InfoFormat("Library scan: {0} chapters already on disk out of {1}.", matched,
-            mangas.Sum(m => m.Chapters.Count));
+        Log.InfoFormat("Library scan: {0} chapters already on disk out of {1}. Moved {2} corrupt archives aside.",
+            matched, mangas.Sum(m => m.Chapters.Count), quarantined.Count);
 
         if(await MangaContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } e)
             Log.ErrorFormat("Failed to save database changes: {0}", e.exceptionMessage);

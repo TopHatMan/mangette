@@ -14,6 +14,7 @@
                         @click="view = 'posters'" />
                     <UButton icon="i-lucide-list" :variant="view === 'table' ? 'solid' : 'outline'" @click="view = 'table'" />
                 </UButtonGroup>
+                <UButton icon="i-lucide-circle-alert" variant="outline" to="/wanted">Wanted</UButton>
                 <UButton icon="i-lucide-folder-input" variant="outline" to="/import">Library Import</UButton>
                 <UButton icon="i-lucide-plus" to="/search">Add New</UButton>
             </div>

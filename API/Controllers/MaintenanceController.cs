@@ -1,6 +1,7 @@
 using API.MangaConnectors;
 using API.Schema.ActionsContext;
 using API.Schema.MangaContext;
+using API.Workers.PeriodicWorkers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -52,8 +53,8 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
     }
 
     /// <summary>
-    /// Scan library folders for existing .cbz files and mark matching chapters as downloaded.
-    /// Use this when recovering an old Tranga/Mangette library so chapters are not re-downloaded.
+    /// Scan library folders: mark chapters whose archives are on disk, clear holes
+    /// (missing or corrupt files), and queue monitored missing chapters for download.
     /// </summary>
     [HttpPost("RescanDownloadedChapters")]
     [ProducesResponseType<RescanDownloadedChaptersResult>(Status200OK, "application/json")]
@@ -63,26 +64,44 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
         List<Manga> mangas = await mangaContext.Mangas
             .Include(m => m.Library)
             .Include(m => m.AltTitles)
+            .Include(m => m.MangaConnectorIds)
             .Include(m => m.Chapters)
+            .ThenInclude(c => c.MangaConnectorIds)
             .ToListAsync(HttpContext.RequestAborted);
 
+        List<string> quarantined = [];
         int matched = 0;
+        int missingMonitored = 0;
         foreach (Manga manga in mangas)
         {
             manga.TryAttachExistingSeriesFolder();
             foreach (Chapter chapter in manga.Chapters)
             {
                 chapter.ParentManga = manga;
-                if (chapter.ApplyDownloadedMatch())
+                if (chapter.ApplyDownloadedMatch(quarantined))
                     matched++;
+                else if (chapter.MangaConnectorIds.Any(id => id.UseForDownload))
+                    missingMonitored++;
             }
         }
 
         if (await mangaContext.Sync(HttpContext.RequestAborted, GetType(), "Rescan downloaded chapters") is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
 
-        return TypedResults.Ok(new RescanDownloadedChaptersResult(mangas.Sum(m => m.Chapters.Count), matched));
+        int queued = await StartNewChapterDownloadsWorker.EnqueueAvailableDownloads(mangaContext, HttpContext.RequestAborted);
+
+        return TypedResults.Ok(new RescanDownloadedChaptersResult(
+            mangas.Sum(m => m.Chapters.Count),
+            matched,
+            missingMonitored,
+            quarantined.Count,
+            queued));
     }
 
-    public sealed record RescanDownloadedChaptersResult(int ChaptersChecked, int MarkedDownloaded);
+    public sealed record RescanDownloadedChaptersResult(
+        int ChaptersChecked,
+        int MarkedDownloaded,
+        int MissingMonitored,
+        int CorruptMoved,
+        int QueuedDownloads);
 }

@@ -147,7 +147,7 @@
                 </template>
                 <div class="flex flex-wrap gap-2">
                     <UButton icon="i-lucide-folder-search" loading-auto class="w-fit mb-2" @click="rescanLibrary">
-                        Scan library for existing chapters
+                        Scan disk for missing and corrupt chapters
                     </UButton>
                     <UButton icon="i-lucide-database" loading-auto class="w-fit mb-2" @click="cleanUpDatabase">
                         Remove leftover search results
@@ -207,7 +207,13 @@ const rescanLibrary = async () => {
     try {
         const result = await $api('/v2/Maintenance/RescanDownloadedChapters', { method: 'POST' });
         await refreshNuxtData(FetchKeys.Manga.All);
-        rescanMessage.value = `Checked ${result?.chaptersChecked ?? 0} chapters, marked ${result?.markedDownloaded ?? 0} as already on disk.`;
+        const missing = (result as { missingMonitored?: number })?.missingMonitored ?? 0;
+        const corrupt = (result as { corruptMoved?: number })?.corruptMoved ?? 0;
+        const queued = (result as { queuedDownloads?: number })?.queuedDownloads ?? 0;
+        rescanMessage.value =
+            `Checked ${result?.chaptersChecked ?? 0} chapters, ${result?.markedDownloaded ?? 0} on disk, ${missing} holes.` +
+            (corrupt ? ` Moved ${corrupt} corrupt files aside.` : '') +
+            (queued ? ` Queued ${queued} downloads.` : '');
     } catch {
         rescanMessage.value = 'Could not scan the library folder.';
     }
