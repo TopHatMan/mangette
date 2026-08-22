@@ -12,6 +12,7 @@ dotnet publish (Join-Path $Root "API\API.csproj") `
   -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:EnableCompressionInSingleFile=true `
   -p:SkipFrontend="$(if ($env:SKIP_FRONTEND) { $env:SKIP_FRONTEND } else { 'true' })" `
+  -p:OpenApiGenerateDocumentsOnBuild=false `
   -o $Out
 
 Write-Host ""

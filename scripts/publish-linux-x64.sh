@@ -12,6 +12,7 @@ dotnet publish API/API.csproj \
   -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:EnableCompressionInSingleFile=true \
   -p:SkipFrontend="${SKIP_FRONTEND:-true}" \
+  -p:OpenApiGenerateDocumentsOnBuild=false \
   -o "$OUT"
 
 echo
