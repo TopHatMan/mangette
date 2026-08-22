@@ -99,6 +99,8 @@ Next to the executable (or `MANGETTE_HOME`):
 | --- | --- |
 | `data/mangette.db` | SQLite library |
 | `data/settings.json` | Settings (port, FlareSolverr URL, …) |
+| `data/logs/mangette.log` | Full log |
+| `data/logs/mangette-errors.log` | Errors only (import failures, site fetch errors) |
 | `data/imageCache/` | Covers |
 | `data/incomplete/` | In-progress chapter images |
 | `Manga/` | Finished `.cbz` (default library) |

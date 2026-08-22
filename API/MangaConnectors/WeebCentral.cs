@@ -82,15 +82,15 @@ public class WeebCentral : MangaConnector
         HttpResponseMessage response = downloadClient.MakeRequest(url, RequestType.MangaInfo).GetAwaiter().GetResult();
         if (!response.IsSuccessStatusCode)
         {
-            Log.Error("Failed to retrieve manga page");
-            return null;
+            string msg = $"WeebCentral {url} returned HTTP {(int)response.StatusCode} {response.StatusCode}";
+            Log.Error(msg);
+            throw new InvalidOperationException(msg);
         }
 
         string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         HtmlDocument doc = new();
         doc.LoadHtml(html);
-
-        return ParseMangaFromHtml(doc, mangaIdOnSite, url); // Use full slug as ID
+        return ParseMangaFromHtml(doc, mangaIdOnSite, url);
     }
 
     private (Manga, MangaConnectorId<Manga>) ParseMangaFromHtml(HtmlDocument doc, string mangaIdOnSite, string url)

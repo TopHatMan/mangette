@@ -2,6 +2,7 @@ using API.MangaConnectors;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
 using Asp.Versioning;
+using log4net;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,8 @@ namespace API.Controllers;
 [Route("v{v:apiVersion}/[controller]")]
 public class LibraryImportController(MangaContext context) : ControllerBase
 {
+    private readonly ILog Log = LogManager.GetLogger(typeof(LibraryImportController));
+
     [HttpGet("Scan")]
     [ProducesResponseType<LibraryScanResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
@@ -79,6 +82,8 @@ public class LibraryImportController(MangaContext context) : ControllerBase
         string? warning = LibraryImportMatcher.LibraryPathWarning(root);
         if (seen == 0 && warning is null)
             warning = $"No series folders under {root}. Mangette expects Library\\\\SeriesName\\\\*.cbz.";
+        Log.InfoFormat("Library scan {0}: {1} folders, {2} unmapped, {3} already in library. {4}",
+            root, seen, unmapped.Count, mappedCount, warning ?? "");
         return TypedResults.Ok(new LibraryScanResult(library.Key, library.LibraryName, root, unmapped, mappedCount, warning, seen));
     }
 
@@ -96,18 +101,28 @@ public class LibraryImportController(MangaContext context) : ControllerBase
         if (query.Length == 0)
             return TypedResults.BadRequest("Could not build a search query from that folder name.");
 
-        List<SeriesSearch.ExistingSeries> existing = await SeriesSearch.LoadExisting(context, HttpContext.RequestAborted);
-        List<LibraryMatchCandidate> candidates = SeriesSearch.Lookup(query, null, existing)
-            .Select(h => new LibraryMatchCandidate(
-                h.Name,
-                h.ConnectorName,
-                h.IdOnSite,
-                h.WebsiteUrl,
-                h.CoverUrl,
-                h.Score))
-            .Take(8)
-            .ToList();
-        return TypedResults.Ok(new LibraryMatchResult(request.FolderName, candidates));
+        try
+        {
+            List<SeriesSearch.ExistingSeries> existing = await SeriesSearch.LoadExisting(context, HttpContext.RequestAborted);
+            List<LibraryMatchCandidate> candidates = SeriesSearch.Lookup(query, null, existing)
+                .Select(h => new LibraryMatchCandidate(
+                    h.Name,
+                    h.ConnectorName,
+                    h.IdOnSite,
+                    h.WebsiteUrl,
+                    h.CoverUrl,
+                    h.Score))
+                .Take(8)
+                .ToList();
+            double best = candidates.Count > 0 ? candidates[0].Score : 0;
+            Log.InfoFormat("Match “{0}” query “{1}”: {2} hits, best {3}%", request.FolderName, query, candidates.Count, best);
+            return TypedResults.Ok(new LibraryMatchResult(request.FolderName, candidates));
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Match failed for folder “{request.FolderName}” query “{query}”: {ex.Message}", ex);
+            return TypedResults.BadRequest($"Match failed for “{request.FolderName}”: {ex.Message}");
+        }
     }
 
     [HttpPost("Import")]
@@ -128,40 +143,70 @@ public class LibraryImportController(MangaContext context) : ControllerBase
             return TypedResults.BadRequest("No library folder is set.");
 
         if (!Mangette.TryGetMangaConnector(request.ConnectorName, out MangaConnector? connector))
-            return TypedResults.NotFound(nameof(request.ConnectorName));
+        {
+            Log.ErrorFormat("Import “{0}”: unknown connector {1}", request.FolderName, request.ConnectorName);
+            return TypedResults.NotFound($"Unknown site {request.ConnectorName}.");
+        }
 
-        (Manga manga, MangaConnectorId<Manga> mcId)? fetched = connector.GetMangaFromId(request.IdOnSite);
-        if (fetched is null)
-            return TypedResults.NotFound("Could not load that series from the site.");
+        try
+        {
+            (Manga manga, MangaConnectorId<Manga> mcId)? fetched;
+            try
+            {
+                fetched = connector.GetMangaFromId(request.IdOnSite);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Import “{request.FolderName}”: GetMangaFromId {request.ConnectorName}/{request.IdOnSite} threw: {ex.Message}", ex);
+                return TypedResults.InternalServerError($"Could not load {request.FolderName} from {request.ConnectorName}: {ex.Message}");
+            }
 
-        (Manga manga, MangaConnectorId<Manga> id)? added = await context.AddMangaToContext(fetched.Value, HttpContext.RequestAborted);
-        if (added is null)
-            return TypedResults.InternalServerError("Could not save the series.");
+            if (fetched is null)
+            {
+                Log.ErrorFormat("Import “{0}”: {1} returned nothing for id {2}", request.FolderName, request.ConnectorName, request.IdOnSite);
+                return TypedResults.NotFound($"Could not load “{request.FolderName}” from {request.ConnectorName} (id {request.IdOnSite}). Check data/logs/mangette-errors.log.");
+            }
 
-        Manga manga = await context.Mangas
-            .Include(m => m.Library)
-            .Include(m => m.MangaConnectorIds)
-            .Include(m => m.Chapters)
-            .FirstAsync(m => m.Key == added.Value.manga.Key, HttpContext.RequestAborted);
+            (Manga manga, MangaConnectorId<Manga> id)? added = await context.AddMangaToContext(fetched.Value, HttpContext.RequestAborted);
+            if (added is null)
+            {
+                Log.ErrorFormat("Import “{0}”: database save failed after fetch from {1}", request.FolderName, request.ConnectorName);
+                return TypedResults.InternalServerError($"Could not save “{request.FolderName}” to the database.");
+            }
 
-        manga.Library = library;
-        manga.SetDirectoryName(request.FolderName);
-        if (manga.MangaConnectorIds.FirstOrDefault(x => x.MangaConnectorName == request.ConnectorName) is { } link)
-            link.UseForDownload = true;
-        else
-            added.Value.id.UseForDownload = true;
+            Manga manga = await context.Mangas
+                .Include(m => m.Library)
+                .Include(m => m.MangaConnectorIds)
+                .Include(m => m.Chapters)
+                .FirstAsync(m => m.Key == added.Value.manga.Key, HttpContext.RequestAborted);
 
-        if (await context.Sync(HttpContext.RequestAborted, GetType(), "Library import") is { success: false } sync)
-            return TypedResults.InternalServerError(sync.exceptionMessage);
+            manga.Library = library;
+            manga.SetDirectoryName(request.FolderName);
+            MangaConnectorId<Manga> monitor = manga.MangaConnectorIds.FirstOrDefault(x =>
+                x.MangaConnectorName.Equals(request.ConnectorName, StringComparison.OrdinalIgnoreCase))
+                ?? added.Value.id;
+            monitor.UseForDownload = true;
 
-        MangaConnectorId<Manga> monitor = manga.MangaConnectorIds.First(x => x.MangaConnectorName == request.ConnectorName);
-        RetrieveMangaChaptersFromMangaconnectorWorker retrieve = new(monitor, Mangette.Settings.DownloadLanguage);
-        DownloadCoverFromMangaconnectorWorker cover = new(monitor);
-        Mangette.AddWorkers([cover, retrieve]);
+            if (await context.Sync(HttpContext.RequestAborted, GetType(), "Library import") is { success: false } sync)
+            {
+                Log.ErrorFormat("Import “{0}”: sync failed: {1}", request.FolderName, sync.exceptionMessage);
+                return TypedResults.InternalServerError(sync.exceptionMessage);
+            }
 
-        string seriesDir = Path.Combine(library.BasePath, request.FolderName.Replace('/', Path.DirectorySeparatorChar));
-        int archives = Directory.Exists(seriesDir) ? CountArchives(seriesDir) : 0;
-        return TypedResults.Ok(new LibraryImportResult(manga.Key, manga.Name, archives));
+            RetrieveMangaChaptersFromMangaconnectorWorker retrieve = new(monitor, Mangette.Settings.DownloadLanguage);
+            DownloadCoverFromMangaconnectorWorker cover = new(monitor);
+            Mangette.AddWorkers([cover, retrieve]);
+
+            string seriesDir = Path.Combine(library.BasePath, request.FolderName.Replace('/', Path.DirectorySeparatorChar));
+            int archives = Directory.Exists(seriesDir) ? CountArchives(seriesDir) : 0;
+            Log.InfoFormat("Imported “{0}” as {1} from {2} ({3} archives on disk).", request.FolderName, manga.Name, request.ConnectorName, archives);
+            return TypedResults.Ok(new LibraryImportResult(manga.Key, manga.Name, archives));
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Import failed for “{request.FolderName}” ({request.ConnectorName}/{request.IdOnSite}): {ex.Message}", ex);
+            return TypedResults.InternalServerError($"Import failed for “{request.FolderName}”: {ex.Message}");
+        }
     }
 
     private async Task<FileLibrary?> ResolveLibrary(string? libraryId)

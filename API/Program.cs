@@ -22,6 +22,11 @@ using Newtonsoft.Json.Converters;
 if (OperatingSystem.IsWindows() && WindowsServiceHelpers.IsWindowsService())
     Directory.SetCurrentDirectory(AppContext.BaseDirectory);
 
+string logDir = Path.Join(MangetteSettings.DataDirectory, "logs");
+Directory.CreateDirectory(logDir);
+log4net.GlobalContext.Properties["LogFile"] = Path.GetFullPath(Path.Join(logDir, "mangette.log"));
+log4net.GlobalContext.Properties["ErrorLogFile"] = Path.GetFullPath(Path.Join(logDir, "mangette-errors.log"));
+
 string banner =
     "\n\n" +
     " Mangette\n" +
@@ -33,6 +38,8 @@ XmlConfigurator.ConfigureAndWatch(new FileInfo("Log4Net.config.xml"));
 ILog log = LogManager.GetLogger("Startup");
 log.Info(banner);
 log.Info("Logger Configured.");
+log.InfoFormat("Log file: {0}", log4net.GlobalContext.Properties["LogFile"]);
+log.InfoFormat("Error log: {0}", log4net.GlobalContext.Properties["ErrorLogFile"]);
 
 log.Info("Starting up");
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);

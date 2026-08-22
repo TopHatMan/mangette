@@ -5,6 +5,7 @@ using API.Schema.MangaContext;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
 using Asp.Versioning;
+using log4net;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,8 @@ namespace API.Controllers;
 [Route("v{v:apiVersion}/[controller]")]
 public class SearchController(MangaContext context) : ControllerBase
 {
+    private readonly ILog Log = LogManager.GetLogger(typeof(SearchController));
+
     /// <summary>
     /// Search sites without adding anything to the library. Same idea as Sonarr/Radarr Add New.
     /// </summary>
@@ -63,9 +66,18 @@ public class SearchController(MangaContext context) : ControllerBase
         if (!Mangette.TryGetMangaConnector(request.ConnectorName, out MangaConnector? connector) || !connector.Enabled)
             return TypedResults.NotFound(nameof(request.ConnectorName));
 
-        (Manga manga, SchemaMangaId mcId)? fetched = connector.GetMangaFromId(request.IdOnSite);
+        (Manga manga, SchemaMangaId mcId)? fetched;
+        try
+        {
+            fetched = connector.GetMangaFromId(request.IdOnSite);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Add series {request.ConnectorName}/{request.IdOnSite}: {ex.Message}", ex);
+            return TypedResults.InternalServerError($"Could not load that series from {request.ConnectorName}: {ex.Message}");
+        }
         if (fetched is null)
-            return TypedResults.NotFound("Could not load that series from the site.");
+            return TypedResults.NotFound($"Could not load that series from {request.ConnectorName}. Check data/logs/mangette-errors.log.");
 
         (Manga manga, SchemaMangaId id)? added = await context.AddMangaToContext(fetched.Value, HttpContext.RequestAborted);
         if (added is null)
