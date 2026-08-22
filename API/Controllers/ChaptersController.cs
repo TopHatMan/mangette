@@ -1,5 +1,6 @@
 using API.Controllers.DTOs;
 using API.Controllers.Requests;
+using API.MangaDownloadClients;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
 using Asp.Versioning;
@@ -263,4 +264,84 @@ public class ChaptersController(MangaContext context) : ControllerBase
         
         return TypedResults.Ok();
     }
+
+    /// <summary>Interactive search: sites that have this chapter.</summary>
+    [HttpGet("{ChapterId}/Releases")]
+    [ProducesResponseType<List<ChapterRelease>>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<Ok<List<ChapterRelease>>, NotFound<string>>> Releases(string ChapterId)
+    {
+        if (await context.Chapters
+                .Include(c => c.MangaConnectorIds)
+                .FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted) is not { } chapter)
+            return TypedResults.NotFound(nameof(ChapterId));
+
+        List<ChapterRelease> releases = chapter.MangaConnectorIds
+            .Where(id => Mangette.TryGetMangaConnector(id.MangaConnectorName, out API.MangaConnectors.MangaConnector? c) && c.Enabled)
+            .OrderBy(id => DownloadFailureTracker.Rank(id.MangaConnectorName))
+            .Select(id => new ChapterRelease(
+                id.Key,
+                id.MangaConnectorName,
+                id.IdOnConnectorSite,
+                id.WebsiteUrl,
+                id.UseForDownload,
+                chapter.Title,
+                chapter.VolumeNumber,
+                chapter.ChapterNumber))
+            .ToList();
+        return TypedResults.Ok(releases);
+    }
+
+    /// <summary>Download this chapter from one site (interactive grab) or the best attached site.</summary>
+    [HttpPost("{ChapterId}/Grab")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok, NotFound<string>, BadRequest<string>>> Grab(string ChapterId, [FromBody] GrabChapterRequest? request = null)
+    {
+        if (await context.Chapters
+                .Include(c => c.MangaConnectorIds)
+                .FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted) is not { } chapter)
+            return TypedResults.NotFound(nameof(ChapterId));
+
+        IEnumerable<Schema.MangaContext.MangaConnectorId<Schema.MangaContext.Chapter>> candidates = chapter.MangaConnectorIds
+            .Where(id => Mangette.TryGetMangaConnector(id.MangaConnectorName, out API.MangaConnectors.MangaConnector? c) && c.Enabled);
+
+        Schema.MangaContext.MangaConnectorId<Schema.MangaContext.Chapter>? pick;
+        if (!string.IsNullOrWhiteSpace(request?.ConnectorName))
+        {
+            pick = candidates.FirstOrDefault(id =>
+                id.MangaConnectorName.Equals(request.ConnectorName, StringComparison.OrdinalIgnoreCase));
+            if (pick is null)
+                return TypedResults.BadRequest($"No release on {request.ConnectorName} for this chapter.");
+        }
+        else
+        {
+            pick = candidates
+                .OrderBy(id => id.UseForDownload ? 0 : 1)
+                .ThenBy(id => DownloadFailureTracker.Rank(id.MangaConnectorName))
+                .FirstOrDefault();
+            if (pick is null)
+                return TypedResults.BadRequest("No site is attached for this chapter. Add a site on the series first.");
+        }
+
+        pick.UseForDownload = true;
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), "Grab chapter") is { success: false } sync)
+            return TypedResults.BadRequest(sync.exceptionMessage ?? "Could not save.");
+
+        Mangette.AddWorker(new DownloadChapterFromMangaconnectorWorker(pick));
+        return TypedResults.Ok();
+    }
+
+    public sealed record ChapterRelease(
+        string Key,
+        string ConnectorName,
+        string IdOnSite,
+        string? WebsiteUrl,
+        bool Preferred,
+        string? Title,
+        int? Volume,
+        string ChapterNumber);
+
+    public sealed record GrabChapterRequest(string? ConnectorName);
 }

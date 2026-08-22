@@ -11,7 +11,7 @@ export default defineAppConfig({
         },
         header: {
             slots: {
-                root: 'border-b border-default bg-[#1a1410]',
+                root: 'border-b border-default bg-[#1f2329]',
             },
         },
     },

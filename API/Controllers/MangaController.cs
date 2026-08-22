@@ -4,6 +4,7 @@ using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
 using API.Workers;
 using API.Workers.MangaDownloadWorkers;
+using API.Workers.PeriodicWorkers;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -137,6 +138,56 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         Manga result = new (manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.IgnoreChaptersBefore, manga.Year, manga.OriginalLanguage, authors, tags, links, altTitles, manga.LibraryId);
         
         return TypedResults.Ok(result);
+    }
+
+    public sealed record RenameMangaRequest(string Name, bool RenameFolder = false);
+
+    /// <summary>Rename the series (Sonarr-style). Optionally rename the folder on disk.</summary>
+    [HttpPatch("{MangaId}")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok, BadRequest<string>, NotFound<string>, InternalServerError<string>>> RenameManga(
+        string MangaId,
+        [FromBody] RenameMangaRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return TypedResults.BadRequest("Name is required.");
+        if (await context.Mangas
+                .Include(m => m.Library)
+                .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        string name = request.Name.Trim();
+        manga.Name = name;
+        if (request.RenameFolder && manga.Library is not null && !string.IsNullOrWhiteSpace(manga.Library.BasePath))
+        {
+            string folder = name.CleanNameForWindows();
+            if (folder.Length == 0)
+                return TypedResults.BadRequest("That name is not a valid folder.");
+            string from = Path.GetFullPath(Path.Combine(manga.Library.BasePath, manga.DirectoryName));
+            string to = Path.GetFullPath(Path.Combine(manga.Library.BasePath, folder));
+            if (!from.Equals(to, StringComparison.OrdinalIgnoreCase) && Directory.Exists(from))
+                Mangette.AddWorker(new MoveFileOrFolderWorker(to, from));
+            manga.SetDirectoryName(folder);
+        }
+
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), "Rename series") is { success: false } sync)
+            return TypedResults.InternalServerError(sync.exceptionMessage);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>Queue missing chapters for this series only.</summary>
+    [HttpPost("{MangaId}/SearchMissing")]
+    [ProducesResponseType<int>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<Ok<int>, NotFound<string>>> SearchMissing(string MangaId)
+    {
+        if (!await context.Mangas.AnyAsync(m => m.Key == MangaId, HttpContext.RequestAborted))
+            return TypedResults.NotFound(nameof(MangaId));
+        int queued = await StartNewChapterDownloadsWorker.EnqueueAvailableDownloads(context, HttpContext.RequestAborted, MangaId);
+        return TypedResults.Ok(queued);
     }
 
     /// <summary>

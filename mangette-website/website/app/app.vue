@@ -13,11 +13,7 @@
                         <span>{{ item.label }}</span>
                     </NuxtLink>
                 </nav>
-                <p class="arr-sidebar__build">
-                    Sidebar UI
-                    <br />
-                    build {{ buildId || '…' }}
-                </p>
+                <p class="arr-sidebar__build">{{ buildId || '' }}</p>
             </aside>
             <div class="arr-content">
                 <header class="arr-topbar">

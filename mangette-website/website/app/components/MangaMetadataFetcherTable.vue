@@ -2,6 +2,7 @@
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
         <template #header>
             <h1 class="font-semibold">Metadata</h1>
+            <p class="text-muted text-xs font-normal mt-1">Link AniList or MAL to fill title, synopsis, and tags. Refresh applies the official name.</p>
         </template>
         <UTable
             v-if="metadataFetchers && metadata"

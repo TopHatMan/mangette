@@ -22,22 +22,29 @@ public class MoveFileOrFolderWorker(string toLocation, string fromLocation, IEnu
     {
         try
         {
-            FileInfo fi = new (FromLocation);
-            if (!fi.Exists)
+            if (Directory.Exists(FromLocation))
             {
-                Log.ErrorFormat("File does not exist at {0}", FromLocation);
+                if (Directory.Exists(ToLocation) || File.Exists(ToLocation))
+                {
+                    Log.ErrorFormat("Folder already exists at {0}", ToLocation);
+                    return [];
+                }
+                Directory.Move(FromLocation, ToLocation);
+            }
+            else if (File.Exists(FromLocation))
+            {
+                if (File.Exists(ToLocation) || Directory.Exists(ToLocation))
+                {
+                    Log.ErrorFormat("File already exists at {0}", ToLocation);
+                    return [];
+                }
+                File.Move(FromLocation, ToLocation);
+            }
+            else
+            {
+                Log.ErrorFormat("Nothing to move at {0}", FromLocation);
                 return [];
             }
-
-            if (File.Exists(ToLocation))//Do not override existing
-            {
-                Log.ErrorFormat("File already exists at {0}", ToLocation);
-                return [];
-            } 
-            if(fi.Attributes.HasFlag(FileAttributes.Directory))
-                MoveDirectory(fi, ToLocation);
-            else
-                MoveFile(fi, ToLocation);
         }
         catch (Exception e)
         {
@@ -49,16 +56,6 @@ public class MoveFileOrFolderWorker(string toLocation, string fromLocation, IEnu
             Log.ErrorFormat("Failed to save database changes: {0}", actionsContextException.exceptionMessage);
 
         return [];
-    }
-
-    private static void MoveDirectory(FileInfo from, string toLocation)
-    {
-        Directory.Move(from.FullName, toLocation);        
-    }
-
-    private static void MoveFile(FileInfo from, string toLocation)
-    {
-        File.Move(from.FullName, toLocation);
     }
 
     public override string ToString() => $"{base.ToString()} {FromLocation} {ToLocation}";

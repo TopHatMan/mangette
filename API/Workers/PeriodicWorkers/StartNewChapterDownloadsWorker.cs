@@ -35,9 +35,9 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
     }
 
     /// <summary>Queue missing monitored chapters up to MaxConcurrentDownloads. Used after a disk scan.</summary>
-    internal static async Task<int> EnqueueAvailableDownloads(MangaContext ctx, CancellationToken cancellationToken)
+    internal static async Task<int> EnqueueAvailableDownloads(MangaContext ctx, CancellationToken cancellationToken, string? mangaId = null)
     {
-        List<DownloadChapterFromMangaconnectorWorker> workers = await SelectNewDownloadWorkers(ctx, cancellationToken);
+        List<DownloadChapterFromMangaconnectorWorker> workers = await SelectNewDownloadWorkers(ctx, cancellationToken, mangaId);
         if (workers.Count > 0)
             Mangette.AddWorkers(workers);
         return workers.Count;
@@ -45,9 +45,10 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
 
     internal static async Task<List<DownloadChapterFromMangaconnectorWorker>> SelectNewDownloadWorkers(
         MangaContext ctx,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? mangaId = null)
     {
-        List<MangaConnectorId<Chapter>> missingChapters = await GetMissingChapters(ctx, cancellationToken);
+        List<MangaConnectorId<Chapter>> missingChapters = await GetMissingChapters(ctx, cancellationToken, mangaId);
 
         QueueLog.DebugFormat("Found {0} missing chapters.", missingChapters.Count);
         List<DownloadChapterFromMangaconnectorWorker> runningDownloads = Mangette.GetRunningWorkers()
@@ -88,13 +89,16 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
         return newDownloadChapters.Select(mcId => new DownloadChapterFromMangaconnectorWorker(mcId)).ToList();
     }
     
-    internal static async Task<List<MangaConnectorId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken)
+    internal static async Task<List<MangaConnectorId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken, string? mangaId = null)
     {
-        List<MangaConnectorId<Chapter>> missing = await ctx.MangaConnectorToChapter
+        IQueryable<MangaConnectorId<Chapter>> query = ctx.MangaConnectorToChapter
             .Include(id => id.Obj)
             .ThenInclude(c => c.ParentManga)
-            .Where(id => !id.Obj.Downloaded && id.UseForDownload)
-            .ToListAsync(cancellationToken);
+            .Where(id => !id.Obj.Downloaded && id.UseForDownload);
+        if (!string.IsNullOrWhiteSpace(mangaId))
+            query = query.Where(id => id.Obj.ParentMangaId == mangaId);
+
+        List<MangaConnectorId<Chapter>> missing = await query.ToListAsync(cancellationToken);
         return missing
             .Where(id => Mangette.TryGetMangaConnector(id.MangaConnectorName, out MangaConnectors.MangaConnector? c) && c.Enabled)
             .ToList();

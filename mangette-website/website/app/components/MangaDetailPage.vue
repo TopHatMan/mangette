@@ -4,10 +4,18 @@
             <div class="flex flex-col gap-2">
                 <MangaCover v-if="manga" :manga="manga" class="self-center" />
                 <USkeleton v-else class="w-[240px] h-[350px]" />
-                <p v-if="manga" class="font-semibold text-xl">
-                    {{ manga.name }}
-                    <MangaconnectorIcon v-for="m in manga.mangaConnectorIds" v-bind="m" :key="m.key" />
-                </p>
+                <p v-if="manga" class="font-semibold text-xl leading-tight">{{ manga.name }}</p>
+                <p v-if="manga?.year" class="text-muted text-sm">{{ manga.year }}</p>
+                <div v-if="manga" class="flex flex-wrap gap-1">
+                    <UBadge
+                        v-for="m in manga.mangaConnectorIds"
+                        :key="m.key"
+                        size="sm"
+                        :color="m.useForDownload ? 'success' : 'neutral'"
+                        variant="subtle">
+                        {{ m.mangaConnectorName }}
+                    </UBadge>
+                </div>
                 <USkeleton v-else as="p" class="h-20 w-full" />
                 <div v-if="manga" class="flex flex-row gap-1 flex-wrap">
                     <UBadge v-for="author in manga.authors" :key="author.key" variant="outline" color="neutral"
