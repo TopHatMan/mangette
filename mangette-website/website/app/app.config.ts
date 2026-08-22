@@ -1,17 +1,17 @@
 export default defineAppConfig({
     ui: {
         colors: {
-            primary: 'sky',
-            secondary: 'slate',
+            primary: 'amber',
+            secondary: 'stone',
             success: 'emerald',
-            info: 'sky',
-            warning: 'amber',
+            info: 'amber',
+            warning: 'orange',
             error: 'red',
-            neutral: 'zinc',
+            neutral: 'stone',
         },
         header: {
             slots: {
-                root: 'border-b border-default bg-[#1d1f27]',
+                root: 'border-b border-default bg-[#1a1410]',
             },
         },
     },

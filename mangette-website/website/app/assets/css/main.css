@@ -8,8 +8,11 @@
     --mangacover-height-sm: 220px;
     --arr-poster-width: 150px;
     --arr-poster-height: 225px;
-    --arr-sidebar: #1d1f27;
-    --arr-topbar: #25272e;
+    --arr-sidebar: #1a1410;
+    --arr-topbar: #241c16;
+    --arr-ink: #e8dcc8;
+    --arr-muted: #b6a894;
+    --arr-accent: #c4a574;
 }
 
 .arr-shell {
@@ -22,7 +25,7 @@
     width: 13rem;
     flex-shrink: 0;
     background: var(--arr-sidebar);
-    color: #d6d8de;
+    color: var(--arr-ink);
     display: flex;
     flex-direction: column;
     padding: 0.9rem 0.7rem;
@@ -57,21 +60,21 @@
     gap: 0.6rem;
     padding: 0.5rem 0.65rem;
     border-radius: 6px;
-    color: #c5c8d0;
+    color: var(--arr-muted);
     font-size: 0.9rem;
 }
 
 .arr-sidebar__link:hover,
 .arr-sidebar__link.router-link-active,
 .arr-sidebar__link.router-link-exact-active {
-    background: rgba(56, 189, 248, 0.16);
-    color: #7dd3fc;
+    background: rgba(196, 165, 116, 0.18);
+    color: var(--arr-accent);
 }
 
 .arr-sidebar__build {
     margin-top: auto;
     font-size: 0.7rem;
-    color: #8b8f9a;
+    color: #8a7d6c;
     padding: 0.4rem;
 }
 

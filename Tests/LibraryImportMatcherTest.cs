@@ -49,6 +49,14 @@ public class LibraryImportMatcherTest
     }
 
     [Fact]
+    public void AniList_MapStatus_CoversReleasingAndFinished()
+    {
+        Assert.Equal(API.Schema.MangaContext.MangaReleaseStatus.Continuing, API.Schema.MangaContext.MetadataFetchers.AniList.MapStatus("RELEASING"));
+        Assert.Equal(API.Schema.MangaContext.MangaReleaseStatus.Completed, API.Schema.MangaContext.MetadataFetchers.AniList.MapStatus("FINISHED"));
+        Assert.Equal(API.Schema.MangaContext.MangaReleaseStatus.OnHiatus, API.Schema.MangaContext.MetadataFetchers.AniList.MapStatus("HIATUS"));
+    }
+
+    [Fact]
     public void IsSkippableFolder_HidesSystemDirs()
     {
         Assert.True(API.LibraryImportMatcher.IsSkippableFolder("@eaDir"));

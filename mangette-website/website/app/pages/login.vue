@@ -49,13 +49,13 @@ useHead({ title: 'Login' });
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #1d1f27;
+    background: #1a1410;
     padding: 1.5rem;
 }
 .login-card {
     width: 100%;
     max-width: 22rem;
-    background: #25272e;
+    background: #241c16;
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 10px;
     padding: 1.5rem 1.35rem 1.35rem;

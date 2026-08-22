@@ -19,7 +19,7 @@ public static class Mangette
     internal static IServiceProvider? ServiceProvider { get; set; }
     
     private static readonly ILog Log = LogManager.GetLogger(typeof(Mangette));
-    internal static readonly MetadataFetcher[] MetadataFetchers = [new MyAnimeList()];
+    internal static readonly MetadataFetcher[] MetadataFetchers = [new AniList(), new MyAnimeList()];
     internal static readonly MangaConnector[] MangaConnectors =
     [
         new Global(),

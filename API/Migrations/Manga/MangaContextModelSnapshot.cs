@@ -381,6 +381,13 @@ namespace API.Migrations.Manga
                     b.HasDiscriminator().HasValue("WeebCentral");
                 });
 
+            modelBuilder.Entity("API.Schema.MangaContext.MetadataFetchers.AniList", b =>
+                {
+                    b.HasBaseType("API.Schema.MangaContext.MetadataFetchers.MetadataFetcher");
+
+                    b.HasDiscriminator().HasValue("AniList");
+                });
+
             modelBuilder.Entity("API.Schema.MangaContext.MetadataFetchers.MyAnimeList", b =>
                 {
                     b.HasBaseType("API.Schema.MangaContext.MetadataFetchers.MetadataFetcher");

@@ -98,7 +98,8 @@ public class MangaContext(DbContextOptions<MangaContext> options) : MangetteBase
 
         modelBuilder.Entity<MetadataFetcher>()
             .HasDiscriminator<string>(nameof(MetadataEntry))
-            .HasValue<MyAnimeList>(nameof(MyAnimeList));
+            .HasValue<MyAnimeList>(nameof(MyAnimeList))
+            .HasValue<AniList>(nameof(AniList));
         //MetadataEntry
         modelBuilder.Entity<MetadataEntry>()
             .HasOne<Manga>(entry => entry.Manga)
