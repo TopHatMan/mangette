@@ -104,6 +104,21 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         {
             foreach (MangaConnectorId<Chapter> chapterId in newIds)
                 chapterId.UseForDownload = true;
+            // Chapter rows reused from an earlier scan keep UseForDownload=false unless we flip them here.
+            int enabledExisting = 0;
+            foreach (Chapter chapter in manga.Chapters)
+            {
+                foreach (MangaConnectorId<Chapter> existingId in chapter.MangaConnectorIds)
+                {
+                    if (!existingId.MangaConnectorName.Equals(mangaConnectorId.MangaConnectorName, StringComparison.OrdinalIgnoreCase) ||
+                        existingId.UseForDownload)
+                        continue;
+                    existingId.UseForDownload = true;
+                    enabledExisting++;
+                }
+            }
+            if (enabledExisting > 0)
+                Log.InfoFormat("Turned on downloads for {0} existing {1} chapter links on {2}.", enabledExisting, mangaConnector.Name, manga.Name);
         }
 
         if (newIds.Count > 0)

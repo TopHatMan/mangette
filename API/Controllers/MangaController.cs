@@ -370,6 +370,8 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if (await context.Mangas
                 .Include(m => m.MangaConnectorIds)
                 .Include(m => m.Library)
+                .Include(m => m.Chapters)
+                .ThenInclude(c => c.MangaConnectorIds.Where(id => id.MangaConnectorName == MangaConnectorName))
                 .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
@@ -398,6 +400,10 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         }
         else
             mcId.UseForDownload = true;
+
+        foreach (Schema.MangaContext.MangaConnectorId<Chapter> chId in manga.Chapters.SelectMany(ch =>
+                     ch.MangaConnectorIds.Where(id => id.MangaConnectorName.Equals(connector.Name, StringComparison.OrdinalIgnoreCase))))
+            chId.UseForDownload = true;
 
         if (await context.Sync(HttpContext.RequestAborted, GetType(), "Attach source") is { success: false } sync)
             return TypedResults.InternalServerError(sync.exceptionMessage);
@@ -431,8 +437,15 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if (await context.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
+        if (!Mangette.TryGetMangaConnector(MangaConnectorName, out API.MangaConnectors.MangaConnector? connector) ||
+            connector.Name.Equals("Global", StringComparison.OrdinalIgnoreCase))
+            return TypedResults.NotFound(nameof(MangaConnectorName));
+        if (!connector.Enabled)
+            return TypedResults.StatusCode(Status412PreconditionFailed);
+
         string title = string.IsNullOrWhiteSpace(query) ? manga.Name : query.Trim();
-        return await new SearchController(context).SearchManga(MangaConnectorName, title);
+        List<SeriesSearch.ExistingSeries> existing = await SeriesSearch.LoadExisting(context, HttpContext.RequestAborted);
+        return TypedResults.Ok(SeriesSearch.Lookup(title, connector.Name, existing));
     }
     
     /// <summary>

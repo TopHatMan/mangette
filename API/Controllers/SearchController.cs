@@ -162,6 +162,8 @@ public class SearchController(MangaContext context) : ControllerBase
             return TypedResults.NotFound(nameof(MangaConnectorName));
         if (!connector.Enabled)
             return TypedResults.StatusCode(Status412PreconditionFailed);
+        if (string.IsNullOrWhiteSpace(Query))
+            return TypedResults.Ok(new List<SearchHit>());
 
         List<SeriesSearch.ExistingSeries> existing = await SeriesSearch.LoadExisting(context, HttpContext.RequestAborted);
         return TypedResults.Ok(SeriesSearch.Lookup(Query, connector.Name, existing));
