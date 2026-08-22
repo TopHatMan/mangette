@@ -26,7 +26,7 @@
         </template>
         <div class="w-full pt-2">
             <div class="flex gap-2 justify-center items-center max-sm:flex-col">
-                <p class="text-dimmed basis-0 text-nowrap">{{ data?.totalCount }} Actions</p>
+                <p class="text-dimmed basis-0 text-nowrap">{{ data?.totalCount }} {{ params.action === 'ChapterDownloaded' ? 'downloads' : 'actions' }}</p>
                 <UPagination
                     :default-page="pagination.pageIndex + 1"
                     :items-per-page="pagination.pageSize"
@@ -39,7 +39,7 @@
                     {{ row.original.action.split(/(?=[A-Z])/).join(' ') }}
                 </template>
                 <template #timestamp-cell="{ row }">
-                    {{ new Date(row.original.performedAt).toLocaleString() }}
+                    {{ formatStamp(row.original.performedAt) }}
                 </template>
                 <template #manga-cell="{ row }">
                     <UButton
@@ -81,18 +81,40 @@ const { $api } = useNuxtApp();
 
 const pagination = ref({ pageIndex: 0, pageSize: 10 });
 
-const timezoneOffsetMillis = new Date().getTimezoneOffset() * 60 * 1000;
+/** datetime-local value in the browser's local timezone. */
+const toLocalInput = (ms: number) => {
+    const d = new Date(ms - new Date().getTimezoneOffset() * 60 * 1000);
+    return d.toISOString().slice(0, 16);
+};
+
+/** API stores UTC. SQLite often omits Z, so treat naive stamps as UTC. */
+const formatStamp = (value: string) => {
+    if (!value) return '';
+    const iso = /Z$|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`;
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+};
+
+const toUtcIso = (localInput: string, endOfMinute = false) => {
+    const ms = new Date(localInput).getTime() + (endOfMinute ? 60 * 1000 - 1 : 0);
+    return new Date(ms).toISOString();
+};
+
 const params = ref<Partial<ActionsFilterRecord>>({
     ...useRoute().query,
-    start: new Date(Date.now() - 24 * 60 * 60 * 1000 - timezoneOffsetMillis).toISOString().slice(0, 16),
-    end: new Date(Date.now() - timezoneOffsetMillis).toISOString().slice(0, 16),
+    action: 'ChapterDownloaded',
+    start: toLocalInput(Date.now() - 24 * 60 * 60 * 1000),
+    end: toLocalInput(Date.now()),
 });
 const { data, refresh, status } = useAsyncData(
     FetchKeys.Actions.Page(params.value, pagination.value.pageIndex),
     () =>
         $api('/v2/Actions/Filter', {
             method: 'POST',
-            body: params.value,
+            body: {
+                ...params.value,
+                start: params.value.start ? toUtcIso(String(params.value.start)) : null,
+                end: params.value.end ? toUtcIso(String(params.value.end), true) : null,
+            },
             query: { page: pagination.value.pageIndex + 1, pageSize: pagination.value.pageSize },
         }),
     { watch: [pagination.value], lazy: true, server: false }
@@ -110,8 +132,9 @@ const columns: TableColumn<ActionRecord>[] = [
 const resetFilter = async () => {
     params.value = {
         ...useRoute().query,
-        start: new Date(Date.now() - 24 * 60 * 60 * 1000 - timezoneOffsetMillis).toISOString().slice(0, 16),
-        end: new Date(Date.now() - timezoneOffsetMillis).toISOString().slice(0, 16),
+        action: 'ChapterDownloaded',
+        start: toLocalInput(Date.now() - 24 * 60 * 60 * 1000),
+        end: toLocalInput(Date.now()),
     };
     await refreshData();
 };
@@ -119,8 +142,8 @@ const resetFilter = async () => {
 const noTimeLimit = async () => {
     params.value = {
         ...params.value,
-        start: new Date(0).toISOString().slice(0, 16),
-        end: new Date(Date.now() - timezoneOffsetMillis).toISOString().slice(0, 16),
+        start: toLocalInput(0),
+        end: toLocalInput(Date.now()),
     };
     await refreshData();
 };

@@ -11,7 +11,7 @@ public sealed record ActionRecord : Identifiable
     public ActionRecord(Schema.ActionsContext.ActionRecord actionRecord) : base(actionRecord.Key)
     {
         Action = actionRecord.Action;
-        PerformedAt = actionRecord.PerformedAt;
+        PerformedAt = DateTime.SpecifyKind(actionRecord.PerformedAt, DateTimeKind.Utc);
         MangaId = actionRecord is IActionWithMangaRecord manga ? manga.MangaId : null;
         ChapterId = actionRecord is IActionWithChapterRecord chapter ? chapter.ChapterId : null;
         From = actionRecord is DataMovedActionRecord from ? from.From : null;

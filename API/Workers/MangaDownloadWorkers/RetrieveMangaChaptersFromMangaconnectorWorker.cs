@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
-using API.Schema.ActionsContext;
-using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,13 +18,10 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private ActionsContext ActionsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
         MangaContext = GetContext<MangaContext>(serviceScope);
-        ActionsContext = GetContext<ActionsContext>(serviceScope);
     }
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
@@ -128,10 +123,6 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
 
         if(await MangaContext.Sync(CancellationToken, GetType(), "Chapters retrieved") is { success: false } mangaContextException)
             Log.ErrorFormat("Failed to save database changes: {0}", mangaContextException.exceptionMessage);
-
-        ActionsContext.Actions.Add(new ChaptersRetrievedActionRecord(manga));
-        if(await ActionsContext.Sync(CancellationToken, GetType(), "Chapters retrieved") is { success: false } actionsContextException)
-            Log.ErrorFormat("Failed to save database changes: {0}", actionsContextException.exceptionMessage);
 
         return [];
     }

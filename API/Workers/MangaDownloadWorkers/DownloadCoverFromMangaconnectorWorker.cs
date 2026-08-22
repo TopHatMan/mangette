@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
-using API.Schema.ActionsContext;
-using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,13 +15,10 @@ public class DownloadCoverFromMangaconnectorWorker(MangaConnectorId<Manga> mcId,
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
-    [SuppressMessage("ReSharper", "InconsistentNaming")]
-    private ActionsContext ActionsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
         MangaContext = GetContext<MangaContext>(serviceScope);
-        ActionsContext = GetContext<ActionsContext>(serviceScope);
     }
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
@@ -56,11 +51,7 @@ public class DownloadCoverFromMangaconnectorWorker(MangaConnectorId<Manga> mcId,
 
         if(await MangaContext.Sync(CancellationToken, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } mangaContextException)
             Log.Error($"Failed to save database changes: {mangaContextException.exceptionMessage}");
-        
-        ActionsContext.Actions.Add(new CoverDownloadedActionRecord(mcId.Obj, coverFileName));
-        if(await ActionsContext.Sync(CancellationToken, GetType(), "Download complete") is { success: false } actionsContextException)
-            Log.Error($"Failed to save database changes: {actionsContextException.exceptionMessage}");
-        
+
         return [];
     }
     

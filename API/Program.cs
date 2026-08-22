@@ -16,6 +16,7 @@ using Microsoft.OpenApi;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Hosting.WindowsServices;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 // Windows services start with cwd = System32. Keep data/logs/wwwroot next to the exe.
@@ -117,6 +118,9 @@ builder.Services.AddControllers(options =>
 }).AddNewtonsoftJson(opts =>
 {
     opts.SerializerSettings.Converters.Add(new StringEnumConverter());
+    // SQLite returns DateTimeKind.Unspecified; treat stored values as UTC so the UI gets a Z suffix.
+    opts.SerializerSettings.DateTimeZoneHandling = DateTimeZoneHandling.Utc;
+    opts.SerializerSettings.DateFormatHandling = DateFormatHandling.IsoDateFormat;
 });
 builder.Services.AddScoped<ILog>(_ => LogManager.GetLogger("API"));
 
