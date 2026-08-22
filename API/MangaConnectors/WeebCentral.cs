@@ -204,28 +204,25 @@ public class WeebCentral : MangaConnector
             return [];
         }
 
-        string? referrer = null;
-        if (chapterId.Obj.ParentManga.MangaConnectorIds is not null && chapterId.Obj.ParentManga.MangaConnectorIds.Any())
-        {
-            referrer = chapterId.Obj.ParentManga.MangaConnectorIds
-                .FirstOrDefault(id => id.MangaConnectorName == this.Name)?.WebsiteUrl;
-        }
-
-		return GetChapterImageUrlsAsync(chapterId, referrer).GetAwaiter().GetResult();
+		return GetChapterImageUrlsAsync(chapterId).GetAwaiter().GetResult();
 	}
 
-	private async Task<string[]> GetChapterImageUrlsAsync(MangaConnectorId<Chapter> chapterId, string? referrer)
+	private async Task<string[]> GetChapterImageUrlsAsync(MangaConnectorId<Chapter> chapterId)
 	{
-		HttpResponseMessage response = await downloadClient.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+		string chapterUrl = chapterId.WebsiteUrl!;
+		string imagesUrl = WeebCentralParse.ImageFragmentUrl(chapterUrl);
+		Log.DebugFormat("WeebCentral image fragment: {0}", imagesUrl);
+
+		HttpResponseMessage response = await downloadClient.MakeRequest(imagesUrl, RequestType.Default, chapterUrl);
 		string html = response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : "";
 
 		if (!response.IsSuccessStatusCode || LooksLikeCloudflare(html))
 		{
-			Log.Warn("WeebCentral chapter page looks blocked or empty; trying Chromium");
+			Log.Warn("WeebCentral image fragment looks blocked or empty; trying Chromium");
 			try
 			{
 				await using ChromiumDownloadClient chromium = new();
-				response = await chromium.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+				response = await chromium.MakeRequest(imagesUrl, RequestType.Default, chapterUrl);
 				html = await response.Content.ReadAsStringAsync();
 			}
 			catch (Exception ex)
@@ -234,39 +231,24 @@ public class WeebCentral : MangaConnector
 			}
 		}
 
-		if (LooksLikeCloudflare(html))
+		if (HasCloudflareMarkers(html))
 		{
-			Log.Error("Failed to load WeebCentral chapter page (Cloudflare after HTTP and Chromium)");
+			Log.Error("Failed to load WeebCentral chapter images (Cloudflare after HTTP and Chromium)");
 			throw new InvalidOperationException("WeebCentral Cloudflare challenge after HTTP and Chromium");
 		}
 
 		if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
 		{
-			Log.Error("Failed to load WeebCentral chapter page (HTTP and Chromium)");
+			Log.Error("Failed to load WeebCentral chapter images (HTTP and Chromium)");
 			return [];
 		}
-		
-		HtmlDocument doc = new();
-		doc.LoadHtml(html);
 
-		HtmlNodeCollection? imageNodes = doc.DocumentNode.SelectNodes("//img[starts-with(@alt, 'Page')]");
-		
-		if (imageNodes is null || imageNodes.Count == 0)
+		string[] imageUrls = WeebCentralParse.ImageUrls(html);
+		if (imageUrls.Length == 0)
 		{
-			Log.Warn("No chapter page images found");
+			Log.WarnFormat("No chapter page images found ({0} chars from fragment)", html.Length);
 			return [];
 		}
-
-		string[] imageUrls = imageNodes
-			.Select(i => 
-			{
-				string src = i.GetAttributeValue("src", "");
-				if (string.IsNullOrEmpty(src))
-					src = i.GetAttributeValue("data-src", "");
-				return src;
-			})
-			.Where(u => !string.IsNullOrEmpty(u))
-			.ToArray();
 
 		Log.InfoFormat("Found {0} images for chapter {1}", imageUrls.Length, chapterId.Obj);
 		return imageUrls;
@@ -276,6 +258,13 @@ public class WeebCentral : MangaConnector
     {
         if (string.IsNullOrEmpty(html) || html.Length < 120)
             return true;
+        return HasCloudflareMarkers(html);
+    }
+
+    internal static bool HasCloudflareMarkers(string html)
+    {
+        if (string.IsNullOrEmpty(html))
+            return false;
         ReadOnlySpan<char> head = html.Length > 5000 ? html.AsSpan(0, 5000) : html.AsSpan();
         return head.Contains("cf-browser-verification", StringComparison.OrdinalIgnoreCase) ||
                head.Contains("challenge-platform", StringComparison.OrdinalIgnoreCase) ||

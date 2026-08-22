@@ -63,5 +63,38 @@ public class WeebCentralParseTest
         Assert.True(WeebCentral.LooksLikeCloudflare(""));
         Assert.True(WeebCentral.LooksLikeCloudflare(null!));
         Assert.False(WeebCentral.LooksLikeCloudflare(new string('x', 200) + "<img alt=\"Page 1\" src=\"https://cdn.example/1.jpg\">"));
+        Assert.False(WeebCentral.HasCloudflareMarkers(""));
+    }
+
+    [Fact]
+    public void ImageFragmentUrl_AddsLongStripQuery()
+    {
+        string url = WeebCentralParse.ImageFragmentUrl("https://weebcentral.com/chapters/01M0MPJ41JZZG44G5778JNMGNJ");
+        Assert.Equal(
+            "https://weebcentral.com/chapters/01M0MPJ41JZZG44G5778JNMGNJ/images?is_prev=False&current_page=1&reading_style=long_strip",
+            url);
+    }
+
+    [Fact]
+    public void ImageUrls_ReadsPageAltsFromHtmxFragment()
+    {
+        const string html = """
+            <section id="chapter-images">
+              <img src="/static/images/brand.png" alt="Weeb Central Logo" />
+              <img
+                src="https://scans.lastation.us/manga/Overgeared/0336-001.png"
+                alt="Page 1" />
+              <img src="https://scans.lastation.us/manga/Overgeared/0336-002.png" alt="Page 2" />
+              <img src="/static/images/broken_image.jpg" alt="Page 3" />
+            </section>
+            """;
+
+        string[] urls = WeebCentralParse.ImageUrls(html);
+        Assert.Equal(
+            [
+                "https://scans.lastation.us/manga/Overgeared/0336-001.png",
+                "https://scans.lastation.us/manga/Overgeared/0336-002.png"
+            ],
+            urls);
     }
 }
