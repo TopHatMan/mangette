@@ -83,8 +83,15 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
         if (newDownloadChapters.Count > 0)
         {
             string preview = string.Join(", ", newDownloadChapters
-                .Select(id => $"{DownloadFailureTracker.SeriesName(id)} ch.{id.Obj.ChapterNumber}"));
+                .Select(id => $"{DownloadFailureTracker.SeriesName(id)} ch.{id.Obj.ChapterNumber} ({id.MangaConnectorName})"));
             QueueLog.InfoFormat("A–Z download turn ({0}): {1}", newDownloadChapters.Count, preview);
+        }
+        else if (missingChapters.Count > 0 && amountNewWorkers > 0)
+        {
+            QueueLog.WarnFormat(
+                "Queued 0 downloads despite {0} missing. Sources: {1}. Attach another site or wait out a Cloudflare cooldown.",
+                missingChapters.Count,
+                DownloadFailureTracker.DescribeSkipReasons(missingChapters));
         }
         return newDownloadChapters.Select(mcId => new DownloadChapterFromMangaconnectorWorker(mcId)).ToList();
     }

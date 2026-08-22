@@ -55,4 +55,13 @@ public class WeebCentralParseTest
         Assert.Equal(number, parsed);
         Assert.Equal(volume, vol);
     }
+
+    [Fact]
+    public void LooksLikeCloudflare_DetectsChallengePage()
+    {
+        Assert.True(WeebCentral.LooksLikeCloudflare("Just a moment... cf-browser-verification challenge-platform"));
+        Assert.True(WeebCentral.LooksLikeCloudflare(""));
+        Assert.True(WeebCentral.LooksLikeCloudflare(null!));
+        Assert.False(WeebCentral.LooksLikeCloudflare(new string('x', 200) + "<img alt=\"Page 1\" src=\"https://cdn.example/1.jpg\">"));
+    }
 }

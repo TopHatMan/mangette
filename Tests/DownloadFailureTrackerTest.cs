@@ -116,17 +116,28 @@ public class DownloadFailureTrackerTest : IDisposable
     }
 
     [Fact]
-    public void ThreeEmptyImageFailures_CoolsWholeConnector()
+    public void ThreeEmptyImageFailures_DoNotCoolWholeConnector()
     {
         DateTime now = DateTime.UtcNow;
         DownloadFailureTracker.UtcNow = () => now;
 
         DownloadFailureTracker.RecordFailure("ch-1", "WeebCentral", "No imageUrls");
         DownloadFailureTracker.RecordFailure("ch-2", "WeebCentral", "No imageUrls");
-        Assert.False(DownloadFailureTracker.IsConnectorCoolingDown("WeebCentral"));
-
         DownloadFailureTracker.RecordFailure("ch-3", "WeebCentral", "No imageUrls");
+        Assert.False(DownloadFailureTracker.IsConnectorCoolingDown("WeebCentral"));
+        Assert.True(DownloadFailureTracker.IsCoolingDown("ch-1", "WeebCentral"));
+    }
+
+    [Fact]
+    public void CloudflareChallenge_CoolsWholeConnectorImmediately()
+    {
+        DateTime now = DateTime.UtcNow;
+        DownloadFailureTracker.UtcNow = () => now;
+
+        DownloadFailureTracker.RecordFailure("ch-1", "WeebCentral", "WeebCentral Cloudflare challenge after HTTP and Chromium");
+
         Assert.True(DownloadFailureTracker.IsConnectorCoolingDown("WeebCentral"));
+        Assert.True(DownloadFailureTracker.IsCoolingDown("ch-1", "WeebCentral"));
     }
 
     [Fact]

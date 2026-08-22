@@ -62,10 +62,10 @@ public static class DownloadFailureTracker
                 return existing;
             });
 
+        // Only 403/Cloudflare/IP-ban cool the whole site. Empty image lists are often
+        // one bad chapter or a 200 challenge page — those must not freeze 9000 other jobs.
         if (IsConnectorWideFailure(reason))
             connectorState.CoolUntil = CooldownUntil(connectorState.Count, now);
-        else if (connectorState.Count >= ConnectorFailureThreshold)
-            connectorState.CoolUntil = CooldownUntil(connectorState.Count - ConnectorFailureThreshold + 1, now);
     }
 
     public static void RecordSuccess(string chapterConnectorId, string connectorName)
@@ -79,6 +79,19 @@ public static class DownloadFailureTracker
 
     public static bool IsConnectorCoolingDown(string connectorName) =>
         IsActive(ConnectorFailures, ConnectorKey(connectorName));
+
+    public static string DescribeSkipReasons(IEnumerable<MangaConnectorId<Chapter>> missing)
+    {
+        var groups = missing
+            .GroupBy(ch => ch.MangaConnectorName, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .Select(g =>
+            {
+                string flag = IsConnectorCoolingDown(g.Key) ? " cooling" : "";
+                return $"{g.Key} {g.Count()}{flag}";
+            });
+        return string.Join(", ", groups);
+    }
 
     /// <summary>
     /// One job per logical chapter: drop in-flight and cooled-down sources, pick the
@@ -141,7 +154,11 @@ public static class DownloadFailureTracker
                 .ThenBy(k => names.GetValueOrDefault(k, k), StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (eligible.Count == 0)
+            {
+                if (wave > 32)
+                    break;
                 continue;
+            }
 
             foreach (string series in eligible)
             {

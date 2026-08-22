@@ -217,14 +217,16 @@ public class WeebCentral : MangaConnector
 	private async Task<string[]> GetChapterImageUrlsAsync(MangaConnectorId<Chapter> chapterId, string? referrer)
 	{
 		HttpResponseMessage response = await downloadClient.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+		string html = response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : "";
 
-		if (!response.IsSuccessStatusCode)
+		if (!response.IsSuccessStatusCode || LooksLikeCloudflare(html))
 		{
-			Log.Warn("HTTP/FlareSolverr failed to load chapter page; trying Chromium if available");
+			Log.Warn("WeebCentral chapter page looks blocked or empty; trying Chromium");
 			try
 			{
 				await using ChromiumDownloadClient chromium = new();
 				response = await chromium.MakeRequest(chapterId.WebsiteUrl!, RequestType.Default, referrer);
+				html = await response.Content.ReadAsStringAsync();
 			}
 			catch (Exception ex)
 			{
@@ -232,13 +234,17 @@ public class WeebCentral : MangaConnector
 			}
 		}
 
-		if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
+		if (LooksLikeCloudflare(html))
 		{
-			Log.Error("Failed to load chapter page with FlareSolverr and Chromium");
-			return [];
+			Log.Error("Failed to load WeebCentral chapter page (Cloudflare after HTTP and Chromium)");
+			throw new InvalidOperationException("WeebCentral Cloudflare challenge after HTTP and Chromium");
 		}
 
-		string html = await response.Content.ReadAsStringAsync();
+		if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300)
+		{
+			Log.Error("Failed to load WeebCentral chapter page (HTTP and Chromium)");
+			return [];
+		}
 		
 		HtmlDocument doc = new();
 		doc.LoadHtml(html);
@@ -265,4 +271,16 @@ public class WeebCentral : MangaConnector
 		Log.InfoFormat("Found {0} images for chapter {1}", imageUrls.Length, chapterId.Obj);
 		return imageUrls;
 	}
+
+    internal static bool LooksLikeCloudflare(string html)
+    {
+        if (string.IsNullOrEmpty(html) || html.Length < 120)
+            return true;
+        ReadOnlySpan<char> head = html.Length > 5000 ? html.AsSpan(0, 5000) : html.AsSpan();
+        return head.Contains("cf-browser-verification", StringComparison.OrdinalIgnoreCase) ||
+               head.Contains("challenge-platform", StringComparison.OrdinalIgnoreCase) ||
+               head.Contains("Just a moment", StringComparison.OrdinalIgnoreCase) ||
+               head.Contains("Attention Required", StringComparison.OrdinalIgnoreCase) ||
+               head.Contains("cf-turnstile", StringComparison.OrdinalIgnoreCase);
+    }
 }
