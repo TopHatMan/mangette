@@ -71,6 +71,12 @@ public class MangetteSettings
 
     public int RefreshLibraryWhileDownloadingEveryMinutes { get; set; } = 10;
 
+    /// <summary>Sonarr-style login for reverse proxies (Caddy on a phone). Off by default for LAN.</summary>
+    public bool AuthenticationEnabled { get; set; }
+    public string AuthUsername { get; set; } = "admin";
+    public string? AuthPasswordHash { get; set; }
+    public bool AuthPasswordConfigured { get; set; }
+
     /// <summary>Resolved library default shown in Settings. Prefers the saved Settings path, then DOWNLOAD_LOCATION.</summary>
     [JsonProperty] public string DefaultLibraryPath =>
         !string.IsNullOrWhiteSpace(LibraryPath) ? LibraryPath : DefaultDownloadLocation;
@@ -97,6 +103,7 @@ public class MangetteSettings
             settings.LibraryPath = NormalizeDirectory(settings.LibraryPath, DefaultDownloadLocation);
         settings.TempDownloadPath = NormalizeDirectory(settings.TempDownloadPath, DefaultTempDownloadPath);
         settings.ConnectorPriority = NormalizeConnectorPriority(settings.ConnectorPriority);
+        settings.AuthPasswordConfigured = !string.IsNullOrEmpty(settings.AuthPasswordHash);
         DownloadFailureTracker.SetPreferenceOrder(settings.ConnectorPriority);
         Directory.CreateDirectory(settings.TempDownloadPath);
         return settings;
@@ -158,6 +165,28 @@ public class MangetteSettings
     {
         FlareSolverrUrl = NormalizeFlareSolverrUrl(url);
         Save();
+    }
+
+    public void SetAuthentication(bool enabled, string? username, string? password)
+    {
+        if (!string.IsNullOrWhiteSpace(username))
+            AuthUsername = username.Trim();
+        if (!string.IsNullOrWhiteSpace(password))
+            AuthPasswordHash = AuthCrypto.HashPassword(password);
+        if (enabled && (string.IsNullOrWhiteSpace(AuthUsername) || string.IsNullOrEmpty(AuthPasswordHash)))
+            throw new InvalidOperationException("Set a username and password before enabling login.");
+        AuthenticationEnabled = enabled;
+        AuthPasswordConfigured = !string.IsNullOrEmpty(AuthPasswordHash);
+        Save();
+    }
+
+    public MangetteSettings ForClient()
+    {
+        string json = JsonConvert.SerializeObject(this, Formatting.None, new StringEnumConverter());
+        MangetteSettings copy = JsonConvert.DeserializeObject<MangetteSettings>(json, new StringEnumConverter()) ?? new MangetteSettings();
+        copy.AuthPasswordHash = null;
+        copy.AuthPasswordConfigured = !string.IsNullOrEmpty(AuthPasswordHash);
+        return copy;
     }
 
     public static string NormalizeFlareSolverrUrl(string? url)

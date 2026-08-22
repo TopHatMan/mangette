@@ -25,6 +25,7 @@ Mangette is a fork of [Tranga](https://github.com/C9Glax/tranga) rebuilt as a st
 - Poster library + table view, source priority, activity log
 - Library Import: scan series folders, match titles, mark existing `Ch.001` / `Ch.1` archives as downloaded
 - Built-in Chromium Cloudflare bypass (Chrome, Edge, or a download into `data/chromium`)
+- Optional login page for Caddy / phone access
 - Komga / Kavita library connectors
 - Gotify, Ntfy, Pushover, or a generic webhook
 
@@ -104,11 +105,23 @@ Next to the executable (or `MANGETTE_HOME`):
 
 `PORT` (default `8585`), `DOWNLOAD_LOCATION` (first-run library only). After Settings is saved, the library path lives in the database.
 
+## Login (Caddy / phone)
+
+Off by default. Settings → **Login** → username, password, enable. Then reverse-proxy with Caddy (HTTPS + your domain). Mangette shows a login page, same idea as Sonarr Forms auth.
+
+```caddyfile
+manga.example.com {
+    reverse_proxy 192.168.1.50:8585
+}
+```
+
+Replace `192.168.1.50` with the PC that runs Mangette. Caddy does not need `basic_auth` if Mangette login is on. If you lock yourself out, set `"authenticationEnabled": false` in `data/settings.json` and restart.
+
 ## Cloudflare
 
-Built-in Chromium is the default. Settings → Cloudflare bypass → **Test Chromium**.
+**You do not need FlareSolverr if Chromium works.** Settings → Cloudflare bypass → **Test Chromium**. Leave the FlareSolverr URL empty.
 
-**FlareSolverr is optional.** If you already run one (often Docker on a Linux box), set its URL in Settings, e.g. `http://192.168.1.210:8191`. Compose in this repo uses host networking on port **8191** for a Debian VM; VirtualBox needs a **bridged** adapter (or a NAT forward of 8191). From Windows, `curl` that URL before saving it in Mangette. If the VM does not answer, Mangette still works with Chromium.
+FlareSolverr is optional. `No connection could be made / actively refused` on `192.168.1.210:8191` means nothing on the Debian VM is listening (compose not running, NAT instead of bridged, or the guest IP changed). That is a VM/network issue. Mangette will keep using Chromium.
 
 ## Publish
 

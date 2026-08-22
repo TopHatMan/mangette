@@ -25,4 +25,8 @@ public sealed record PatchSetupSettingsRecord
     public string? ChapterNamingScheme { get; init; }
 
     public string? FlareSolverrUrl { get; init; }
+
+    public bool? AuthenticationEnabled { get; init; }
+    public string? AuthUsername { get; init; }
+    public string? AuthPassword { get; init; }
 }

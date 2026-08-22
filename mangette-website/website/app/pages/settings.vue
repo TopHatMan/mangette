@@ -70,8 +70,9 @@
                     <h1>Cloudflare bypass</h1>
                 </template>
                 <p class="text-muted text-sm mb-3">
-                    Mangette uses a built-in Chromium browser on this machine. Docker is not required. First protected request may
-                    download Chrome into the data folder. Optional FlareSolverr URL if you still run one.
+                    Chromium on this Windows/Linux machine is enough for Cloudflare. You do <strong>not</strong> need FlareSolverr
+                    or Docker if <em>Test Chromium</em> succeeds. Leave the URL empty. “Connection refused” on 192.168.1.210 means
+                    the Debian VM is not listening — that is a VM/network issue, not Mangette.
                 </p>
                 <div class="flex flex-wrap gap-2 mb-3">
                     <UButton variant="outline" :loading="testingChromium" @click="testChromium">Test Chromium</UButton>
@@ -84,6 +85,27 @@
                     </UButton>
                 </div>
                 <p v-if="flareMessage" class="mt-2 text-sm" :class="flareOk ? 'text-success' : 'text-error'">{{ flareMessage }}</p>
+            </UCard>
+            <UCard v-if="settingsStatus === 'success'">
+                <template #header>
+                    <h1>Login (Caddy / phone)</h1>
+                </template>
+                <p class="text-muted text-sm mb-3">
+                    Optional, like Sonarr Forms auth. Enable this if you reverse-proxy Mangette with Caddy to a phone. LAN-only
+                    use can leave it off. Lockout: set <code>authenticationEnabled</code> to false in
+                    <code>data/settings.json</code>.
+                </p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <UFormField label="Username">
+                        <UInput v-model="auth.username" class="w-full" autocomplete="username" />
+                    </UFormField>
+                    <UFormField label="Password" hint="Leave blank to keep the current password.">
+                        <UInput v-model="auth.password" type="password" class="w-full" autocomplete="new-password" />
+                    </UFormField>
+                </div>
+                <UCheckbox v-model="auth.enabled" class="mt-3" label="Require login" />
+                <UButton class="mt-4 w-fit" :loading="savingAuth" @click="saveAuth">Save login</UButton>
+                <p v-if="authMessage" class="mt-2 text-sm" :class="authOk ? 'text-success' : 'text-error'">{{ authMessage }}</p>
             </UCard>
             <UCard v-if="settingsStatus === 'success'">
                 <template #header>
@@ -243,6 +265,11 @@ const savingSetup = ref(false);
 const setupMessage = ref('');
 const setupOk = ref(false);
 
+const auth = reactive({ enabled: false, username: 'admin', password: '' });
+const savingAuth = ref(false);
+const authMessage = ref('');
+const authOk = ref(false);
+
 const applySetupFromSettings = () => {
     const value = settings.value;
     if (!value) return;
@@ -256,6 +283,8 @@ const applySetupFromSettings = () => {
     const first = fileLibraries.value?.[0];
     setup.libraryPath = first?.basePath ?? value.defaultLibraryPath ?? '';
     setup.libraryName = first?.libraryName ?? 'Library';
+    auth.enabled = !!value.authenticationEnabled;
+    auth.username = value.authUsername || 'admin';
 };
 
 watch([settings, fileLibraries], applySetupFromSettings, { immediate: true });
@@ -316,6 +345,31 @@ const savePriority = async () => {
         priorityMessage.value = 'Could not save source priority.';
     } finally {
         savingPriority.value = false;
+    }
+};
+
+const saveAuth = async () => {
+    savingAuth.value = true;
+    authMessage.value = '';
+    try {
+        await $fetch('/v2/Settings', {
+            method: 'PATCH',
+            body: {
+                authenticationEnabled: auth.enabled,
+                authUsername: auth.username,
+                authPassword: auth.password || undefined,
+            },
+        });
+        await refreshNuxtData(FetchKeys.Settings.All);
+        auth.password = '';
+        authOk.value = true;
+        authMessage.value = auth.enabled ? 'Login is on. Open this URL from your phone through Caddy and sign in.' : 'Login is off.';
+    } catch (e: unknown) {
+        authOk.value = false;
+        const body = typeof e === 'object' && e && 'data' in e ? String((e as { data?: unknown }).data ?? '') : '';
+        authMessage.value = body || 'Could not save login.';
+    } finally {
+        savingAuth.value = false;
     }
 };
 

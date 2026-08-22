@@ -1,6 +1,7 @@
 <template>
     <UApp>
-        <div class="arr-shell">
+        <NuxtPage v-if="route.path === '/login'" />
+        <div v-else class="arr-shell">
             <aside class="arr-sidebar">
                 <NuxtLink to="/" class="arr-sidebar__brand">
                     <img src="/favicon.svg" alt="" />
@@ -23,6 +24,7 @@
                     <p class="arr-topbar__title">{{ title }}</p>
                     <div class="flex items-center gap-2">
                         <UButton icon="i-lucide-plus" to="/search" color="primary" size="sm">Add New</UButton>
+                        <UButton v-if="authEnabled" variant="ghost" size="sm" @click="logout">Log out</UButton>
                         <UColorModeButton color="neutral" />
                     </div>
                 </header>
@@ -37,14 +39,40 @@
 <script setup lang="ts">
 const route = useRoute();
 const buildId = ref('');
-onMounted(async () => {
+const authEnabled = ref(false);
+
+const gate = async () => {
+    try {
+        const status = await $fetch<{ enabled: boolean; authenticated: boolean }>('/v2/Auth/Status');
+        authEnabled.value = !!status.enabled;
+        if (status.enabled && !status.authenticated && route.path !== '/login') {
+            await navigateTo('/login');
+            return;
+        }
+        if (route.path === '/login' && (!status.enabled || status.authenticated)) {
+            await navigateTo('/');
+            return;
+        }
+    } catch {
+        /* API down */
+    }
+    if (route.path === '/login') return;
     try {
         const s = await $fetch<{ buildId?: string }>('/v2/Settings');
         buildId.value = s?.buildId ?? '';
     } catch {
         buildId.value = 'old-ui';
     }
-});
+};
+
+onMounted(gate);
+watch(() => route.path, gate);
+
+const logout = async () => {
+    await $fetch('/v2/Auth/Logout', { method: 'POST' });
+    await navigateTo('/login');
+};
+
 const items = [
     { label: 'Library', to: '/', icon: 'i-lucide-layout-grid' },
     { label: 'Add New', to: '/search', icon: 'i-lucide-plus' },

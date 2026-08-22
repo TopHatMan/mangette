@@ -27,6 +27,18 @@ public class LibraryImportMatcherTest
     }
 }
 
+public class AuthCryptoTest
+{
+    [Fact]
+    public void HashAndVerify_RoundTrip()
+    {
+        string hash = API.AuthCrypto.HashPassword("hunter2");
+        Assert.True(API.AuthCrypto.VerifyPassword("hunter2", hash));
+        Assert.False(API.AuthCrypto.VerifyPassword("wrong", hash));
+        Assert.False(API.AuthCrypto.VerifyPassword("hunter2", null));
+    }
+}
+
 public class FlareSolverrUrlTest
 {
     [Theory]

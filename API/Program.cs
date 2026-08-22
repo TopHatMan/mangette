@@ -13,6 +13,8 @@ using log4net;
 using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Newtonsoft.Json.Converters;
 
@@ -111,11 +113,40 @@ builder.Services.AddControllers(options =>
 });
 builder.Services.AddScoped<ILog>(_ => LogManager.GetLogger("API"));
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "Mangette.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromDays(14);
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddAuthorization();
+
 builder.WebHost.UseUrls($"http://*:{Mangette.Settings.ListenPort}");
 
 log.Info("Starting app...");
 WebApplication app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseCors("AllowAll");
 
 ApiVersionSet apiVersionSet = app.NewApiVersionSet()
@@ -136,6 +167,9 @@ app.UseSwaggerUI(opts =>
     opts.SwaggerEndpoint("/swagger/v2/swagger.json", "v2");
 });
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -144,6 +178,28 @@ app.UseStaticFiles(new StaticFileOptions
         if (ctx.File.Name is "index.html" or "200.html" or "404.html")
             ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
     }
+});
+
+app.Use(async (context, next) =>
+{
+    if (!Mangette.Settings.AuthenticationEnabled)
+    {
+        await next();
+        return;
+    }
+
+    PathString path = context.Request.Path;
+    bool anonymous =
+        path.StartsWithSegments("/v2/Auth") ||
+        (!path.StartsWithSegments("/v2") && !path.StartsWithSegments("/swagger"));
+    if (anonymous || context.User.Identity?.IsAuthenticated == true)
+    {
+        await next();
+        return;
+    }
+
+    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+    await context.Response.WriteAsync("Login required");
 });
 
 log.Debug("Mapping Controllers...");

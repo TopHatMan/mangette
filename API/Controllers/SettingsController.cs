@@ -23,7 +23,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     [ProducesResponseType<MangetteSettings>(Status200OK, "application/json")]
     public Ok<MangetteSettings> GetSettings()
     {
-        return TypedResults.Ok(Mangette.Settings);
+        return TypedResults.Ok(Mangette.Settings.ForClient());
     }
 
     /// <summary>
@@ -102,7 +102,24 @@ public class SettingsController(MangaContext context) : ControllerBase
         if (requestData.FlareSolverrUrl is { } flare)
             Mangette.Settings.SetFlareSolverrUrl(flare.Trim());
 
-        return TypedResults.Ok(Mangette.Settings);
+        if (requestData.AuthenticationEnabled is not null ||
+            requestData.AuthUsername is not null ||
+            requestData.AuthPassword is not null)
+        {
+            try
+            {
+                Mangette.Settings.SetAuthentication(
+                    requestData.AuthenticationEnabled ?? Mangette.Settings.AuthenticationEnabled,
+                    requestData.AuthUsername,
+                    requestData.AuthPassword);
+            }
+            catch (Exception ex)
+            {
+                return TypedResults.BadRequest(ex.Message);
+            }
+        }
+
+        return TypedResults.Ok(Mangette.Settings.ForClient());
     }
     
     /// <summary>
