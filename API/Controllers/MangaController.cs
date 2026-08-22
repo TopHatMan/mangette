@@ -38,18 +38,57 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType(Status500InternalServerError)]
     public async Task<Results<Ok<List<LibrarySeries>>, InternalServerError>> GetAllManga ()
     {
-        if (await context.Mangas
-                .Include(m => m.MangaConnectorIds)
-                .Include(m => m.Chapters)
-                .OrderBy(m => m.Name)
-                .ToArrayAsync(HttpContext.RequestAborted) is not { } result)
+        try
+        {
+            return TypedResults.Ok(await LoadLibrarySeries(context, HttpContext.RequestAborted));
+        }
+        catch
+        {
             return TypedResults.InternalServerError();
+        }
+    }
 
-        List<LibrarySeries> library = result
+    /// <summary>
+    /// Library dashboard rows. Chapter totals are SQL counts — the old Include(Chapters) loaded every page of every series.
+    /// </summary>
+    internal static async Task<List<LibrarySeries>> LoadLibrarySeries(MangaContext context, CancellationToken ct)
+    {
+        var rows = await context.Mangas
+            .AsNoTracking()
+            .IgnoreAutoIncludes()
             .Where(m => m.MangaConnectorIds.Any(id => id.UseForDownload) || m.Chapters.Any(c => c.Downloaded))
-            .Select(SearchController.ToLibrarySeries)
-            .ToList();
-        return TypedResults.Ok(library);
+            .OrderBy(m => m.Name)
+            .Select(m => new
+            {
+                m.Key,
+                m.Name,
+                m.Description,
+                m.ReleaseStatus,
+                m.Year,
+                Ids = m.MangaConnectorIds.Select(id => new
+                {
+                    id.Key,
+                    id.MangaConnectorName,
+                    id.ObjId,
+                    id.WebsiteUrl,
+                    id.UseForDownload
+                }).ToList(),
+                ChapterCount = m.Chapters.Count(),
+                DownloadedCount = m.Chapters.Count(c => c.Downloaded)
+            })
+            .ToListAsync(ct);
+
+        return rows.Select(m => new LibrarySeries(
+            m.Key,
+            m.Name,
+            m.Description,
+            m.ReleaseStatus,
+            m.Ids.Select(id => new DTOs.MangaConnectorId<Manga>(
+                id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload)),
+            m.Year,
+            m.Ids.Any(id => id.UseForDownload),
+            m.ChapterCount,
+            m.DownloadedCount)).ToList();
     }
     
     /// <summary>
@@ -376,6 +415,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     /// </summary>
     /// <param name="MangaId"><see cref="API.Schema.MangaContext.Manga"/> with <paramref name="MangaId"/></param>
     /// <param name="MangaConnectorName"><see cref="API.MangaConnectors.MangaConnector"/>.Name</param>
+    /// <param name="query">Title to search. Defaults to the series name already stored in the library.</param>
     /// <response code="200"><see cref="MinimalManga"/> exert of <see cref="Schema.MangaContext.Manga"/></response>
     /// <response code="404"><see cref="API.MangaConnectors.MangaConnector"/> with Name not found</response>
     /// <response code="412"><see cref="API.MangaConnectors.MangaConnector"/> with Name is disabled</response>
@@ -383,12 +423,16 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     [ProducesResponseType<List<SearchHit>>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status404NotFound, "text/plain")]
     [ProducesResponseType(Status406NotAcceptable)]
-    public async Task<Results<Ok<List<SearchHit>>, NotFound<string>, StatusCodeHttpResult>> SearchOnDifferentConnector (string MangaId, string MangaConnectorName)
+    public async Task<Results<Ok<List<SearchHit>>, NotFound<string>, StatusCodeHttpResult>> SearchOnDifferentConnector (
+        string MangaId,
+        string MangaConnectorName,
+        [FromQuery] string? query = null)
     {
         if (await context.Mangas.FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
             return TypedResults.NotFound(nameof(MangaId));
 
-        return await new SearchController(context).SearchManga(MangaConnectorName, manga.Name);
+        string title = string.IsNullOrWhiteSpace(query) ? manga.Name : query.Trim();
+        return await new SearchController(context).SearchManga(MangaConnectorName, title);
     }
     
     /// <summary>

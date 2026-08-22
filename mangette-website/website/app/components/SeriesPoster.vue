@@ -1,7 +1,7 @@
 <template>
     <button type="button" class="series-poster group text-left" @click="$emit('click')">
         <div class="series-poster__art">
-            <img v-if="!broken" :src="src" alt="" class="h-full w-full object-cover" @error="broken = true" />
+            <img v-if="!broken" :src="src" alt="" class="h-full w-full object-cover" loading="lazy" decoding="async" @error="broken = true" />
             <div class="series-poster__shade" />
             <p class="series-poster__title">{{ title }}</p>
             <div v-if="chapterCount != null" class="series-poster__bar">

@@ -3,7 +3,7 @@
         <div class="arr-page__head">
             <div>
                 <h1 class="arr-page__title">Library</h1>
-                <p class="arr-page__hint">{{ filtered.length }} series</p>
+                <p class="arr-page__hint">{{ libraryHint }}</p>
             </div>
             <div class="flex flex-wrap gap-2 items-center">
                 <UInput v-model="filter" icon="i-lucide-filter" placeholder="Filter" class="w-52" />
@@ -19,8 +19,8 @@
             </div>
         </div>
 
-        <LoadingPage :loading="status === 'pending'">
-            <div v-if="!manga?.length" class="flex flex-col items-center gap-3 py-20 text-center">
+        <LoadingPage :loading="listPending">
+            <div v-if="!series.length" class="flex flex-col items-center gap-3 py-20 text-center">
                 <p class="text-lg font-medium">No series in this library yet</p>
                 <p class="text-muted max-w-lg">
                     Search for a title and add only the series you want. Searching no longer dumps every match onto this page.
@@ -60,7 +60,7 @@
                     <tbody>
                         <tr v-for="m in filtered" :key="m.key" class="cursor-pointer" @click="navigateTo(`/manga/${m.key}`)">
                             <td>
-                                <img :src="libraryCover(m.key)" alt="" class="w-10 h-14 object-cover rounded" />
+                                <img :src="libraryCover(m.key)" alt="" class="w-10 h-14 object-cover rounded" loading="lazy" decoding="async" />
                             </td>
                             <td>
                                 <p class="font-medium">{{ m.name }}</p>
@@ -106,15 +106,16 @@ type LibrarySeries = {
 
 const view = useState<'posters' | 'table'>('library-view', () => 'posters');
 const filter = ref('');
-const { data: manga, refresh, status } = await useApi('/v2/Manga', { key: FetchKeys.Manga.All, lazy: true, server: false });
-onMounted(() => refresh());
+const { data: manga, status } = await useApi('/v2/Manga', { key: FetchKeys.Manga.All, lazy: true, server: false });
 
+const listPending = computed(() => manga.value == null && (status.value === 'pending' || status.value === 'idle'));
 const series = computed(() => (manga.value ?? []) as unknown as LibrarySeries[]);
 const filtered = computed(() => {
     const q = filter.value.trim().toLowerCase();
     if (!q) return series.value;
     return series.value.filter((m) => m.name.toLowerCase().includes(q));
 });
+const libraryHint = computed(() => (listPending.value ? 'Loading…' : `${filtered.value.length} series`));
 
 const libraryCover = (key: string) => `/v2/Manga/${key}/Cover/Medium`;
 const progress = (m: LibrarySeries) => (m.chapterCount > 0 ? Math.min(100, Math.round((m.downloadedCount / m.chapterCount) * 100)) : 0);

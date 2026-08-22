@@ -38,9 +38,22 @@
                     </div>
                     <UModal v-model:open="addSiteOpen" :title="`Add ${addSiteName}`">
                         <template #body>
-                            <p class="text-muted text-sm mb-3">Pick the matching series on {{ addSiteName }}.</p>
+                            <p class="text-muted text-sm mb-3">
+                                Search {{ addSiteName }} for this series, then pick the matching title.
+                            </p>
+                            <form class="flex gap-2 mb-3" @submit.prevent="searchAddSite">
+                                <UInput
+                                    v-model="addSiteQuery"
+                                    class="grow"
+                                    icon="i-lucide-search"
+                                    placeholder="Series name"
+                                    autofocus />
+                                <UButton type="submit" :loading="addSiteBusy" :disabled="!addSiteQuery.trim()">Search</UButton>
+                            </form>
                             <p v-if="addSiteBusy" class="text-muted text-sm">Searching…</p>
-                            <p v-else-if="!addSiteHits.length" class="text-muted text-sm">No results.</p>
+                            <p v-else-if="addSiteSearched && !addSiteHits.length" class="text-muted text-sm">
+                                No results for “{{ addSiteLastQuery }}”.
+                            </p>
                             <div v-else class="flex flex-col gap-2 max-h-80 overflow-y-auto">
                                 <button
                                     v-for="hit in addSiteHits"
@@ -63,9 +76,6 @@
                 :to="`/actions?mangaId=${mangaId}&return=${$route.fullPath}`"
                 variant="soft"
                 color="secondary" />
-            <UButton trailing-icon="i-lucide-merge" :to="`/manga/${manga?.key}/merge?return=${$route.fullPath}`" color="secondary"
-                >Merge</UButton
-            >
             <UButton variant="soft" color="warning" icon="i-lucide-trash" @click="remove" />
             <UTooltip text="Reload" :kbds="['meta', 'R']">
                 <UButton variant="soft" color="secondary" icon="i-lucide-refresh-ccw" :loading="refreshingData" @click="refreshData" />
@@ -103,18 +113,33 @@ const linkOf = (name: string) =>
 type SiteHit = { name: string; description?: string; connectorName: string; idOnSite: string };
 const addSiteOpen = ref(false);
 const addSiteName = ref('');
+const addSiteQuery = ref('');
+const addSiteLastQuery = ref('');
 const addSiteBusy = ref(false);
+const addSiteSearched = ref(false);
 const addSiteHits = ref<SiteHit[]>([]);
 
-const openAddSite = async (name: string) => {
+const openAddSite = (name: string) => {
     addSiteName.value = name;
-    addSiteOpen.value = true;
+    addSiteQuery.value = manga.value?.name ?? '';
+    addSiteLastQuery.value = '';
     addSiteHits.value = [];
+    addSiteSearched.value = false;
+    addSiteOpen.value = true;
+};
+
+const searchAddSite = async () => {
+    const q = addSiteQuery.value.trim();
+    if (!q || !addSiteName.value) return;
     addSiteBusy.value = true;
+    addSiteSearched.value = true;
+    addSiteLastQuery.value = q;
+    addSiteHits.value = [];
     try {
-        const hits = await $api('/v2/Manga/{MangaId}/OnMangaConnector/{MangaConnectorName}', {
-            path: { MangaId: mangaId, MangaConnectorName: name },
-        });
+        const params = new URLSearchParams({ query: q });
+        const hits = await $fetch<SiteHit[]>(
+            `/v2/Manga/${encodeURIComponent(mangaId)}/OnMangaConnector/${encodeURIComponent(addSiteName.value)}?${params.toString()}`,
+        );
         addSiteHits.value = hits ?? [];
     } catch {
         addSiteHits.value = [];
