@@ -74,6 +74,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             if (existing is not null)
             {
                 reusedChapters++;
+                existing.ApplyCatalogDetails(incomingChapter.VolumeNumber, incomingChapter.Title);
                 incomingId.Obj = existing;
                 incomingId.ObjId = existing.Key;
             }

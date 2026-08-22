@@ -59,6 +59,34 @@ public class Chapter : Identifiable, IComparable<Chapter>
         this.Downloaded = downloaded;
     }
 
+    /// <summary>Fill volume/title when a catalog has them and this row does not.</summary>
+    internal int ApplyCatalogDetails(int? volumeNumber, string? title)
+    {
+        int changed = 0;
+        if (volumeNumber is not null && VolumeNumber is null)
+        {
+            VolumeNumber = volumeNumber;
+            changed++;
+        }
+        if (string.IsNullOrWhiteSpace(title))
+            return changed;
+        string trimmed = title.Trim();
+        if (trimmed.Length > 256)
+            trimmed = trimmed[..256];
+        if (string.IsNullOrWhiteSpace(Title) || TitleEqualsNumber(Title))
+        {
+            if (!string.Equals(Title, trimmed, StringComparison.Ordinal))
+            {
+                Title = trimmed;
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    private bool TitleEqualsNumber(string title) =>
+        DownloadedChapterMatcher.ChapterNumbersEqual(title, ChapterNumber);
+
     public int CompareTo(Chapter? other)
     {
         if (other is not { } otherChapter)

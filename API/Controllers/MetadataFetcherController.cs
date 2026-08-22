@@ -166,6 +166,17 @@ public class MetadataFetcherController(MangaContext mangaContext, ActionsContext
 
         await fetcher.UpdateMetadata(metadataEntry, mangaContext, HttpContext.RequestAborted);
         actionsContext.Actions.Add(new MetadataUpdatedActionRecord(metadataEntry.Manga, fetcher));
+
+        if (await mangaContext.Mangas
+                .Include(m => m.Chapters)
+                .Include(m => m.AltTitles)
+                .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is { } catalogManga)
+        {
+            int filled = ChapterCatalog.FillTitlesFromMangaDex(catalogManga);
+            if (filled > 0)
+                await mangaContext.Sync(HttpContext.RequestAborted, GetType(), "Fill chapter titles");
+        }
+
         return TypedResults.Ok();
     }
 }

@@ -2,7 +2,9 @@
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
         <template #header>
             <h1 class="font-semibold">Metadata</h1>
-            <p class="text-muted text-xs font-normal mt-1">Link AniList or MAL to fill title, synopsis, and tags. Refresh applies the official name.</p>
+            <p class="text-muted text-xs font-normal mt-1">
+                AniList/MAL fill the series name and synopsis. Chapter titles come from sites or the MangaDex catalog (not used for downloads).
+            </p>
         </template>
         <UTable
             v-if="metadataFetchers && metadata"
@@ -34,6 +36,12 @@
                 </div>
             </template>
         </UTable>
+        <div class="p-3 border-t border-default">
+            <UButton size="sm" variant="outline" icon="i-lucide-book-text" :loading="fillingTitles" @click="fillTitles">
+                Fill chapter titles
+            </UButton>
+            <p v-if="fillMessage" class="text-muted text-xs mt-2">{{ fillMessage }}</p>
+        </div>
     </UCard>
 </template>
 
@@ -64,6 +72,22 @@ const updateMetadata = async (metadataFetcherName: string) => {
         method: 'POST',
         path: { MangaId: mangaId, MetadataFetcherName: metadataFetcherName },
     });
-    await refreshNuxtData(FetchKeys.Manga.Id(mangaId));
+    await refreshNuxtData([FetchKeys.Manga.Id(mangaId), FetchKeys.Chapters.Manga(mangaId)]);
+};
+
+const fillingTitles = ref(false);
+const fillMessage = ref('');
+const fillTitles = async () => {
+    fillingTitles.value = true;
+    fillMessage.value = '';
+    try {
+        const n = await $fetch<number>(`/v2/Manga/${encodeURIComponent(mangaId)}/FillChapterTitles`, { method: 'POST' });
+        fillMessage.value = n ? `Filled ${n} title/volume field${n === 1 ? '' : 's'}.` : 'No extra titles found (or MangaDex had no close match).';
+        await refreshNuxtData(FetchKeys.Chapters.Manga(mangaId));
+    } catch {
+        fillMessage.value = 'Could not look up chapter titles.';
+    } finally {
+        fillingTitles.value = false;
+    }
 };
 </script>

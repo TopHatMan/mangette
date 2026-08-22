@@ -191,6 +191,27 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     }
 
     /// <summary>
+    /// Fill empty chapter titles/volumes from the MangaDex catalog. Does not use MangaDex for downloads.
+    /// </summary>
+    [HttpPost("{MangaId}/FillChapterTitles")]
+    [ProducesResponseType<int>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<Ok<int>, NotFound<string>, InternalServerError<string>>> FillChapterTitles(string MangaId)
+    {
+        if (await context.Mangas
+                .Include(m => m.Chapters)
+                .Include(m => m.AltTitles)
+                .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        int filled = ChapterCatalog.FillTitlesFromMangaDex(manga);
+        if (filled > 0 &&
+            await context.Sync(HttpContext.RequestAborted, GetType(), "Fill chapter titles") is { success: false } sync)
+            return TypedResults.InternalServerError(sync.exceptionMessage);
+        return TypedResults.Ok(filled);
+    }
+
+    /// <summary>
     /// Delete <see cref="Manga"/> with <paramref name="MangaId"/>
     /// </summary>
     /// <param name="MangaId"><see cref="Manga"/>.Key</param>
