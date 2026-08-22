@@ -19,6 +19,36 @@ public class LibraryImportMatcherTest
     }
 
     [Fact]
+    public void ComicInfo_IncludesSeriesForKomga()
+    {
+        API.Schema.MangaContext.Manga manga = new(
+            "One Piece",
+            "Pirates",
+            "https://example.com/c.jpg",
+            API.Schema.MangaContext.MangaReleaseStatus.Continuing,
+            [new API.Schema.MangaContext.Author("Eiichiro Oda")],
+            [new API.Schema.MangaContext.MangaTag("Adventure")],
+            [],
+            [],
+            null,
+            0f,
+            1997,
+            "ja");
+        API.Schema.MangaContext.Chapter chapter = new(manga, "1", 1, "Romance Dawn");
+        string xml = chapter.GetComicInfoXmlString();
+        Assert.Contains("<Series>One Piece</Series>", xml);
+        Assert.Contains("<Number>1</Number>", xml);
+        Assert.Contains("<Volume>1</Volume>", xml);
+        Assert.Contains("<Title>Romance Dawn</Title>", xml);
+        Assert.Contains("<Manga>Yes</Manga>", xml);
+        Assert.Contains("<Year>1997</Year>", xml);
+        Assert.Contains("<Writer>Eiichiro Oda</Writer>", xml);
+        Assert.Contains("<Genre>Adventure</Genre>", xml);
+        Assert.Contains("<LanguageISO>ja</LanguageISO>", xml);
+        Assert.Contains("<Summary>Pirates</Summary>", xml);
+    }
+
+    [Fact]
     public void IsSkippableFolder_HidesSystemDirs()
     {
         Assert.True(API.LibraryImportMatcher.IsSkippableFolder("@eaDir"));

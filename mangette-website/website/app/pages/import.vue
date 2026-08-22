@@ -2,7 +2,7 @@
     <UPage>
         <UPageHeader
             title="Library Import"
-            description="Scan your manga folder, match series, and import without re-downloading. Exact (100%) matches import automatically." />
+            description="Scan folders, match a site series, import without re-downloading. Match all auto-imports exact (100%) titles. If a row is wrong or failed, type a better title and Match again." />
         <UPageBody>
             <div class="flex flex-wrap items-center gap-2 mb-4">
                 <UButton icon="i-lucide-folder-search" :loading="scanning" @click="scan">Scan folders</UButton>
@@ -44,12 +44,21 @@
                     :key="row.folderName"
                     class="flex max-lg:flex-col flex-row gap-3 items-stretch lg:items-center bg-elevated rounded-lg p-3">
                     <div class="lg:w-1/4 min-w-0">
-                        <p class="font-medium truncate">{{ row.folderName }}</p>
-                        <p class="text-muted text-xs">{{ row.archiveCount }} files · search “{{ row.suggestedQuery }}”</p>
+                        <p class="font-medium truncate" :title="row.folderName">{{ row.folderName }}</p>
+                        <p class="text-muted text-xs">{{ row.archiveCount }} files</p>
                     </div>
                     <div class="grow min-w-0">
                         <p v-if="row.imported" class="text-success text-sm">Imported: {{ row.importedName }}</p>
                         <template v-else>
+                            <div class="flex gap-2 mb-2">
+                                <UInput
+                                    v-model="row.suggestedQuery"
+                                    size="sm"
+                                    class="w-full"
+                                    placeholder="Type a better title, then Match"
+                                    :disabled="row.matching || row.importing"
+                                    @keydown.enter.prevent="matchOne(row)" />
+                            </div>
                             <USelect
                                 v-if="row.matches.length"
                                 v-model="row.selected"
@@ -57,7 +66,7 @@
                                 class="w-full" />
                             <p v-else-if="row.matching" class="text-muted text-sm">Matching…</p>
                             <p v-else-if="row.importing" class="text-muted text-sm">Importing exact match…</p>
-                            <p v-else class="text-muted text-sm">Not matched yet</p>
+                            <p v-else class="text-muted text-sm">Not matched yet — type a title and Match</p>
                             <p v-if="row.error" class="text-error text-sm mt-1">{{ row.error }}</p>
                         </template>
                     </div>
@@ -163,22 +172,28 @@ const scan = async () => {
     }
 };
 
-const matchOne = async (row: Row) => {
+const matchOne = async (row: Row, autoImportExact = false) => {
+    const query = row.suggestedQuery?.trim();
+    if (!query) {
+        row.error = 'Type a title to search.';
+        return;
+    }
     row.matching = true;
     row.error = '';
     try {
         const result = await $api('/v2/LibraryImport/Match', {
             method: 'POST',
-            body: { folderName: row.folderName, query: row.suggestedQuery },
+            body: { folderName: row.folderName, query },
         });
         row.matches = result?.matches ?? [];
         const best = row.matches[0];
         row.selected = best ? keyOf(best) : undefined;
         if (!row.matches.length) {
-            row.error = `No site match for “${row.folderName}”.`;
+            row.error = `No site match for “${query}”. Try another title or site spelling.`;
             return;
         }
-        if (best && best.score >= 100) {
+        // Only Match all auto-imports 100%. A typed rematch stays in the list so you can pick the right site.
+        if (autoImportExact && best && best.score >= 100) {
             row.matching = false;
             await importOne(row);
         }
@@ -194,7 +209,7 @@ const matchOne = async (row: Row) => {
 const matchAll = async () => {
     matching.value = true;
     for (const row of rows.value) {
-        if (!row.imported && !row.matches.length) await matchOne(row);
+        if (!row.imported && !row.matches.length) await matchOne(row, true);
     }
     matching.value = false;
     const imported = rows.value.filter((r) => r.imported).length;

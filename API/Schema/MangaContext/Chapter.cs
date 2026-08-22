@@ -284,21 +284,35 @@ public class Chapter : Identifiable, IComparable<Chapter>
 
     internal string GetComicInfoXmlString()
     {
+        // Komga/Kavita read this from the .cbz. Series is required for them to group issues.
         XElement comicInfo = new("ComicInfo",
-            new XElement("Number", ChapterNumber)
+            new XElement("Series", ParentManga.Name),
+            new XElement("Number", ChapterNumber),
+            new XElement("Manga", "Yes")
         );
-        if(Title is not null)
+        if (!string.IsNullOrWhiteSpace(Title))
             comicInfo.Add(new XElement("Title", Title));
-        if(ParentManga.MangaTags.Count > 0)
-            comicInfo.Add(new XElement("Tags", string.Join(',', ParentManga.MangaTags.Select(tag => tag.Tag))));
-        if(VolumeNumber is not null)
+        if (VolumeNumber is not null)
             comicInfo.Add(new XElement("Volume", VolumeNumber));
-        if(ParentManga.Authors.Count > 0)
-            comicInfo.Add(new XElement("Writer", string.Join(',', ParentManga.Authors.Select(author => author.AuthorName))));
-        if(ParentManga.OriginalLanguage is not null)
-            comicInfo.Add(new XElement("LanguageISO", ParentManga.OriginalLanguage));
-        if(ParentManga.Description != string.Empty)
+        if (ParentManga.Year is not null)
+            comicInfo.Add(new XElement("Year", ParentManga.Year.Value));
+        if (!string.IsNullOrWhiteSpace(ParentManga.Description))
             comicInfo.Add(new XElement("Summary", ParentManga.Description));
+        if (ParentManga.Authors is { Count: > 0 })
+            comicInfo.Add(new XElement("Writer", string.Join(',', ParentManga.Authors.Select(author => author.AuthorName))));
+        if (ParentManga.MangaTags is { Count: > 0 })
+        {
+            string tags = string.Join(',', ParentManga.MangaTags.Select(tag => tag.Tag));
+            comicInfo.Add(new XElement("Genre", tags));
+            comicInfo.Add(new XElement("Tags", tags));
+        }
+        if (ParentManga.OriginalLanguage is not null)
+            comicInfo.Add(new XElement("LanguageISO", ParentManga.OriginalLanguage));
+        string? web = ParentManga.MangaConnectorIds?.FirstOrDefault(id => id.UseForDownload)?.WebsiteUrl
+            ?? ParentManga.MangaConnectorIds?.FirstOrDefault()?.WebsiteUrl
+            ?? ParentManga.Links?.FirstOrDefault()?.LinkUrl;
+        if (!string.IsNullOrWhiteSpace(web))
+            comicInfo.Add(new XElement("Web", web));
         return comicInfo.ToString();
     }
 
