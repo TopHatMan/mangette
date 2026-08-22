@@ -17,14 +17,13 @@ public class DownloadFailureTrackerTest : IDisposable
 
     [Theory]
     [InlineData("WeebCentral", 0)]
-    [InlineData("MangaDex", 1)]
-    [InlineData("NeloManga", 2)]
-    [InlineData("MangaTown", 3)]
-    [InlineData("FanFox", 4)]
-    [InlineData("AsuraComic", 5)]
-    [InlineData("Mangaworld", 6)]
-    [InlineData("Global", 7)]
-    [InlineData("UnknownSite", 7)]
+    [InlineData("NeloManga", 1)]
+    [InlineData("MangaTown", 2)]
+    [InlineData("FanFox", 3)]
+    [InlineData("AsuraComic", 4)]
+    [InlineData("Mangaworld", 5)]
+    [InlineData("Global", 6)]
+    [InlineData("UnknownSite", 6)]
     public void Rank_MatchesPreferenceOrder(string connector, int expectedRank)
     {
         Assert.Equal(expectedRank, DownloadFailureTracker.Rank(connector));
@@ -33,10 +32,10 @@ public class DownloadFailureTrackerTest : IDisposable
     [Fact]
     public void SetPreferenceOrder_MakesFirstConnectorWin()
     {
-        DownloadFailureTracker.SetPreferenceOrder(["WeebCentral", "MangaDex"]);
+        DownloadFailureTracker.SetPreferenceOrder(["WeebCentral", "FanFox"]);
         Assert.Equal(0, DownloadFailureTracker.Rank("WeebCentral"));
-        Assert.Equal(1, DownloadFailureTracker.Rank("MangaDex"));
-        Assert.True(DownloadFailureTracker.Rank("FanFox") > DownloadFailureTracker.Rank("MangaDex"));
+        Assert.Equal(1, DownloadFailureTracker.Rank("FanFox"));
+        Assert.True(DownloadFailureTracker.Rank("NeloManga") > DownloadFailureTracker.Rank("FanFox"));
     }
 
     [Fact]

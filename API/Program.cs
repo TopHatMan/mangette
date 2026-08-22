@@ -262,6 +262,18 @@ try //Connect to DB and apply migrations
                 }
             }
         }
+
+        if (Mangette.TryGetMangaConnector("MangaDex", out API.MangaConnectors.MangaConnector? dex))
+            dex.Enabled = false;
+        int dexSeries = await context.MangaConnectorToManga
+            .Where(id => id.MangaConnectorName == "MangaDex" && id.UseForDownload)
+            .ExecuteUpdateAsync(s => s.SetProperty(id => id.UseForDownload, false));
+        int dexChapters = await context.MangaConnectorToChapter
+            .Where(id => id.MangaConnectorName == "MangaDex" && id.UseForDownload)
+            .ExecuteUpdateAsync(s => s.SetProperty(id => id.UseForDownload, false));
+        if (dexSeries + dexChapters > 0)
+            log.InfoFormat("MangaDex is off: cleared {0} series and {1} chapter download flags.", dexSeries, dexChapters);
+        Mangette.Settings.SetConnectorPriority(Mangette.Settings.ConnectorPriority.Where(n => !n.Equals("MangaDex", StringComparison.OrdinalIgnoreCase)));
     }
 
     using (IServiceScope scope = app.Services.CreateScope())

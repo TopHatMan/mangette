@@ -112,7 +112,7 @@
                     <h1>Download source priority</h1>
                 </template>
                 <p class="text-muted text-sm mb-3">
-                    For each missing chapter, Mangette uses the first source in this list that has it and is not cooling down.
+                    Fallback order among the sites you turn on for each series. MangaDex is not used. Pick sites on the series page.
                 </p>
                 <ol class="flex flex-col gap-2">
                     <li v-for="(name, index) in connectorPriority" :key="name" class="flex items-center gap-2">

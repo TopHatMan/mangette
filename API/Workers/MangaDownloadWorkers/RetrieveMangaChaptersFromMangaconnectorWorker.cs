@@ -100,8 +100,7 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
 
         Log.DebugFormat("Reused {0} existing chapter rows. Got {1} new download-Ids.", reusedChapters, newIds.Count);
 
-        bool monitored = mangaConnectorId.UseForDownload || manga.MangaConnectorIds.Any(id => id.UseForDownload);
-        if (monitored)
+        if (mangaConnectorId.UseForDownload)
         {
             foreach (MangaConnectorId<Chapter> chapterId in newIds)
                 chapterId.UseForDownload = true;

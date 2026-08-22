@@ -241,8 +241,8 @@ public class MangetteSettings
     public static List<string> NormalizeConnectorPriority(IEnumerable<string>? names)
     {
         HashSet<string> known = Mangette.MangaConnectors
+            .Where(c => c.Enabled && !c.Name.Equals("Global", StringComparison.OrdinalIgnoreCase))
             .Select(c => c.Name)
-            .Where(n => !n.Equals("Global", StringComparison.OrdinalIgnoreCase))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         List<string> ordered = [];
         foreach (string name in names ?? [])

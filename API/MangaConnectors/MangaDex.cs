@@ -18,6 +18,7 @@ public class MangaDex : MangaConnector
         "https://mangadex.org/favicon.ico")
     {
         this.downloadClient = new HttpDownloadClient();
+        Enabled = false;
     }
 
     private const int Limit = 100;

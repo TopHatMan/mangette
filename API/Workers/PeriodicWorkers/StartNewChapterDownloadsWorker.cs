@@ -56,8 +56,14 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
         return newWorkers.ToArray();
     }
     
-    internal static async Task<List<MangaConnectorId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken) => await ctx.MangaConnectorToChapter
-        .Include(id => id.Obj)
-        .Where(id => !id.Obj.Downloaded && id.UseForDownload)
-        .ToListAsync(cancellationToken);
+    internal static async Task<List<MangaConnectorId<Chapter>>> GetMissingChapters(MangaContext ctx, CancellationToken cancellationToken)
+    {
+        List<MangaConnectorId<Chapter>> missing = await ctx.MangaConnectorToChapter
+            .Include(id => id.Obj)
+            .Where(id => !id.Obj.Downloaded && id.UseForDownload)
+            .ToListAsync(cancellationToken);
+        return missing
+            .Where(id => Mangette.TryGetMangaConnector(id.MangaConnectorName, out MangaConnectors.MangaConnector? c) && c.Enabled)
+            .ToList();
+    }
 }

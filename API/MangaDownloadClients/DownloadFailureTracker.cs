@@ -12,7 +12,6 @@ public static class DownloadFailureTracker
     public static readonly string[] DefaultPreferenceOrder =
     [
         "WeebCentral",
-        "MangaDex",
         "NeloManga",
         "MangaTown",
         "FanFox",

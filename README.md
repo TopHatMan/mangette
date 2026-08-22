@@ -17,7 +17,7 @@ Mangette is a fork of [Tranga](https://github.com/C9Glax/tranga) rebuilt as a st
 - **No Postgres.** SQLite next to the executable.
 - **No Docker** to run the app. Chrome/Edge on the machine handles Cloudflare. FlareSolverr is optional.
 - **Add New like Sonarr.** Search is preview-only. Only the series you add lands in the library.
-- **Multi-source.** One series can use several sites. First source in your list that has the chapter wins. Failures back off instead of spinning forever.
+- **Multi-source.** You pick which sites each series uses. First source in your list that has the chapter wins. Failures back off instead of spinning forever.
 - **Windows service** or a single `Mangette.exe`.
 
 ## Features
@@ -31,7 +31,7 @@ Mangette is a fork of [Tranga](https://github.com/C9Glax/tranga) rebuilt as a st
 
 **Default source order** (change in Settings):
 
-WeebCentral → MangaDex → NeloManga → MangaTown → FanFox → AsuraComic → Mangaworld
+WeebCentral → NeloManga → MangaTown → FanFox → AsuraComic → Mangaworld
 
 ## Quick start
 
@@ -141,7 +141,7 @@ API: http://localhost:8585/swagger (`/v2`).
 
 ## Sources
 
-[WeebCentral](https://weebcentral.com/) · [MangaDex](https://mangadex.org/) · [NeloManga](https://nelomanga.net/) · [MangaTown](https://www.mangatown.com/) · [FanFox](https://fanfox.net/) · [AsuraComic](https://asurascanz.com) · [MangaWorld](https://www.mangaworld.cx)
+You pick sites per series. Defaults: [WeebCentral](https://weebcentral.com/) · [NeloManga](https://nelomanga.net/) · [MangaTown](https://www.mangatown.com/) · [FanFox](https://fanfox.net/) · [AsuraComic](https://asurascanz.com) · [MangaWorld](https://www.mangaworld.cx)
 
 Library: [Komga](https://komga.org/), [Kavita](https://www.kavitareader.com/).
 

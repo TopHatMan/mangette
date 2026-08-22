@@ -305,6 +305,71 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         
         return TypedResults.Ok();
     }
+
+    public sealed record AttachSourceRequest(string IdOnSite);
+
+    /// <summary>
+    /// Attach another site to this series and use it for downloads. Only sites you turn on here are searched.
+    /// </summary>
+    [HttpPost("{MangaId}/Sources/{MangaConnectorName}")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok, BadRequest<string>, NotFound<string>, InternalServerError<string>>> AttachSource(
+        string MangaId,
+        string MangaConnectorName,
+        [FromBody] AttachSourceRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdOnSite))
+            return TypedResults.BadRequest("IdOnSite is required.");
+        if (!Mangette.TryGetMangaConnector(MangaConnectorName, out API.MangaConnectors.MangaConnector? connector) ||
+            !connector.Enabled ||
+            connector.Name.Equals("Global", StringComparison.OrdinalIgnoreCase))
+            return TypedResults.NotFound($"Site {MangaConnectorName} is not available.");
+
+        if (await context.Mangas
+                .Include(m => m.MangaConnectorIds)
+                .Include(m => m.Library)
+                .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        await context.AssignDefaultLibraryIfMissing(manga, HttpContext.RequestAborted);
+
+        Schema.MangaContext.MangaConnectorId<Schema.MangaContext.Manga>? mcId =
+            manga.MangaConnectorIds.FirstOrDefault(id =>
+                id.MangaConnectorName.Equals(connector.Name, StringComparison.OrdinalIgnoreCase));
+        if (mcId is null)
+        {
+            (Schema.MangaContext.Manga _, Schema.MangaContext.MangaConnectorId<Schema.MangaContext.Manga> fetchedId)? fetched;
+            try
+            {
+                fetched = connector.GetMangaFromId(request.IdOnSite);
+            }
+            catch (Exception ex)
+            {
+                return TypedResults.InternalServerError($"Could not load that series from {connector.Name}: {ex.Message}");
+            }
+            if (fetched is null)
+                return TypedResults.NotFound($"Could not load that series from {connector.Name}.");
+
+            mcId = new Schema.MangaContext.MangaConnectorId<Schema.MangaContext.Manga>(
+                manga, connector, request.IdOnSite, fetched.Value.Item2.WebsiteUrl, useForDownload: true);
+            manga.MangaConnectorIds.Add(mcId);
+        }
+        else
+            mcId.UseForDownload = true;
+
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), "Attach source") is { success: false } sync)
+            return TypedResults.InternalServerError(sync.exceptionMessage);
+
+        Mangette.AddWorkers(
+        [
+            new DownloadCoverFromMangaconnectorWorker(mcId),
+            new RetrieveMangaChaptersFromMangaconnectorWorker(mcId, Mangette.Settings.DownloadLanguage)
+        ]);
+        return TypedResults.Ok();
+    }
     
     /// <summary>
     /// Initiate a search for <see cref="API.Schema.MangaContext.Manga"/> on a different <see cref="API.MangaConnectors.MangaConnector"/>

@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using API.MangaConnectors;
 using API.MangaDownloadClients;
 using API.Schema.MangaContext;
 using API.Workers.MangaDownloadWorkers;
@@ -57,10 +58,11 @@ public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<Ba
 
         List<MangaConnectorId<Manga>> connectorIdsManga = await MangaContext.MangaConnectorToManga
             .Include(id => id.Obj)
-            .Where(id => ongoingMangaIds.Contains(id.ObjId))
+            .Where(id => ongoingMangaIds.Contains(id.ObjId) && id.UseForDownload)
             .ToListAsync(CancellationToken);
 
         connectorIdsManga = connectorIdsManga
+            .Where(id => Mangette.TryGetMangaConnector(id.MangaConnectorName, out MangaConnector? c) && c.Enabled)
             .Where(id => !DownloadFailureTracker.IsConnectorCoolingDown(id.MangaConnectorName))
             .ToList();
 

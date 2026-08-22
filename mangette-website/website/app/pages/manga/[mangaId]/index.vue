@@ -8,34 +8,51 @@
                         <h1 class="font-semibold">Download</h1>
                     </template>
                     <p class="text-muted text-xs mb-3">
-                        Ongoing (and hiatus) series are searched every 3 hours on monitored sites. Finished and cancelled series
-                        are skipped. New chapters on WeebCentral / MangaDex / others are queued automatically.
+                        Only sites you turn on for this series are searched every 3 hours. MangaDex is not used.
                     </p>
                     <LibrarySelect
                         :manga-id="mangaId"
                         :library-id="manga?.fileLibraryId"
                         class="w-full"
                         @library-changed="refreshNuxtData(FetchKeys.Manga.Id(mangaId))" />
-                    <div v-if="manga" class="flex flex-row gap-2 w-full flex-wrap my-2 justify-between">
+                    <div v-if="manga" class="flex flex-col gap-2 mt-3">
                         <div
-                            v-for="mangaconnectorId in manga.mangaConnectorIds.sort((a, b) =>
-                                a.mangaConnectorName < b.mangaConnectorName ? -1 : 1
-                            )"
-                            :key="mangaconnectorId.key"
-                            class="bg-elevated p-1 rounded-lg w-fit flex items-center justify-center gap-2">
-                            <MangaconnectorIcon v-bind="mangaconnectorId" />
-                            <UTooltip
-                                :text="
-                                    mangaconnectorId.useForDownload ? 'Stop downloading from this website' : 'Download from this website'
-                                ">
-                                <UButton
-                                    :icon="mangaconnectorId.useForDownload ? 'i-lucide-cloud-off' : 'i-lucide-cloud-download'"
-                                    variant="ghost"
-                                    :disabled="!manga?.fileLibraryId"
-                                    @click="setRequestedFrom(mangaconnectorId.mangaConnectorName, !mangaconnectorId.useForDownload)" />
-                            </UTooltip>
+                            v-for="site in availableSites"
+                            :key="site.name"
+                            class="flex items-center gap-2 bg-elevated rounded-lg p-2">
+                            <span class="grow text-sm">{{ site.name }}</span>
+                            <UBadge v-if="linkOf(site.name)?.useForDownload" color="success" variant="subtle" size="sm">On</UBadge>
+                            <UBadge v-else-if="linkOf(site.name)" color="neutral" variant="subtle" size="sm">Off</UBadge>
+                            <UButton
+                                v-if="linkOf(site.name)"
+                                size="xs"
+                                :variant="linkOf(site.name)?.useForDownload ? 'outline' : 'solid'"
+                                :disabled="!manga?.fileLibraryId"
+                                @click="setRequestedFrom(site.name, !linkOf(site.name)?.useForDownload)">
+                                {{ linkOf(site.name)?.useForDownload ? 'Stop using' : 'Use' }}
+                            </UButton>
+                            <UButton v-else size="xs" variant="outline" :disabled="!manga?.fileLibraryId" @click="openAddSite(site.name)">
+                                Add this site
+                            </UButton>
                         </div>
                     </div>
+                    <UModal v-model:open="addSiteOpen" :title="`Add ${addSiteName}`">
+                        <template #body>
+                            <p class="text-muted text-sm mb-3">Pick the matching series on {{ addSiteName }}.</p>
+                            <p v-if="addSiteBusy" class="text-muted text-sm">Searching…</p>
+                            <p v-else-if="!addSiteHits.length" class="text-muted text-sm">No results.</p>
+                            <div v-else class="flex flex-col gap-2 max-h-80 overflow-y-auto">
+                                <button
+                                    v-for="hit in addSiteHits"
+                                    :key="`${hit.connectorName}:${hit.idOnSite}`"
+                                    class="text-left bg-elevated rounded-lg p-2 hover:bg-accented"
+                                    @click="attachSite(hit)">
+                                    <p class="font-medium">{{ hit.name }}</p>
+                                    <p class="text-muted text-xs line-clamp-2">{{ hit.description }}</p>
+                                </button>
+                            </div>
+                        </template>
+                    </UModal>
                 </UCard>
                 <MangaMetadataFetcherTable :manga-id="mangaId" />
             </div>
@@ -75,6 +92,46 @@ const { data: manga } = await useApi('/v2/Manga/{MangaId}', {
     lazy: true,
     server: false,
 });
+
+const { data: connectors } = await useApi('/v2/MangaConnector', { key: FetchKeys.MangaConnector.All, server: false });
+const availableSites = computed(() =>
+    (connectors.value ?? []).filter((c: { name: string; enabled?: boolean }) => c.name !== 'Global' && c.enabled !== false),
+);
+const linkOf = (name: string) =>
+    manga.value?.mangaConnectorIds?.find((id: { mangaConnectorName: string }) => id.mangaConnectorName === name);
+
+type SiteHit = { name: string; description?: string; connectorName: string; idOnSite: string };
+const addSiteOpen = ref(false);
+const addSiteName = ref('');
+const addSiteBusy = ref(false);
+const addSiteHits = ref<SiteHit[]>([]);
+
+const openAddSite = async (name: string) => {
+    addSiteName.value = name;
+    addSiteOpen.value = true;
+    addSiteHits.value = [];
+    addSiteBusy.value = true;
+    try {
+        const hits = await $api('/v2/Manga/{MangaId}/OnMangaConnector/{MangaConnectorName}', {
+            path: { MangaId: mangaId, MangaConnectorName: name },
+        });
+        addSiteHits.value = hits ?? [];
+    } catch {
+        addSiteHits.value = [];
+    } finally {
+        addSiteBusy.value = false;
+    }
+};
+
+const attachSite = async (hit: SiteHit) => {
+    await $api('/v2/Manga/{MangaId}/Sources/{MangaConnectorName}', {
+        method: 'POST',
+        path: { MangaId: mangaId, MangaConnectorName: hit.connectorName || addSiteName.value },
+        body: { idOnSite: hit.idOnSite },
+    });
+    addSiteOpen.value = false;
+    await refreshNuxtData(FetchKeys.Manga.Id(mangaId));
+};
 
 const setRequestedFrom = async (MangaConnectorName: string, IsRequested: boolean) => {
     await $api('/v2/Manga/{MangaId}/DownloadFrom/{MangaConnectorName}/{IsRequested}', {
