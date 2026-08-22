@@ -8,15 +8,25 @@ namespace API.Controllers.DTOs;
 
 public sealed record ActionRecord : Identifiable
 {
-    public ActionRecord(Schema.ActionsContext.ActionRecord actionRecord) : base(actionRecord.Key)
+    public ActionRecord(
+        Schema.ActionsContext.ActionRecord actionRecord,
+        string? mangaName = null,
+        string? chapterNumber = null,
+        int? volumeNumber = null,
+        string? chapterTitle = null,
+        string? fileName = null) : base(actionRecord.Key)
     {
         Action = actionRecord.Action;
         PerformedAt = DateTime.SpecifyKind(actionRecord.PerformedAt, DateTimeKind.Utc);
         MangaId = actionRecord is IActionWithMangaRecord manga ? manga.MangaId : null;
         ChapterId = actionRecord is IActionWithChapterRecord chapter ? chapter.ChapterId : null;
+        MangaName = mangaName;
+        ChapterNumber = chapterNumber;
+        VolumeNumber = volumeNumber;
+        ChapterTitle = chapterTitle;
         From = actionRecord is DataMovedActionRecord from ? from.From : null;
         To = actionRecord is DataMovedActionRecord to ? to.To : null;
-        Filename = actionRecord is CoverDownloadedActionRecord filename ? filename.Filename : null;
+        Filename = actionRecord is CoverDownloadedActionRecord cover ? cover.Filename : fileName;
         MetadataFetcher = actionRecord is MetadataUpdatedActionRecord metadata ? metadata.MetadataFetcher : null;
     }
     
@@ -43,6 +53,18 @@ public sealed record ActionRecord : Identifiable
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ChapterId { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? MangaName { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ChapterNumber { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? VolumeNumber { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ChapterTitle { get; init; }
     
     /// <summary>
     /// FromPath if Record is <see cref="Schema.ActionsContext.Actions.DataMovedActionRecord"/>

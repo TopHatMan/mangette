@@ -1,93 +1,101 @@
 <template>
-    <MangettePage rimless>
-        <template #center>
-            <UButton color="primary" icon="i-lucide-rotate-ccw" class="max-md:order-1" @click="resetFilter" />
-            <USelect v-model="params.action" :items="ActionTypes" class="w-70 max-md:order-3" @change="refreshData" />
-            <UInput
-                v-model="params.start"
-                icon="i-lucide-chevron-first"
-                class="w-70 max-md:order-4"
-                type="datetime-local"
-                @change="refreshData" />
-            <UTooltip text="No timelimit" class="max-md:order-2">
-                <UButton color="primary" icon="i-lucide-infinity" @click="noTimeLimit" />
-            </UTooltip>
-            <UInput
-                v-model="params.end"
-                icon="i-lucide-chevron-last"
-                type="datetime-local"
-                class="w-70 max-md:order-5"
-                @change="refreshData" />
-        </template>
-        <template #actions>
-            <UTooltip text="Reload" :kbds="['meta', 'R']">
-                <UButton variant="soft" color="secondary" icon="i-lucide-refresh-ccw" loading-auto @click="refreshData" />
-            </UTooltip>
-        </template>
-        <div class="w-full pt-2">
-            <div class="flex gap-2 justify-center items-center max-sm:flex-col">
-                <p class="text-dimmed basis-0 text-nowrap">{{ data?.totalCount }} {{ params.action === 'ChapterDownloaded' ? 'downloads' : 'actions' }}</p>
-                <UPagination
-                    :default-page="pagination.pageIndex + 1"
-                    :items-per-page="pagination.pageSize"
-                    :total="data?.totalCount ?? 0"
-                    class="basis-0"
-                    @update:page="(p) => (pagination.pageIndex = p - 1)" />
+    <div class="arr-page">
+        <div class="arr-page__head">
+            <div>
+                <h1 class="arr-page__title">Activity</h1>
+                <p class="arr-page__hint">
+                    {{ data?.totalCount ?? 0 }}
+                    {{ params.action === 'ChapterDownloaded' ? 'successful downloads' : 'actions' }}
+                </p>
             </div>
-            <UTable ref="table" :data="data?.data" :columns="columns" :sticky="'header'" :loading="status === 'pending'" class="h-full">
-                <template #action-cell="{ row }">
-                    {{ row.original.action.split(/(?=[A-Z])/).join(' ') }}
-                </template>
-                <template #timestamp-cell="{ row }">
-                    {{ formatStamp(row.original.performedAt) }}
-                </template>
-                <template #manga-cell="{ row }">
-                    <UButton
-                        v-if="row.original.mangaId"
-                        :to="`/manga/${row.original.mangaId}?return=${$route.fullPath}`"
-                        variant="ghost"
-                        color="primary"
-                        >Manga</UButton
-                    >
-                </template>
-                <template #chapter-cell="{ row }">
-                    <UButton
-                        v-if="row.original.chapterId"
-                        :to="`/manga/${row.original.mangaId}?return=${$route.fullPath}#${row.original.chapterId}`"
-                        variant="ghost"
-                        color="secondary"
-                        >Chapter</UButton
-                    >
-                </template>
-                <template #additional-cell="{ row }">
-                    <p v-if="row.original.from">From: {{ row.original.from }}</p>
-                    <p v-if="row.original.to">To: {{ row.original.to }}</p>
-                    <p v-if="row.original.filename">Filename: {{ row.original.filename }}</p>
-                    <p v-if="row.original.metadataFetcher">Metadata Fetcher: {{ row.original.metadataFetcher }}</p>
-                </template>
-            </UTable>
+            <div class="flex flex-wrap items-center gap-2">
+                <USelect v-model="params.action" :items="typeItems" class="w-44" @change="refreshData" />
+                <UInput v-model="params.start" type="datetime-local" class="w-52" @change="refreshData" />
+                <UInput v-model="params.end" type="datetime-local" class="w-52" @change="refreshData" />
+                <UTooltip text="No time limit">
+                    <UButton color="neutral" variant="outline" icon="i-lucide-infinity" @click="noTimeLimit" />
+                </UTooltip>
+                <UButton color="neutral" variant="outline" icon="i-lucide-rotate-ccw" @click="resetFilter">Reset</UButton>
+                <UButton variant="soft" icon="i-lucide-refresh-ccw" :loading="status === 'pending'" @click="refreshData" />
+            </div>
         </div>
-    </MangettePage>
+
+        <p v-if="status !== 'pending' && !(data?.data ?? []).length" class="text-muted text-sm">
+            No downloads in this range.
+        </p>
+
+        <div v-else class="overflow-x-auto">
+            <table class="arr-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Date</th>
+                        <th>Event</th>
+                        <th>Series</th>
+                        <th>Chapter</th>
+                        <th>File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="row in data?.data ?? []" :key="row.key">
+                        <td class="w-12">
+                            <NuxtLink v-if="row.mangaId" :to="seriesLink(row)">
+                                <img :src="coverSrc(row.mangaId)" alt="" class="w-8 h-11 object-cover rounded" />
+                            </NuxtLink>
+                        </td>
+                        <td class="text-sm whitespace-nowrap tabular-nums">{{ formatStamp(row.performedAt) }}</td>
+                        <td>
+                            <UBadge :color="eventColor(row.action)" variant="subtle" size="sm">{{ eventLabel(row.action) }}</UBadge>
+                        </td>
+                        <td>
+                            <NuxtLink v-if="row.mangaId" :to="seriesLink(row)" class="font-medium hover:underline">
+                                {{ row.mangaName || 'Unknown series' }}
+                            </NuxtLink>
+                            <span v-else class="text-muted">—</span>
+                        </td>
+                        <td>
+                            <NuxtLink v-if="row.chapterId && row.mangaId" :to="chapterLink(row)" class="hover:underline">
+                                {{ chapterLabel(row) }}
+                            </NuxtLink>
+                            <span v-else class="text-muted">{{ chapterLabel(row) || '—' }}</span>
+                        </td>
+                        <td class="text-muted text-sm max-w-xs truncate" :title="row.filename || ''">{{ row.filename || '—' }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex justify-center mt-4">
+            <UPagination
+                :default-page="pagination.pageIndex + 1"
+                :items-per-page="pagination.pageSize"
+                :total="data?.totalCount ?? 0"
+                @update:page="(p) => (pagination.pageIndex = p - 1)" />
+        </div>
+    </div>
 </template>
 
 <script setup lang="ts">
-import type { TableColumn } from '#ui/components/Table.vue';
-import type { UTable } from '#components';
 import type { components } from '#open-fetch-schemas/api';
 type ActionsFilterRecord = components['schemas']['ActionsFilterRecord'];
-type ActionRecord = components['schemas']['ActionRecord'];
+type ApiAction = components['schemas']['ActionRecord'];
+type HistoryRow = ApiAction & {
+    mangaName?: string | null;
+    chapterNumber?: string | null;
+    volumeNumber?: number | null;
+    chapterTitle?: string | null;
+    filename?: string | null;
+};
 
 const { $api } = useNuxtApp();
 
-const pagination = ref({ pageIndex: 0, pageSize: 10 });
+const pagination = ref({ pageIndex: 0, pageSize: 25 });
 
-/** datetime-local value in the browser's local timezone. */
 const toLocalInput = (ms: number) => {
     const d = new Date(ms - new Date().getTimezoneOffset() * 60 * 1000);
     return d.toISOString().slice(0, 16);
 };
 
-/** API stores UTC. SQLite often omits Z, so treat naive stamps as UTC. */
 const formatStamp = (value: string) => {
     if (!value) return '';
     const iso = /Z$|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`;
@@ -105,6 +113,7 @@ const params = ref<Partial<ActionsFilterRecord>>({
     start: toLocalInput(Date.now() - 24 * 60 * 60 * 1000),
     end: toLocalInput(Date.now()),
 });
+
 const { data, refresh, status } = useAsyncData(
     FetchKeys.Actions.Page(params.value, pagination.value.pageIndex),
     () =>
@@ -117,17 +126,37 @@ const { data, refresh, status } = useAsyncData(
             },
             query: { page: pagination.value.pageIndex + 1, pageSize: pagination.value.pageSize },
         }),
-    { watch: [pagination.value], lazy: true, server: false }
+    { watch: [pagination.value], lazy: true, server: false },
 );
+
 const { data: ActionTypes } = useApi('/v2/Actions/Types', { key: FetchKeys.Actions.Types, server: false });
 
-const columns: TableColumn<ActionRecord>[] = [
-    { id: 'action', accessorKey: 'action', header: 'Action' },
-    { id: 'timestamp', accessorKey: 'performedAt', header: 'Timestamp' },
-    { id: 'manga', accessorKey: 'mangaId', header: 'Manga' },
-    { id: 'chapter', accessorKey: 'chapterId', header: 'Chapter' },
-    { id: 'additional', header: 'Additional' },
-];
+const typeItems = computed(() =>
+    (ActionTypes.value ?? []).map((t: string) => ({
+        label: t === 'ChapterDownloaded' ? 'Downloads' : t.replace(/([A-Z])/g, ' $1').trim(),
+        value: t,
+    })),
+);
+
+const eventLabel = (action: string) => {
+    if (action === 'ChapterDownloaded') return 'Downloaded';
+    if (action === 'ChaptersRetrieved') return 'Updated';
+    if (action === 'CoverDownloaded') return 'Cover';
+    return action.replace(/([A-Z])/g, ' $1').trim();
+};
+
+const eventColor = (action: string) => (action === 'ChapterDownloaded' ? 'success' : 'neutral');
+
+const coverSrc = (mangaId: string) => `/v2/Manga/${mangaId}/Cover/Small`;
+const seriesLink = (row: HistoryRow) => `/manga/${row.mangaId}?return=${encodeURIComponent('/actions')}`;
+const chapterLink = (row: HistoryRow) => `${seriesLink(row)}#${row.chapterId}`;
+
+const chapterLabel = (row: HistoryRow) => {
+    if (!row.chapterNumber) return '';
+    const vol = row.volumeNumber != null ? `Vol. ${row.volumeNumber} ` : '';
+    const title = row.chapterTitle ? ` – ${row.chapterTitle}` : '';
+    return `${vol}Ch. ${row.chapterNumber}${title}`;
+};
 
 const resetFilter = async () => {
     params.value = {
@@ -153,5 +182,7 @@ const refreshData = async (): Promise<void> => {
     pagination.value.pageIndex = 0;
     await refresh();
 };
+
 defineShortcuts({ meta_r: { usingInput: true, handler: refreshData } });
+useHead({ title: 'Activity' });
 </script>

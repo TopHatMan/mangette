@@ -4156,6 +4156,23 @@
             "description": "ChapterId if Record is API.Schema.ActionsContext.Actions.Generic.IActionWithMangaRecord",
             "nullable": true
           },
+          "mangaName": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "volumeNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "chapterTitle": {
+            "type": "string",
+            "nullable": true
+          },
           "from": {
             "type": "string",
             "description": "FromPath if Record is API.Schema.ActionsContext.Actions.DataMovedActionRecord",

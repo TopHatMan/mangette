@@ -2,6 +2,8 @@ using API.Controllers.DTOs;
 using API.Controllers.Requests;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
+using API.Schema.ActionsContext.Actions.Generic;
+using API.Schema.MangaContext;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +16,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class ActionsController(ActionsContext context) : ControllerBase
+public class ActionsController(ActionsContext context, MangaContext mangaContext) : ControllerBase
 {
     /// <summary>
     /// Returns the available Action Types (<see cref="Actions"/>)
@@ -51,7 +53,53 @@ public class ActionsController(ActionsContext context) : ControllerBase
                 .CreatePagedResponse(a => a.PerformedAt, page, pageSize, HttpContext.RequestAborted)
             is not { } result)
             return TypedResults.InternalServerError();
-        
-        return TypedResults.Ok(result.ToType(a => new ActionRecord(a)));
+
+        List<Schema.ActionsContext.ActionRecord> rows = result.Data.ToList();
+        HashSet<string> mangaIds = rows.OfType<IActionWithMangaRecord>().Select(a => a.MangaId).ToHashSet();
+        HashSet<string> chapterIds = rows.OfType<IActionWithChapterRecord>().Select(a => a.ChapterId).ToHashSet();
+
+        Dictionary<string, string> mangaNames = [];
+        if (mangaIds.Count > 0)
+        {
+            var names = await mangaContext.Mangas.AsNoTracking()
+                .Where(m => mangaIds.Contains(m.Key))
+                .Select(m => new { m.Key, m.Name })
+                .ToListAsync(HttpContext.RequestAborted);
+            mangaNames = names.ToDictionary(m => m.Key, m => m.Name);
+        }
+
+        Dictionary<string, (string Number, int? Volume, string? Title, string? FileName)> chapters = [];
+        if (chapterIds.Count > 0)
+        {
+            var chapterRows = await mangaContext.Chapters.AsNoTracking()
+                .Where(c => chapterIds.Contains(c.Key))
+                .Select(c => new { c.Key, c.ChapterNumber, c.VolumeNumber, c.Title, c.FileName })
+                .ToListAsync(HttpContext.RequestAborted);
+            chapters = chapterRows.ToDictionary(
+                c => c.Key,
+                c => (c.ChapterNumber, c.VolumeNumber, c.Title, c.FileName));
+        }
+
+        return TypedResults.Ok(new PagedResponse<ActionRecord>(
+            rows.Select(a =>
+            {
+                string? mangaName = a is IActionWithMangaRecord m && mangaNames.TryGetValue(m.MangaId, out string? name)
+                    ? name
+                    : null;
+                (string Number, int? Volume, string? Title, string? FileName)? chapter =
+                    a is IActionWithChapterRecord c && chapters.TryGetValue(c.ChapterId, out var ch)
+                        ? ch
+                        : null;
+                return new ActionRecord(
+                    a,
+                    mangaName,
+                    chapter?.Number,
+                    chapter?.Volume,
+                    chapter?.Title,
+                    chapter?.FileName);
+            }),
+            result.Page,
+            result.TotalPages,
+            result.TotalCount));
     }
 }
