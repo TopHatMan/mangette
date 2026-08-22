@@ -95,7 +95,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
         return Downloaded;
     }
 
-    internal bool ApplyDownloadedMatch(List<string>? quarantinedFiles = null)
+    internal bool ApplyDownloadedMatch(List<string>? quarantinedFiles = null, bool inspectZip = false)
     {
         if (ParentManga?.Library is null || string.IsNullOrWhiteSpace(ParentManga.Library.BasePath))
         {
@@ -124,7 +124,8 @@ public class Chapter : Identifiable, IComparable<Chapter>
             expected,
             exactNameOnly: Constants.DownloadedChaptersCheckMatchExactName,
             volumeNumber: VolumeNumber,
-            quarantinedFiles: quarantinedFiles);
+            quarantinedFiles: quarantinedFiles,
+            inspectZip: inspectZip);
 
         if (found is not null)
         {

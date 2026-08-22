@@ -152,7 +152,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 
+string webRoot = ResolveWebRoot();
+builder.WebHost.UseWebRoot(webRoot);
 builder.WebHost.UseUrls($"http://*:{Mangette.Settings.ListenPort}");
+log.InfoFormat("UI files: {0} ({1})", webRoot,
+    File.Exists(Path.Combine(webRoot, "index.html")) ? "index.html found" : "index.html MISSING");
 
 log.Info("Starting app...");
 WebApplication app = builder.Build();
@@ -360,11 +364,42 @@ else
 }
 
 Mangette.ServiceProvider = app.Services;
-Mangette.StartupTasks();
-Mangette.AddDefaultWorkers();
+log.InfoFormat("Starting web UI on http://localhost:{0} — open that in the browser (not /swagger).",
+    Mangette.Settings.ListenPort);
+await app.StartAsync();
+log.Info("Web UI is listening. Library scan and downloads continue in the background.");
 
-log.Info("Running app.");
-await app.RunAsync();
+_ = Task.Run(() =>
+{
+    try
+    {
+        Mangette.StartupTasks();
+        Mangette.AddDefaultWorkers();
+        log.Info("Background workers started.");
+    }
+    catch (Exception ex)
+    {
+        log.Error("Background startup failed.", ex);
+    }
+});
+
+await app.WaitForShutdownAsync();
+
+static string ResolveWebRoot()
+{
+    string[] candidates =
+    [
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"),
+        Path.Combine(Directory.GetCurrentDirectory(), "API", "wwwroot"),
+        Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+    ];
+    foreach (string dir in candidates)
+    {
+        if (File.Exists(Path.Combine(dir, "index.html")))
+            return Path.GetFullPath(dir);
+    }
+    return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "wwwroot"));
+}
 
 static bool IsOpenApiDocumentGeneration()
 {

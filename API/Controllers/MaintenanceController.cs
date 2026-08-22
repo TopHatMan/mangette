@@ -78,7 +78,7 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
             foreach (Chapter chapter in manga.Chapters)
             {
                 chapter.ParentManga = manga;
-                if (chapter.ApplyDownloadedMatch(quarantined))
+                if (chapter.ApplyDownloadedMatch(quarantined, inspectZip: true))
                     matched++;
                 else if (chapter.MangaConnectorIds.Any(id => id.UseForDownload))
                     missingMonitored++;

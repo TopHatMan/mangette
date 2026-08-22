@@ -116,9 +116,11 @@ public static class DownloadedChapterMatcher
     }
 
     /// <summary>
-    /// Empty, truncated, or unreadable archives (bad disk) are not treated as downloaded.
+    /// Empty or tiny files are never treated as downloaded. Opening every zip (inspectZip)
+    /// is only for an explicit Wanted scan — a startup pass over a large library would
+    /// block the UI, especially on a failing disk.
     /// </summary>
-    public static bool IsUsableArchive(string path)
+    public static bool IsUsableArchive(string path, bool inspectZip = false)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             return false;
@@ -134,6 +136,8 @@ public static class DownloadedChapterMatcher
         if (info.Length < 32)
             return false;
 
+        if (!inspectZip)
+            return true;
         string ext = info.Extension;
         if (ext.Equals(".cbz", StringComparison.OrdinalIgnoreCase) ||
             ext.Equals(".zip", StringComparison.OrdinalIgnoreCase))
@@ -164,7 +168,8 @@ public static class DownloadedChapterMatcher
         string? expectedFileName,
         bool exactNameOnly = false,
         int? volumeNumber = null,
-        List<string>? quarantinedFiles = null)
+        List<string>? quarantinedFiles = null,
+        bool inspectZip = false)
     {
         if (string.IsNullOrWhiteSpace(seriesDirectory) || !Directory.Exists(seriesDirectory))
             return null;
@@ -176,7 +181,7 @@ public static class DownloadedChapterMatcher
         if (!string.IsNullOrWhiteSpace(expectedFileName))
         {
             string expectedPath = Path.Combine(seriesDirectory, expectedFileName);
-            string? accepted = AcceptArchive(seriesDirectory, expectedPath, quarantinedFiles);
+            string? accepted = AcceptArchive(seriesDirectory, expectedPath, quarantinedFiles, inspectZip);
             if (accepted is not null)
                 return accepted;
         }
@@ -200,7 +205,7 @@ public static class DownloadedChapterMatcher
             string expectedName = Path.GetFileName(expectedFileName);
             string? exact = archives.FirstOrDefault(path =>
                 Path.GetFileName(path).Equals(expectedName, StringComparison.OrdinalIgnoreCase));
-            string? acceptedExact = exact is null ? null : AcceptArchive(seriesDirectory, exact, quarantinedFiles);
+            string? acceptedExact = exact is null ? null : AcceptArchive(seriesDirectory, exact, quarantinedFiles, inspectZip);
             if (acceptedExact is not null)
                 return acceptedExact;
         }
@@ -228,7 +233,7 @@ public static class DownloadedChapterMatcher
 
         foreach ((string path, int _) in ranked.OrderByDescending(r => r.Score))
         {
-            string? accepted = AcceptArchive(seriesDirectory, path, quarantinedFiles);
+            string? accepted = AcceptArchive(seriesDirectory, path, quarantinedFiles, inspectZip);
             if (accepted is not null)
                 return accepted;
         }
@@ -249,11 +254,11 @@ public static class DownloadedChapterMatcher
         }
     }
 
-    private static string? AcceptArchive(string seriesDirectory, string path, List<string>? quarantinedFiles)
+    private static string? AcceptArchive(string seriesDirectory, string path, List<string>? quarantinedFiles, bool inspectZip)
     {
         if (!File.Exists(path))
             return null;
-        if (IsUsableArchive(path))
+        if (IsUsableArchive(path, inspectZip))
             return ToRelative(seriesDirectory, path);
         if (TryQuarantineCorrupt(path))
             quarantinedFiles?.Add(Path.GetFileName(path));

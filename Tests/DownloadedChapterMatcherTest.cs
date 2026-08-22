@@ -153,6 +153,8 @@ public class DownloadedChapterMatcherTest : IDisposable
         Assert.True(File.Exists(Path.Combine(series, "Holes - Ch.1.cbz.corrupt")));
         Assert.True(File.Exists(Path.Combine(series, "Holes - Ch.2.cbz.corrupt")));
         Assert.False(API.DownloadedChapterMatcher.IsUsableArchive(Path.Combine(series, "Holes - Ch.1.cbz.corrupt")));
+        Assert.Null(API.DownloadedChapterMatcher.FindExistingChapterFile(
+            series, "2", "Holes - Ch.2.cbz.corrupt", inspectZip: true));
     }
 
     private static void WriteDummyCbz(string path)
