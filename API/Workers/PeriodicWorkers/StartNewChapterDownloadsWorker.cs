@@ -43,11 +43,23 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
         
         Log.DebugFormat("{0} running download Workers. {1} available new download Workers.", downloadWorkers, amountNewWorkers);
 
+        Dictionary<string, string> chapterToSeries = missingChapters
+            .GroupBy(id => id.ObjId)
+            .ToDictionary(g => g.Key, g => DownloadFailureTracker.SeriesKey(g.First()));
+        Dictionary<string, int> inFlightBySeries = [];
+        foreach (DownloadChapterFromMangaconnectorWorker running in runningDownloads)
+        {
+            if (!chapterToSeries.TryGetValue(running.ChapterKey, out string? series))
+                continue;
+            inFlightBySeries[series] = inFlightBySeries.GetValueOrDefault(series) + 1;
+        }
+
         List<MangaConnectorId<Chapter>> newDownloadChapters = DownloadFailureTracker.SelectDownloadSources(
             missingChapters,
             inFlightConnectorIds,
             inFlightChapterKeys,
-            amountNewWorkers);
+            amountNewWorkers,
+            inFlightBySeries);
 
         Log.DebugFormat("{0} chapters queued after failover/cooldown filter.", newDownloadChapters.Count);
 

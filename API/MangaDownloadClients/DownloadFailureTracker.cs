@@ -81,14 +81,16 @@ public static class DownloadFailureTracker
         IsActive(ConnectorFailures, ConnectorKey(connectorName));
 
     /// <summary>
-    /// One job per logical chapter: drop in-flight and cooled-down sources, then pick the
-    /// highest-preference remaining connector.
+    /// One job per logical chapter: drop in-flight and cooled-down sources, pick the
+    /// highest-preference remaining connector, then share slots across series.
+    /// A new 1000-chapter title must not starve imported series that only need a few missing chapters.
     /// </summary>
     public static List<MangaConnectorId<Chapter>> SelectDownloadSources(
         IEnumerable<MangaConnectorId<Chapter>> missingChapters,
         IReadOnlyCollection<string> inFlightConnectorIds,
         IReadOnlyCollection<string> inFlightChapterKeys,
-        int take)
+        int take,
+        IReadOnlyDictionary<string, int>? inFlightBySeries = null)
     {
         if (take <= 0)
             return [];
@@ -96,7 +98,7 @@ public static class DownloadFailureTracker
         HashSet<string> inFlightIds = inFlightConnectorIds as HashSet<string> ?? [..inFlightConnectorIds];
         HashSet<string> inFlightKeys = inFlightChapterKeys as HashSet<string> ?? [..inFlightChapterKeys];
 
-        return missingChapters
+        List<MangaConnectorId<Chapter>> onePerChapter = missingChapters
             .Where(ch =>
                 !inFlightIds.Contains(ch.Key) &&
                 !inFlightKeys.Contains(ch.ObjId) &&
@@ -104,9 +106,50 @@ public static class DownloadFailureTracker
                 !IsConnectorCoolingDown(ch.MangaConnectorName))
             .GroupBy(ch => ch.ObjId)
             .Select(group => group.OrderBy(ch => Rank(ch.MangaConnectorName)).ThenBy(ch => ch.Key, StringComparer.Ordinal).First())
-            .OrderBy(ch => ch.Obj, new Chapter.ChapterComparer())
-            .Take(take)
             .ToList();
+
+        Dictionary<string, Queue<MangaConnectorId<Chapter>>> queues = onePerChapter
+            .GroupBy(SeriesKey)
+            .ToDictionary(
+                g => g.Key,
+                g => new Queue<MangaConnectorId<Chapter>>(
+                    g.OrderBy(ch => ch.Obj, new Chapter.ChapterComparer())
+                        .ThenBy(ch => ch.ObjId, StringComparer.Ordinal)),
+                StringComparer.Ordinal);
+
+        Dictionary<string, int> load = new(StringComparer.Ordinal);
+        if (inFlightBySeries is not null)
+        {
+            foreach ((string series, int count) in inFlightBySeries)
+                load[series] = count;
+        }
+
+        List<MangaConnectorId<Chapter>> selected = [];
+        while (selected.Count < take && queues.Count > 0)
+        {
+            string? nextSeries = queues.Keys
+                .OrderBy(k => load.GetValueOrDefault(k))
+                .ThenBy(k => k, StringComparer.Ordinal)
+                .FirstOrDefault();
+            if (nextSeries is null)
+                break;
+
+            selected.Add(queues[nextSeries].Dequeue());
+            load[nextSeries] = load.GetValueOrDefault(nextSeries) + 1;
+            if (queues[nextSeries].Count == 0)
+                queues.Remove(nextSeries);
+        }
+
+        return selected;
+    }
+
+    internal static string SeriesKey(MangaConnectorId<Chapter> ch)
+    {
+        if (!string.IsNullOrEmpty(ch.Obj.ParentMangaId))
+            return ch.Obj.ParentMangaId;
+        if (!string.IsNullOrEmpty(ch.Obj.ParentManga?.Key))
+            return ch.Obj.ParentManga.Key;
+        return ch.ObjId;
     }
 
     public static void Reset()

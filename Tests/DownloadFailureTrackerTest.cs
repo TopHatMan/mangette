@@ -199,6 +199,45 @@ public class DownloadFailureTrackerTest : IDisposable
     }
 
     [Fact]
+    public void SelectDownloadSources_SharesSlotsAcrossSeriesInsteadOfLowestChapterGlobally()
+    {
+        List<MangaConnectorId<Chapter>> missing =
+        [
+            Source("Detective Conan", "1", "WeebCentral", "conan-1"),
+            Source("Detective Conan", "2", "WeebCentral", "conan-2"),
+            Source("Detective Conan", "3", "WeebCentral", "conan-3"),
+            Source("One Piece", "1090", "WeebCentral", "op-1090"),
+        ];
+
+        List<MangaConnectorId<Chapter>> selected = DownloadFailureTracker.SelectDownloadSources(missing, [], [], take: 2);
+
+        Assert.Equal(2, selected.Count);
+        Assert.Contains(selected, s => s.Obj.ParentManga.Name == "Detective Conan");
+        Assert.Contains(selected, s => s.Obj.ParentManga.Name == "One Piece");
+    }
+
+    [Fact]
+    public void SelectDownloadSources_PrefersSeriesWithFewerInFlightDownloads()
+    {
+        MangaConnectorId<Chapter> conanNext = Source("Detective Conan", "4", "WeebCentral", "conan-4");
+        MangaConnectorId<Chapter> imported = Source("One Piece", "1090", "WeebCentral", "op-1090");
+        Dictionary<string, int> inFlight = new()
+        {
+            [DownloadFailureTracker.SeriesKey(conanNext)] = 3,
+        };
+
+        List<MangaConnectorId<Chapter>> selected = DownloadFailureTracker.SelectDownloadSources(
+            [conanNext, imported],
+            [],
+            [],
+            take: 1,
+            inFlight);
+
+        Assert.Single(selected);
+        Assert.Equal("One Piece", selected[0].Obj.ParentManga.Name);
+    }
+
+    [Fact]
     public void IsSameLogicalChapter_TreatsEquivalentNumbersAsOneChapter()
     {
         Manga manga = NewManga("Same");

@@ -274,6 +274,22 @@ try //Connect to DB and apply migrations
         if (dexSeries + dexChapters > 0)
             log.InfoFormat("MangaDex is off: cleared {0} series and {1} chapter download flags.", dexSeries, dexChapters);
         Mangette.Settings.SetConnectorPriority(Mangette.Settings.ConnectorPriority.Where(n => !n.Equals("MangaDex", StringComparison.OrdinalIgnoreCase)));
+
+        List<string> staleChapterIds = await (
+            from chId in context.MangaConnectorToChapter
+            join ch in context.Chapters on chId.ObjId equals ch.Key
+            join mId in context.MangaConnectorToManga
+                on new { ch.ParentMangaId, chId.MangaConnectorName }
+                equals new { ParentMangaId = mId.ObjId, mId.MangaConnectorName }
+            where mId.UseForDownload && !chId.UseForDownload
+            select chId.Key).ToListAsync();
+        if (staleChapterIds.Count > 0)
+        {
+            int repaired = await context.MangaConnectorToChapter
+                .Where(id => staleChapterIds.Contains(id.Key))
+                .ExecuteUpdateAsync(s => s.SetProperty(id => id.UseForDownload, true));
+            log.InfoFormat("Turned on downloads for {0} chapter links on sites already selected for those series.", repaired);
+        }
     }
 
     using (IServiceScope scope = app.Services.CreateScope())
