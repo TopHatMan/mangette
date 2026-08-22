@@ -50,6 +50,10 @@ public class DownloadedChapterMatcherTest : IDisposable
     [InlineData("c001.cbz", "1")]
     [InlineData("Ch.1.5.cbz", "1.5")]
     [InlineData("0007.cbz", "7")]
+    [InlineData("Bobobo-bo Bo-bobo - Vol.01.cbz", "1")]
+    [InlineData("Vol.40.cbz", "40")]
+    [InlineData("v12.cbz", "12")]
+    [InlineData("Volume 3.cbz", "3")]
     public void TryParseChapterNumber_ReadsCommonArchiveNames(string fileName, string expected)
     {
         Assert.True(API.DownloadedChapterMatcher.TryParseChapterNumber(fileName, out string parsed));
@@ -99,6 +103,29 @@ public class DownloadedChapterMatcherTest : IDisposable
 
         Assert.Null(API.DownloadedChapterMatcher.FindExistingChapterFile(
             series, "1", "Exact - Ch.1.cbz", exactNameOnly: true));
+    }
+
+    [Fact]
+    public void FindExistingChapterFile_MatchesVolumeArchiveToVolumeListing()
+    {
+        string series = Path.Combine(_root, "Bobobo");
+        Directory.CreateDirectory(series);
+        File.WriteAllText(Path.Combine(series, "Bobobo-bo Bo-bobo - Vol.01.cbz"), "x");
+
+        string? found = API.DownloadedChapterMatcher.FindExistingChapterFile(
+            series, "1", "Bobobo - Ch.1.cbz", volumeNumber: 1);
+        Assert.Equal("Bobobo-bo Bo-bobo - Vol.01.cbz", found);
+    }
+
+    [Fact]
+    public void VolumeArchive_CoversEveryChapterInThatVolume()
+    {
+        Assert.True(API.DownloadedChapterMatcher.ArchiveCoversChapter("Vol.01.cbz", "5", 1));
+        Assert.True(API.DownloadedChapterMatcher.ArchiveCoversChapter("Vol.01.cbz", "1", 1));
+        Assert.False(API.DownloadedChapterMatcher.ArchiveCoversChapter("Vol.01.cbz", "5", 2));
+        Assert.False(API.DownloadedChapterMatcher.ArchiveCoversChapter("Vol.01.cbz", "5", null));
+        Assert.True(API.DownloadedChapterMatcher.ArchiveCoversChapter("Vol.1 Ch.5.cbz", "5", 1));
+        Assert.False(API.DownloadedChapterMatcher.ArchiveCoversChapter("Vol.1 Ch.5.cbz", "6", 1));
     }
 
     [Fact]

@@ -122,7 +122,8 @@ public class Chapter : Identifiable, IComparable<Chapter>
             seriesDirectory,
             ChapterNumber,
             expected,
-            exactNameOnly: Constants.DownloadedChaptersCheckMatchExactName);
+            exactNameOnly: Constants.DownloadedChaptersCheckMatchExactName,
+            volumeNumber: VolumeNumber);
 
         if (found is not null)
         {

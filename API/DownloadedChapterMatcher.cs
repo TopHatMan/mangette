@@ -15,6 +15,10 @@ public static class DownloadedChapterMatcher
         @"(?:^|[^\p{L}\d])(?:ch(?:apter)?|c)[\s._-]*(\d+(?:\.\d+)*)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    private static readonly Regex VolumeToken = new(
+        @"(?:^|[^\p{L}\d])(?:vol(?:ume)?s?|v)[\s._-]*(\d+(?:\.\d+)*)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private static readonly Regex BareNumberFile = new(
         @"^0*(\d+(?:\.\d+)*)\.(?:cbz|zip|cbr|cb7)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -39,19 +43,27 @@ public static class DownloadedChapterMatcher
     public static bool ChapterNumbersEqual(string left, string right) =>
         NormalizeChapterNumber(left).Equals(NormalizeChapterNumber(right), StringComparison.Ordinal);
 
-    public static bool TryParseChapterNumber(string fileName, out string chapterNumber)
+    public static bool TryParseArchiveNumbers(string fileName, out string? chapterNumber, out int? volumeNumber)
     {
-        chapterNumber = "";
+        chapterNumber = null;
+        volumeNumber = null;
         if (string.IsNullOrWhiteSpace(fileName))
             return false;
 
         string name = Path.GetFileName(fileName);
+        Match volume = VolumeToken.Match(name);
+        if (volume.Success && int.TryParse(volume.Groups[1].Value.Split('.')[0], out int vol))
+            volumeNumber = vol;
+
         Match chapter = ChapterToken.Match(name);
         if (chapter.Success)
         {
             chapterNumber = NormalizeChapterNumber(chapter.Groups[1].Value);
-            return chapterNumber.Length > 0;
+            return chapterNumber.Length > 0 || volumeNumber is not null;
         }
+
+        if (volumeNumber is not null)
+            return true;
 
         Match bare = BareNumberFile.Match(name);
         if (bare.Success)
@@ -63,11 +75,51 @@ public static class DownloadedChapterMatcher
         return false;
     }
 
+    public static bool TryParseChapterNumber(string fileName, out string chapterNumber)
+    {
+        chapterNumber = "";
+        if (!TryParseArchiveNumbers(fileName, out string? chapter, out int? volume))
+            return false;
+        if (!string.IsNullOrEmpty(chapter))
+        {
+            chapterNumber = chapter;
+            return true;
+        }
+        if (volume is not null)
+        {
+            chapterNumber = volume.Value.ToString();
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Volume-only archives (Vol.01.cbz) match volume-listed rows, and also every chapter
+    /// that belongs to that volume so a volume dump is not re-downloaded as hundreds of chapters.
+    /// </summary>
+    public static bool ArchiveCoversChapter(string fileName, string chapterNumber, int? volumeNumber)
+    {
+        if (!TryParseArchiveNumbers(fileName, out string? fileChapter, out int? fileVolume))
+            return false;
+
+        string want = NormalizeChapterNumber(chapterNumber);
+        if (!string.IsNullOrEmpty(fileChapter))
+            return fileChapter.Equals(want, StringComparison.Ordinal);
+
+        if (fileVolume is null)
+            return false;
+
+        if (volumeNumber is not null && volumeNumber == fileVolume)
+            return true;
+        return want.Equals(fileVolume.Value.ToString(), StringComparison.Ordinal);
+    }
+
     public static string? FindExistingChapterFile(
         string seriesDirectory,
         string chapterNumber,
         string? expectedFileName,
-        bool exactNameOnly = false)
+        bool exactNameOnly = false,
+        int? volumeNumber = null)
     {
         if (string.IsNullOrWhiteSpace(seriesDirectory) || !Directory.Exists(seriesDirectory))
             return null;
@@ -113,13 +165,16 @@ public static class DownloadedChapterMatcher
         int bestScore = -1;
         foreach (string path in archives)
         {
-            if (!TryParseChapterNumber(Path.GetFileName(path), out string parsed) ||
-                !parsed.Equals(want, StringComparison.Ordinal))
+            string name = Path.GetFileName(path);
+            if (!ArchiveCoversChapter(name, chapterNumber, volumeNumber))
                 continue;
 
             int score = 0;
+            TryParseArchiveNumbers(name, out string? fileChapter, out _);
+            if (!string.IsNullOrEmpty(fileChapter))
+                score += 50;
             if (!string.IsNullOrWhiteSpace(expectedFileName) &&
-                Path.GetFileName(path).Equals(Path.GetFileName(expectedFileName), StringComparison.OrdinalIgnoreCase))
+                name.Equals(Path.GetFileName(expectedFileName), StringComparison.OrdinalIgnoreCase))
                 score += 100;
             score += Math.Max(0, 40 - Path.GetRelativePath(seriesDirectory, path).Count(c => c is '/' or '\\'));
             if (score > bestScore)
