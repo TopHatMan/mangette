@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Run on the Debian VirtualBox VM (192.168.1.210).
-# Publishes FlareSolverr on all interfaces at port 8181 so Windows Mangette can use
-# http://192.168.1.210:8181
+# Publishes FlareSolverr on all interfaces at port 8191 so Windows Mangette can use
+# http://192.168.1.210:8191
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-export FLARESOLVERR_PORT="${FLARESOLVERR_PORT:-8181}"
+export FLARESOLVERR_PORT="${FLARESOLVERR_PORT:-8191}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Install Docker Engine on this VM first:"

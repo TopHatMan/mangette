@@ -98,9 +98,9 @@ When a site returns 403/429/Cloudflare, Mangette retries with **built-in Chromiu
 
 Settings → **Cloudflare bypass** → **Test Chromium**. `CHROME_BIN` / `PUPPETEER_EXECUTABLE_PATH` override the browser path.
 
-### Optional FlareSolverr on a Debian VM (`192.168.1.210:8181`)
+### Optional FlareSolverr on a Debian VM (`192.168.1.210:8191`)
 
-Mangette on Windows can use FlareSolverr in Docker on the VM. Compose binds **all interfaces** on host port **8181** (not loopback-only).
+Mangette on Windows can use FlareSolverr in Docker on the VM. Compose binds **all interfaces** on host port **8191** (not loopback-only).
 
 On the VM (bridged adapter so `192.168.1.210` is on the LAN):
 
@@ -108,15 +108,15 @@ On the VM (bridged adapter so `192.168.1.210` is on the LAN):
 # clone or copy this repo onto the VM, then:
 docker compose up -d
 # or: bash scripts/run-flaresolverr.sh
-curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8181/
+curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8191/
 ```
 
-If `ufw` is active: `ufw allow 8181/tcp`. NAT-only VMs need a VirtualBox TCP 8181 → 8181 forward.
+If `ufw` is active: `ufw allow 8191/tcp`. NAT-only VMs need a VirtualBox TCP 8191 → 8191 forward.
 
-On Windows, Settings → Cloudflare bypass → `http://192.168.1.210:8181` → Save → Test FlareSolverr. Or reinstall the service:
+On Windows, Settings → Cloudflare bypass → `http://192.168.1.210:8191` → Save → Test FlareSolverr. Or reinstall the service:
 
 ```powershell
-.\scripts\install-win-service.ps1 -FlareSolverrUrl http://192.168.1.210:8181
+.\scripts\install-win-service.ps1 -FlareSolverrUrl http://192.168.1.210:8191
 ```
 
 ## Publish a single-file binary

@@ -62,7 +62,7 @@ Useful environment variables:
 | `PORT` | `8585` |
 | `MANGETTE_HOME` | folder next to the executable |
 | `DOWNLOAD_LOCATION` | `./Manga` |
-| `FLARESOLVERR_URL` | empty (optional; e.g. `http://192.168.1.210:8181`) |
+| `FLARESOLVERR_URL` | empty (optional; e.g. `http://192.168.1.210:8191`) |
 
 ### A broad overview of where is what:
 

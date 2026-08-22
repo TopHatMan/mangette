@@ -13,7 +13,7 @@
 .EXAMPLE
   .\scripts\install-win-service.ps1 -LibraryPath D:\Manga
 .EXAMPLE
-  .\scripts\install-win-service.ps1 -FlareSolverrUrl http://192.168.1.210:8181
+  .\scripts\install-win-service.ps1 -FlareSolverrUrl http://192.168.1.210:8191
 #>
 param(
     [string]$InstallDir = "C:\Mangette",

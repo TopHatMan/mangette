@@ -77,7 +77,7 @@
                     <UButton variant="outline" :loading="testingChromium" @click="testChromium">Test Chromium</UButton>
                 </div>
                 <div class="flex max-sm:flex-col flex-row gap-2 items-stretch">
-                    <UInput v-model="flareUrl" class="grow" placeholder="optional, e.g. http://192.168.1.210:8181" />
+                    <UInput v-model="flareUrl" class="grow" placeholder="optional, e.g. http://192.168.1.210:8191" />
                     <UButton class="w-fit" :loading="savingFlare" @click="saveFlare">Save</UButton>
                     <UButton class="w-fit" variant="outline" :disabled="!flareUrl" :loading="testingFlare" @click="testFlare">
                         Test FlareSolverr
@@ -347,7 +347,7 @@ const testFlare = async () => {
         const body = typeof e === 'object' && e && 'data' in e ? String((e as { data?: unknown }).data ?? '') : '';
         flareMessage.value =
             body ||
-            'Cannot reach FlareSolverr. On the Debian VM: docker compose up -d (host port 8181). From Windows: curl http://192.168.1.210:8181 then save that URL here.';
+            'Cannot reach FlareSolverr. On the Debian VM: docker compose up -d (host port 8191). From Windows: curl http://192.168.1.210:8191 then save that URL here.';
     } finally {
         testingFlare.value = false;
     }

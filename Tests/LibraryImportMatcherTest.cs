@@ -30,9 +30,9 @@ public class LibraryImportMatcherTest
 public class FlareSolverrUrlTest
 {
     [Theory]
-    [InlineData("192.168.1.210:8181", "http://192.168.1.210:8181")]
-    [InlineData("http://192.168.1.210:8181/", "http://192.168.1.210:8181")]
-    [InlineData("http://192.168.1.210:8181/v1", "http://192.168.1.210:8181/v1")]
+    [InlineData("192.168.1.210:8191", "http://192.168.1.210:8191")]
+    [InlineData("http://192.168.1.210:8191/", "http://192.168.1.210:8191")]
+    [InlineData("http://192.168.1.210:8191/v1", "http://192.168.1.210:8191/v1")]
     [InlineData("", "")]
     public void NormalizeFlareSolverrUrl_AddsSchemeAndTrimsSlash(string input, string expected)
     {

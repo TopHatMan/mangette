@@ -300,7 +300,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     {
         string baseUrl = MangetteSettings.NormalizeFlareSolverrUrl(Mangette.Settings.FlareSolverrUrl);
         if (string.IsNullOrWhiteSpace(baseUrl))
-            return TypedResults.BadRequest("FlareSolverr URL is empty. Set http://192.168.1.210:8181 and Save first.");
+            return TypedResults.BadRequest("FlareSolverr URL is empty. Set http://192.168.1.210:8191 and Save first.");
 
         Uri v1 = MangetteSettings.FlareSolverrV1Uri(baseUrl);
         using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
@@ -325,7 +325,7 @@ public class SettingsController(MangaContext context) : ControllerBase
         catch (Exception ex)
         {
             return TypedResults.BadRequest(
-                $"Cannot connect to {baseUrl}: {ex.Message}. From Windows try: curl {baseUrl}  On the Debian VM use host networking on port 8181 (docker compose up -d). Bridged adapter, not NAT, unless you port-forward 8181.");
+                $"Cannot connect to {baseUrl}: {ex.Message}. From Windows try: curl {baseUrl}  On the Debian VM use host networking on port 8191 (docker compose up -d). Bridged adapter, not NAT, unless you port-forward 8191.");
         }
     }
 
