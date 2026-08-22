@@ -217,6 +217,43 @@ public class DownloadFailureTrackerTest : IDisposable
     }
 
     [Fact]
+    public void SelectDownloadSources_OneChapterPerSeriesAzBeforeRepeating()
+    {
+        List<MangaConnectorId<Chapter>> missing =
+        [
+            Source("Conan", "1", "WeebCentral", "c1"),
+            Source("Conan", "2", "WeebCentral", "c2"),
+            Source("Baki", "1", "WeebCentral", "b1"),
+            Source("Baki", "2", "WeebCentral", "b2"),
+            Source("One Piece", "1", "WeebCentral", "o1"),
+            Source("One Piece", "2", "WeebCentral", "o2"),
+        ];
+
+        List<MangaConnectorId<Chapter>> selected = DownloadFailureTracker.SelectDownloadSources(missing, [], [], take: 3);
+
+        Assert.Equal(["Baki", "Conan", "One Piece"], selected.Select(s => s.Obj.ParentManga.Name).ToList());
+        Assert.All(selected, s => Assert.Equal("1", s.Obj.ChapterNumber));
+    }
+
+    [Fact]
+    public void SelectDownloadSources_RepeatsASeriesOnlyAfterEverySeriesHadATurn()
+    {
+        List<MangaConnectorId<Chapter>> missing =
+        [
+            Source("Baki", "1", "WeebCentral", "b1"),
+            Source("Baki", "2", "WeebCentral", "b2"),
+            Source("Conan", "1", "WeebCentral", "c1"),
+        ];
+
+        List<MangaConnectorId<Chapter>> selected = DownloadFailureTracker.SelectDownloadSources(missing, [], [], take: 3);
+
+        Assert.Equal("Baki", selected[0].Obj.ParentManga.Name);
+        Assert.Equal("Conan", selected[1].Obj.ParentManga.Name);
+        Assert.Equal("Baki", selected[2].Obj.ParentManga.Name);
+        Assert.Equal("2", selected[2].Obj.ChapterNumber);
+    }
+
+    [Fact]
     public void SelectDownloadSources_PrefersSeriesWithFewerInFlightDownloads()
     {
         MangaConnectorId<Chapter> conanNext = Source("Detective Conan", "4", "WeebCentral", "conan-4");

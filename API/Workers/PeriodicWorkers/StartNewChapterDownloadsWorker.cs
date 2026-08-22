@@ -79,7 +79,12 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
             amountNewWorkers,
             inFlightBySeries);
 
-        QueueLog.DebugFormat("{0} chapters queued after failover/cooldown filter.", newDownloadChapters.Count);
+        if (newDownloadChapters.Count > 0)
+        {
+            string preview = string.Join(", ", newDownloadChapters
+                .Select(id => $"{DownloadFailureTracker.SeriesName(id)} ch.{id.Obj.ChapterNumber}"));
+            QueueLog.InfoFormat("A–Z download turn ({0}): {1}", newDownloadChapters.Count, preview);
+        }
         return newDownloadChapters.Select(mcId => new DownloadChapterFromMangaconnectorWorker(mcId)).ToList();
     }
     
@@ -87,6 +92,7 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
     {
         List<MangaConnectorId<Chapter>> missing = await ctx.MangaConnectorToChapter
             .Include(id => id.Obj)
+            .ThenInclude(c => c.ParentManga)
             .Where(id => !id.Obj.Downloaded && id.UseForDownload)
             .ToListAsync(cancellationToken);
         return missing

@@ -117,6 +117,11 @@ public static class DownloadFailureTracker
                         .ThenBy(ch => ch.ObjId, StringComparer.Ordinal)),
                 StringComparer.Ordinal);
 
+        Dictionary<string, string> names = queues.ToDictionary(
+            kv => kv.Key,
+            kv => SeriesName(kv.Value.Peek()),
+            StringComparer.Ordinal);
+
         Dictionary<string, int> load = new(StringComparer.Ordinal);
         if (inFlightBySeries is not null)
         {
@@ -124,23 +129,50 @@ public static class DownloadFailureTracker
                 load[series] = count;
         }
 
+        // Wave 1: one chapter from each series A–Z. Wave 2 only after every series has had a turn.
         List<MangaConnectorId<Chapter>> selected = [];
+        int wave = 0;
         while (selected.Count < take && queues.Count > 0)
         {
-            string? nextSeries = queues.Keys
-                .OrderBy(k => load.GetValueOrDefault(k))
-                .ThenBy(k => k, StringComparer.Ordinal)
-                .FirstOrDefault();
-            if (nextSeries is null)
-                break;
+            wave++;
+            List<string> eligible = queues.Keys
+                .Where(k => load.GetValueOrDefault(k) < wave)
+                .OrderBy(k => RotationRank(names.GetValueOrDefault(k, k)), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(k => names.GetValueOrDefault(k, k), StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (eligible.Count == 0)
+                continue;
 
-            selected.Add(queues[nextSeries].Dequeue());
-            load[nextSeries] = load.GetValueOrDefault(nextSeries) + 1;
-            if (queues[nextSeries].Count == 0)
-                queues.Remove(nextSeries);
+            foreach (string series in eligible)
+            {
+                if (selected.Count >= take)
+                    break;
+                if (!queues.TryGetValue(series, out Queue<MangaConnectorId<Chapter>>? queue) || queue.Count == 0)
+                    continue;
+                selected.Add(queue.Dequeue());
+                load[series] = load.GetValueOrDefault(series) + 1;
+                RotationCursor = names.GetValueOrDefault(series, series);
+                if (queue.Count == 0)
+                    queues.Remove(series);
+            }
         }
 
         return selected;
+    }
+
+    private static string? RotationCursor;
+
+    internal static string SeriesName(MangaConnectorId<Chapter> ch) =>
+        string.IsNullOrWhiteSpace(ch.Obj.ParentManga?.Name) ? SeriesKey(ch) : ch.Obj.ParentManga.Name;
+
+    /// <summary>Names after the last queued series sort first so we walk A–Z and wrap.</summary>
+    private static string RotationRank(string name)
+    {
+        if (string.IsNullOrEmpty(RotationCursor))
+            return name;
+        return string.Compare(name, RotationCursor, StringComparison.OrdinalIgnoreCase) > 0
+            ? "0:" + name
+            : "1:" + name;
     }
 
     internal static string SeriesKey(MangaConnectorId<Chapter> ch)
@@ -156,6 +188,7 @@ public static class DownloadFailureTracker
     {
         ChapterFailures.Clear();
         ConnectorFailures.Clear();
+        RotationCursor = null;
         PreferenceOrder = DefaultPreferenceOrder;
         BaseCooldown = TimeSpan.FromMinutes(30);
         MaxCooldown = TimeSpan.FromHours(6);

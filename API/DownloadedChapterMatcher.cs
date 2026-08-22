@@ -348,7 +348,7 @@ public static class DownloadedChapterMatcher
             set.Add(cleaned);
     }
 
-    private static bool IsArchive(string path)
+    internal static bool IsArchive(string path)
     {
         string ext = Path.GetExtension(path);
         return ArchiveExtensions.Any(e => e.Equals(ext, StringComparison.OrdinalIgnoreCase));
