@@ -94,7 +94,7 @@ public class SearchController(MangaContext context) : ControllerBase
             library = await context.FileLibraries.FirstOrDefaultAsync(l => l.Key == request.LibraryId, HttpContext.RequestAborted);
         library ??= await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(HttpContext.RequestAborted);
         if (library is not null)
-            manga.Library = library;
+            await context.BindMangaLibrary(manga, library, HttpContext.RequestAborted);
 
         SchemaMangaId link = manga.MangaConnectorIds.FirstOrDefault(x =>
             x.MangaConnectorName.Equals(request.ConnectorName, StringComparison.OrdinalIgnoreCase))

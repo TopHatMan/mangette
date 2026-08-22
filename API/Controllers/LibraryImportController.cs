@@ -180,7 +180,9 @@ public class LibraryImportController(MangaContext context) : ControllerBase
                 .Include(m => m.Chapters)
                 .FirstAsync(m => m.Key == added.Value.manga.Key, HttpContext.RequestAborted);
 
-            manga.Library = library;
+            // AddMangaToContext clears the tracker, so `library` from ResolveLibrary is a
+            // detached duplicate. Re-bind via the tracked instance or skip if already set.
+            await context.BindMangaLibrary(manga, library, HttpContext.RequestAborted);
             manga.SetDirectoryName(request.FolderName);
             MangaConnectorId<Manga> monitor = manga.MangaConnectorIds.FirstOrDefault(x =>
                 x.MangaConnectorName.Equals(request.ConnectorName, StringComparison.OrdinalIgnoreCase))

@@ -284,10 +284,11 @@ public static class Mangette
     {
         if (manga.LibraryId is not null || manga.Library is not null)
             return;
-        FileLibrary? library = await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(token);
+        FileLibrary? library = context.FileLibraries.Local.OrderBy(l => l.LibraryName).FirstOrDefault()
+            ?? await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(token);
         if (library is null)
             return;
-        manga.Library = library;
+        await context.BindMangaLibrary(manga, library, token);
         Log.InfoFormat("Assigned default library {0} to {1}", library.LibraryName, manga.Name);
     }
 }

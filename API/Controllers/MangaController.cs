@@ -219,13 +219,11 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         if (moved)
         {
             Dictionary<Chapter, string?> oldPaths = manga.Chapters.Where(ch => ch.Downloaded).ToDictionary(ch => ch, ch => ch.FullArchiveFilePath);
-            manga.Library = library;
+            await context.BindMangaLibrary(manga, library, HttpContext.RequestAborted);
             Dictionary<Chapter, string?> newPaths = oldPaths.ToDictionary(kv => kv.Key, kv => kv.Key.FullArchiveFilePath);
             IEnumerable<MoveFileOrFolderWorker> workers = oldPaths.Select(kv => new MoveFileOrFolderWorker(newPaths[kv.Key]!, kv.Value!));
             Mangette.AddWorkers(workers);
         }
-        else
-            manga.Library = library;
 
         manga.TryAttachExistingSeriesFolder();
         foreach (Chapter chapter in manga.Chapters)

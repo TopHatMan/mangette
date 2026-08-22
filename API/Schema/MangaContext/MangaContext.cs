@@ -140,4 +140,19 @@ public class MangaContext(DbContextOptions<MangaContext> options) : MangetteBase
         MangaWithMetadata()
             .Include(m => m.Chapters)
             .Include(m => m.MangaConnectorIds);
+
+    /// <summary>
+    /// Point a series at a library using the FileLibrary instance this context already tracks.
+    /// Assigning a second instance with the same Key throws on DetectChanges/SaveChanges.
+    /// </summary>
+    internal async Task BindMangaLibrary(Manga manga, FileLibrary library, CancellationToken token)
+    {
+        if (manga.LibraryId == library.Key)
+            return;
+
+        FileLibrary tracked = FileLibraries.Local.FirstOrDefault(l => l.Key == library.Key)
+            ?? await FileLibraries.FirstOrDefaultAsync(l => l.Key == library.Key, token)
+            ?? library;
+        manga.Library = tracked;
+    }
 }
