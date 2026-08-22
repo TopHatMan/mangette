@@ -1,6 +1,8 @@
-## Contributing
+# Contributing to Mangette
 
-If you want to contribute, please feel free to fork and create a Pull-Request!
+Mangette is a Sonarr-style manga library (fork of Tranga). Fork the repo and open a pull request.
+
+`dotnet test Tests/Tests.csproj` should stay green. Do not enable OpenAPI generation on build (`OpenApiGenerateDocumentsOnBuild`); the spec lives in `API/openapi/API_v2.json`.
 
 ### General rules (Codestyle)
 

@@ -1,6 +1,6 @@
-name: New Connector Implementation
-description: New Connector
-title: "<title>"
+name: New site connector
+description: Add a manga site to Mangette
+title: "[Site]: "
 labels: ["New Connector"]
 body:
   - type: markdown

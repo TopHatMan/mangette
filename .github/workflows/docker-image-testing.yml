@@ -1,8 +1,6 @@
 name: Docker Image CI testing
 
 on:
-  push:
-    branches: [ "testing" ]
   workflow_dispatch:
 
 jobs:

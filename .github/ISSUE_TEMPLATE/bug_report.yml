@@ -1,26 +1,49 @@
-name: Bug Report
-description: File a bug report
-title: "[Mangette broke]: <title>"
+name: Bug report
+description: Something in Mangette is broken
+title: "[Bug]: "
 labels: ["bug"]
 body:
-- type: textarea
-  attributes:
-    label: What is broken?
-    description: What happened? How did we get here?
-    placeholder: Tell me what you expected to happen, and what happened instead.
-  validations:
-    required: true
-- type: textarea
-  attributes: 
-    label: Log-output
-    description: Console output from Mangette, or `docker logs mangette`
-    render: console
-- type: textarea
-  attributes:
-    label: Mangette version
-    description: Startup log should start with `Mangette` and include branch/commit. Paste that banner here.
-    render: console
-- type: textarea
-  attributes: 
-    label: Additional stuff
-    description: Screenshots, anything you think might help
+  - type: markdown
+    attributes:
+      value: |
+        The startup banner in the log (`Mangette` / branch / commit) tells us which build you are on.
+        If you do **not** see a dark left sidebar (Library, Add New, Import), you are still running an old UI.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+      placeholder: e.g. Import scan listed 0 folders. Library path in Settings is D:\Manga.
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How you run Mangette
+      options:
+        - Windows, run.cmd / dotnet run
+        - Windows service (install-win-service.ps1)
+        - Linux binary
+        - Docker
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: version
+    attributes:
+      label: Version
+      description: Paste the startup banner, or the build id from the sidebar.
+      render: console
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: `data/logs/mangette.log` (Windows service) or the CMD window. Not Docker logs unless you actually run Docker.
+      render: console
+  - type: textarea
+    id: extra
+    attributes:
+      label: Extra
+      description: Library path, FlareSolverr URL if any, screenshots.

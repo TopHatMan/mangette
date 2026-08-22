@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest something for Mangette
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What do you want
+      placeholder: e.g. Calendar view of upcoming chapters, like Sonarr.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: How you use Mangette today and what this would change.
+    validations:
+      required: false

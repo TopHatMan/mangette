@@ -1,6 +1,6 @@
 # Mangette UI
 
-Nuxt frontend for [Mangette](https://github.com/TopHatMan/mangette). It is built into the single Mangette executable (`API/wwwroot`). You do not run this as a separate nginx process.
+Nuxt frontend for **Mangette**, a Sonarr-style manga library. It is baked into the single executable (`API/wwwroot`). Do not run this as a separate nginx process.
 
 ```bash
 cd website

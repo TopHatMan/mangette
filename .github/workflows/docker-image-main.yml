@@ -1,8 +1,7 @@
 name: Docker Image CI main
 
+# Manual until Docker Hub secrets are set. Automatic pushes look like a failed CI badge.
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:

@@ -1,6 +1,6 @@
-name: New Connector Request
-description: Request a new site to be added
-title: "[New Connector]: <title>"
+name: New site
+description: Request a manga site Mangette does not have yet
+title: "[Site]: "
 labels: ["New Connector"]
 body:
   - type: input

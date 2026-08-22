@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How to run Mangette
+    url: https://github.com/TopHatMan/mangette/blob/main/README.md
+    about: Windows service, CMD, library path, optional FlareSolverr

@@ -1,8 +1,6 @@
 name: Docker Image CI cuttingedge
 
 on:
-  push:
-    branches: [ "cuttingedge" ]
   workflow_dispatch:
 
 jobs:
