@@ -31,7 +31,7 @@ Mangette is a fork of [Tranga](https://github.com/C9Glax/tranga) rebuilt as a st
 
 **Default source order** (change in Settings):
 
-WeebCentral → NeloManga → MangaTown → FanFox → AsuraComic → Mangaworld
+WeebCentral → NeloManga → MangaTown → FanFox → AsuraComic
 
 ## Quick start
 
@@ -141,7 +141,7 @@ API: http://localhost:8585/swagger (`/v2`).
 
 ## Sources
 
-You pick sites per series. Defaults: [WeebCentral](https://weebcentral.com/) · [NeloManga](https://nelomanga.net/) · [MangaTown](https://www.mangatown.com/) · [FanFox](https://fanfox.net/) · [AsuraComic](https://asurascanz.com) · [MangaWorld](https://www.mangaworld.cx)
+You pick sites per series. Defaults: [WeebCentral](https://weebcentral.com/) · [NeloManga](https://nelomanga.net/) · [MangaTown](https://www.mangatown.com/) · [FanFox](https://fanfox.net/) · [AsuraComic](https://asurascanz.com)
 
 Library: [Komga](https://komga.org/), [Kavita](https://www.kavitareader.com/).
 

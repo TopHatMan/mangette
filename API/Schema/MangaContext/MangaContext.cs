@@ -24,7 +24,6 @@ public class MangaContext(DbContextOptions<MangaContext> options) : MangetteBase
             .HasValue<Global>("Global")
             .HasValue<AsuraComic>("AsuraComic")
             .HasValue<MangaDex>("MangaDex")
-            .HasValue<Mangaworld>("Mangaworld")
             .HasValue<WeebCentral>("WeebCentral")
             .HasValue<MangaTown>("MangaTown")
             .HasValue<FanFox>("FanFox")

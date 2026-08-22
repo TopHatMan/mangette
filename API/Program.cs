@@ -277,7 +277,9 @@ try //Connect to DB and apply migrations
             .ExecuteUpdateAsync(s => s.SetProperty(id => id.UseForDownload, false));
         if (dexSeries + dexChapters > 0)
             log.InfoFormat("MangaDex is off: cleared {0} series and {1} chapter download flags.", dexSeries, dexChapters);
-        Mangette.Settings.SetConnectorPriority(Mangette.Settings.ConnectorPriority.Where(n => !n.Equals("MangaDex", StringComparison.OrdinalIgnoreCase)));
+        Mangette.Settings.SetConnectorPriority(Mangette.Settings.ConnectorPriority.Where(n =>
+            !n.Equals("MangaDex", StringComparison.OrdinalIgnoreCase) &&
+            !n.Equals("Mangaworld", StringComparison.OrdinalIgnoreCase)));
 
         List<string> staleChapterIds = await (
             from chId in context.MangaConnectorToChapter

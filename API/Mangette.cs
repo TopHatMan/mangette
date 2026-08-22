@@ -28,8 +28,7 @@ public static class Mangette
         new NeloManga(),
         new MangaTown(),
         new FanFox(),
-        new AsuraComic(),
-        new Mangaworld()
+        new AsuraComic()
     ];
     internal static readonly MangetteSettings Settings = MangetteSettings.Load();
     

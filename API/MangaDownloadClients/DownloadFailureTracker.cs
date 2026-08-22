@@ -15,8 +15,7 @@ public static class DownloadFailureTracker
         "NeloManga",
         "MangaTown",
         "FanFox",
-        "AsuraComic",
-        "Mangaworld"
+        "AsuraComic"
     ];
 
     private static string[] PreferenceOrder = DefaultPreferenceOrder;

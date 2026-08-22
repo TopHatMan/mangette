@@ -21,9 +21,8 @@ public class DownloadFailureTrackerTest : IDisposable
     [InlineData("MangaTown", 2)]
     [InlineData("FanFox", 3)]
     [InlineData("AsuraComic", 4)]
-    [InlineData("Mangaworld", 5)]
-    [InlineData("Global", 6)]
-    [InlineData("UnknownSite", 6)]
+    [InlineData("Global", 5)]
+    [InlineData("UnknownSite", 5)]
     public void Rank_MatchesPreferenceOrder(string connector, int expectedRank)
     {
         Assert.Equal(expectedRank, DownloadFailureTracker.Rank(connector));
