@@ -12,7 +12,11 @@
                         <span>{{ item.label }}</span>
                     </NuxtLink>
                 </nav>
-                <p class="arr-sidebar__build">Series library · poster wall</p>
+                <p class="arr-sidebar__build">
+                    Sidebar UI
+                    <br />
+                    build {{ buildId || '…' }}
+                </p>
             </aside>
             <div class="arr-content">
                 <header class="arr-topbar">
@@ -32,6 +36,15 @@
 
 <script setup lang="ts">
 const route = useRoute();
+const buildId = ref('');
+onMounted(async () => {
+    try {
+        const s = await $fetch<{ buildId?: string }>('/v2/Settings');
+        buildId.value = s?.buildId ?? '';
+    } catch {
+        buildId.value = 'old-ui';
+    }
+});
 const items = [
     { label: 'Library', to: '/', icon: 'i-lucide-layout-grid' },
     { label: 'Add New', to: '/search', icon: 'i-lucide-plus' },

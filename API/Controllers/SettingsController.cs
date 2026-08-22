@@ -271,11 +271,41 @@ public class SettingsController(MangaContext context) : ControllerBase
     /// <param name="flareSolverrUrl">URL of FlareSolverr-Instance</param>
     /// <response code="200"></response>
     [HttpPatch("FlareSolverr/Url")]
-    [ProducesResponseType(Status200OK)]
-    public Ok SetFlareSolverrUrl([FromBody]string flareSolverrUrl)
+    [ProducesResponseType<string>(Status200OK, "text/plain")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<string>, BadRequest<string>>> SetFlareSolverrUrl()
     {
-        Mangette.Settings.SetFlareSolverrUrl(flareSolverrUrl);
-        return TypedResults.Ok();
+        using StreamReader reader = new(Request.Body);
+        string raw = (await reader.ReadToEndAsync()).Trim();
+        string value = raw;
+        if (raw.StartsWith('"'))
+        {
+            try { value = Newtonsoft.Json.JsonConvert.DeserializeObject<string>(raw) ?? ""; }
+            catch { value = raw.Trim('"'); }
+        }
+        else if (raw.StartsWith('{'))
+        {
+            try
+            {
+                Newtonsoft.Json.Linq.JObject obj = Newtonsoft.Json.Linq.JObject.Parse(raw);
+                value = (string?)obj["flareSolverrUrl"] ?? (string?)obj["url"] ?? "";
+            }
+            catch (Exception ex)
+            {
+                return TypedResults.BadRequest($"Could not read FlareSolverr URL: {ex.Message}");
+            }
+        }
+
+        try
+        {
+            Mangette.Settings.SetFlareSolverrUrl(value);
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.BadRequest($"Could not save settings.json: {ex.Message}");
+        }
+
+        return TypedResults.Ok(Mangette.Settings.FlareSolverrUrl);
     }
 
     /// <summary>

@@ -75,6 +75,7 @@ public class MangetteSettings
     [JsonProperty] public string DefaultLibraryPath =>
         !string.IsNullOrWhiteSpace(LibraryPath) ? LibraryPath : DefaultDownloadLocation;
     [JsonProperty] public string DataFolder => DataDirectory;
+    [JsonProperty] public string BuildId => ThisAssembly.Git.Commit;
 
     public MangetteSettings()
     {
@@ -87,14 +88,10 @@ public class MangetteSettings
             new MangetteSettings().Save();
         MangetteSettings settings = JsonConvert.DeserializeObject<MangetteSettings>(File.ReadAllText(SettingsFilePath), new StringEnumConverter())
                                   ?? new MangetteSettings();
-        string? envUrl = Environment.GetEnvironmentVariable("FLARESOLVERR_URL");
-        if (!string.IsNullOrWhiteSpace(envUrl))
-            settings.FlareSolverrUrl = NormalizeFlareSolverrUrl(envUrl);
-        else
-            settings.FlareSolverrUrl = NormalizeFlareSolverrUrl(settings.FlareSolverrUrl);
-        if (string.Equals(settings.FlareSolverrUrl, "http://127.0.0.1:8191", StringComparison.OrdinalIgnoreCase) &&
-            string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FLARESOLVERR_URL")))
-            settings.FlareSolverrUrl = "";
+        string fileUrl = NormalizeFlareSolverrUrl(settings.FlareSolverrUrl);
+        string envUrl = NormalizeFlareSolverrUrl(Environment.GetEnvironmentVariable("FLARESOLVERR_URL"));
+        // settings.json wins. FLARESOLVERR_URL env is only a first-run default (dotnet run launchSettings used to force 127.0.0.1).
+        settings.FlareSolverrUrl = !string.IsNullOrWhiteSpace(fileUrl) ? fileUrl : envUrl;
         settings.ListenPort = ResolveListenPort(settings.ListenPort);
         if (!string.IsNullOrWhiteSpace(settings.LibraryPath))
             settings.LibraryPath = NormalizeDirectory(settings.LibraryPath, DefaultDownloadLocation);

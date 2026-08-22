@@ -323,13 +323,18 @@ const saveFlare = async () => {
     savingFlare.value = true;
     flareMessage.value = '';
     try {
-        await $api('/v2/Settings/FlareSolverr/Url', { method: 'PATCH', body: flareUrl.value });
+        const updated = await $fetch<{ flareSolverrUrl?: string }>('/v2/Settings', {
+            method: 'PATCH',
+            body: { flareSolverrUrl: flareUrl.value },
+        });
+        flareUrl.value = updated?.flareSolverrUrl ?? flareUrl.value;
         await refreshNuxtData(FetchKeys.Settings.All);
         flareOk.value = true;
-        flareMessage.value = 'Saved.';
-    } catch {
+        flareMessage.value = flareUrl.value ? `Saved ${flareUrl.value}` : 'Cleared.';
+    } catch (e: unknown) {
         flareOk.value = false;
-        flareMessage.value = 'Could not save FlareSolverr URL.';
+        const body = typeof e === 'object' && e && 'data' in e ? String((e as { data?: unknown }).data ?? '') : '';
+        flareMessage.value = body || 'Could not save FlareSolverr URL.';
     } finally {
         savingFlare.value = false;
     }

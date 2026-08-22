@@ -22,8 +22,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DEBUG": "true",
-        "DOWNLOAD_LOCATION": "./Manga",
-        "FLARESOLVERR_URL": "http://127.0.0.1:8191"
+        "DOWNLOAD_LOCATION": "./Manga"
       }
     },
     "https": {
@@ -35,8 +34,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DEBUG": "true",
-        "DOWNLOAD_LOCATION": "./Manga",
-        "FLARESOLVERR_URL": "http://127.0.0.1:8191"
+        "DOWNLOAD_LOCATION": "./Manga"
       }
     },
     "IIS Express": {
@@ -46,8 +44,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DEBUG": "true",
-        "DOWNLOAD_LOCATION": "./Manga",
-        "FLARESOLVERR_URL": "http://127.0.0.1:8191"
+        "DOWNLOAD_LOCATION": "./Manga"
       }
     }
   }

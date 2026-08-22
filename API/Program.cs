@@ -136,7 +136,6 @@ app.UseSwaggerUI(opts =>
     opts.SwaggerEndpoint("/swagger/v2/swagger.json", "v2");
 });
 
-app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
