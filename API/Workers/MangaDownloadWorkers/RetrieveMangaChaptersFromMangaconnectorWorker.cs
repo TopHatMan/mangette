@@ -1,6 +1,9 @@
 using System.Diagnostics.CodeAnalysis;
 using API.MangaConnectors;
+using API.Schema.ActionsContext;
+using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
+using API.Schema.NotificationsContext;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Workers.MangaDownloadWorkers;
@@ -18,10 +21,16 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
 
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private ActionsContext ActionsContext = null!;
+    [SuppressMessage("ReSharper", "InconsistentNaming")]
+    private NotificationsContext NotificationsContext = null!;
 
     protected override void SetContexts(IServiceScope serviceScope)
     {
         MangaContext = GetContext<MangaContext>(serviceScope);
+        ActionsContext = GetContext<ActionsContext>(serviceScope);
+        NotificationsContext = GetContext<NotificationsContext>(serviceScope);
     }
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
@@ -62,10 +71,13 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             Log.Error($"Failed to list chapters from {mangaConnector.Name} for {manga.Name}: {ex.Message}", ex);
             return [];
         }
-        Log.DebugFormat("Got {0} chapters from connector.", allChapters.Length);
+        Log.DebugFormat("Got {0} chapters from connector (library had {1}).", allChapters.Length, manga.Chapters.Count);
+        manga.LastNewChapterCheck = DateTime.UtcNow;
 
         List<MangaConnectorId<Chapter>> newIds = [];
         int reusedChapters = 0;
+        List<Chapter> priorCatalog = manga.Chapters.ToList();
+        List<Chapter> newlyPublished = [];
 
         foreach ((Chapter incomingChapter, MangaConnectorId<Chapter> incomingId) in allChapters)
         {
@@ -80,6 +92,11 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             }
             else
             {
+                if (Chapter.IsNewlyPublished(incomingChapter, priorCatalog))
+                {
+                    incomingChapter.NewRelease = true;
+                    newlyPublished.Add(incomingChapter);
+                }
                 manga.Chapters.Add(incomingChapter);
             }
 
@@ -99,9 +116,10 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
             newIds.Add(incomingId);
         }
 
-        Log.DebugFormat("Reused {0} existing chapter rows. Got {1} new download-Ids.", reusedChapters, newIds.Count);
+        Log.InfoFormat("{0} chapter list from {1}: {2} total, {3} reused, {4} new source links.",
+            manga.Name, mangaConnector.Name, manga.Chapters.Count, reusedChapters, newIds.Count);
 
-        if (mangaConnectorId.UseForDownload)
+        if (manga.Monitored && mangaConnectorId.UseForDownload)
         {
             foreach (MangaConnectorId<Chapter> chapterId in newIds)
                 chapterId.UseForDownload = true;
@@ -139,7 +157,34 @@ public class RetrieveMangaChaptersFromMangaconnectorWorker(MangaConnectorId<Mang
         if(await MangaContext.Sync(CancellationToken, GetType(), "Chapters retrieved") is { success: false } mangaContextException)
             Log.ErrorFormat("Failed to save database changes: {0}", mangaContextException.exceptionMessage);
 
+        if (newlyPublished.Count > 0)
+        {
+            Log.InfoFormat("{0}: {1} newly published chapter(s) {2}.",
+                manga.Name,
+                newlyPublished.Count,
+                string.Join(", ", newlyPublished.Select(c => $"Ch.{c.ChapterNumber}")));
+            List<Chapter> alreadyGot = newlyPublished.Where(c => c.Downloaded).ToList();
+            if (alreadyGot.Count > 0)
+                await AnnounceNewChapters(manga, alreadyGot);
+        }
+
         return [];
+    }
+
+    private async Task AnnounceNewChapters(Manga manga, IReadOnlyList<Chapter> chapters)
+    {
+        foreach (Chapter chapter in chapters)
+        {
+            chapter.ParentManga = manga;
+            await ActionsContext.Actions.AddAsync(new NewChapterActionRecord(manga, chapter), CancellationToken);
+            await NotificationsContext.Notifications.AddAsync(
+                new Notification("New chapter", Chapter.NotifyText(manga, chapter), NotificationUrgency.High),
+                CancellationToken);
+        }
+        if (await ActionsContext.Sync(CancellationToken, GetType(), "New chapter") is { success: false } actionsEx)
+            Log.ErrorFormat("Failed to save new-chapter activity: {0}", actionsEx.exceptionMessage);
+        if (await NotificationsContext.Sync(CancellationToken, GetType(), "New chapter") is { success: false } notesEx)
+            Log.ErrorFormat("Failed to save new-chapter notification: {0}", notesEx.exceptionMessage);
     }
 
     public override string ToString() => $"{base.ToString()} {_mangaConnectorIdId}";

@@ -50,6 +50,34 @@ public class WeebCentral : MangaConnector
         return mangas.ToArray();
     }
 
+    /// <summary>Popular titles on WeebCentral. Empty query + popularity sort. Not written to the library.</summary>
+    internal (Manga, MangaConnectorId<Manga>)[] BrowsePopular(int limit = 24)
+    {
+        string requestUrl =
+            $"https://weebcentral.com/search/data?limit={Math.Clamp(limit, 8, 48)}&offset=0&text=&sort=Popularity&order=Descending&official=Any&display_mode=Minimal%20Display";
+        HttpResponseMessage response = downloadClient.MakeRequest(requestUrl, RequestType.Default).GetAwaiter().GetResult();
+        if (!response.IsSuccessStatusCode)
+        {
+            Log.WarnFormat("WeebCentral popular browse failed: HTTP {0}", (int)response.StatusCode);
+            return [];
+        }
+
+        string html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        List<(Manga, MangaConnectorId<Manga>)> mangas = [];
+        foreach (WeebCentralParse.SearchItem item in WeebCentralParse.SearchResults(html))
+        {
+            Manga manga = new(item.Title, "", item.CoverUrl, MangaReleaseStatus.Continuing, [], [], [], [], null, 0f, null, null);
+            MangaConnectorId<Manga> mcId = new(manga, this, item.Id, item.Url);
+            manga.MangaConnectorIds.Add(mcId);
+            mangas.Add((manga, mcId));
+            if (mangas.Count >= limit)
+                break;
+        }
+
+        Log.InfoFormat("WeebCentral popular browse yielded {0} titles.", mangas.Count);
+        return mangas.ToArray();
+    }
+
    public override (Manga, MangaConnectorId<Manga>)? GetMangaFromUrl(string url)
     {
         Log.InfoFormat("Fetching manga from URL: {0}", url);

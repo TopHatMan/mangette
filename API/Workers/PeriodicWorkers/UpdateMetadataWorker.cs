@@ -35,7 +35,7 @@ public class UpdateMetadataWorker(TimeSpan? interval = null, IEnumerable<BaseWor
         Log.Debug("Updating metadata...");
         // Get MetadataEntries of Manga marked for download
         List<MetadataEntry> metadataEntriesToUpdate = await MangaContext.MangaConnectorToManga
-            .Where(m => m.UseForDownload) // Get marked Manga
+            .Where(m => m.Obj.Monitored)
             .Join(
                 MangaContext.MetadataEntries.Include(e => e.Manga),
                 mcId => mcId.ObjId,

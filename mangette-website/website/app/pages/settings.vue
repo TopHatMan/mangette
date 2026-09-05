@@ -36,6 +36,12 @@
                     <UFormField label="Chapter file name" class="sm:col-span-2" hint="%M title, %V volume, %C chapter, %T chapter title">
                         <UInput v-model="setup.chapterNamingScheme" class="w-full" />
                     </UFormField>
+                    <UFormField
+                        label="New-chapter check"
+                        class="sm:col-span-2"
+                        hint="Default for newly added monitored series. Ongoing titles are scanned so the chapter total can grow. Each series can override this.">
+                        <USelect v-model="setup.defaultNewChapterCheck" :items="checkItems" class="w-full" />
+                    </UFormField>
                 </div>
                 <UButton class="mt-4 w-fit" :loading="savingSetup" @click="saveSetup">Save paths and downloads</UButton>
                 <p v-if="setupMessage" class="mt-2 text-sm" :class="setupOk ? 'text-success' : 'text-error'">{{ setupMessage }}</p>
@@ -258,6 +264,10 @@ const connectorPriority = ref<string[]>([]);
 const savingPriority = ref(false);
 const priorityMessage = ref('');
 
+const checkItems = [
+    { label: 'Daily', value: 'Daily' },
+    { label: 'Weekly', value: 'Weekly' },
+];
 const setup = reactive({
     listenPort: 8585,
     libraryPath: '',
@@ -266,6 +276,7 @@ const setup = reactive({
     maxConcurrentDownloads: 2,
     downloadLanguage: 'en',
     chapterNamingScheme: '%M - ?V(Vol.%V )Ch.%C?T( - %T)',
+    defaultNewChapterCheck: 'Daily',
 });
 const savingSetup = ref(false);
 const setupMessage = ref('');
@@ -286,6 +297,7 @@ const applySetupFromSettings = () => {
     setup.maxConcurrentDownloads = value.maxConcurrentDownloads ?? 2;
     setup.downloadLanguage = value.downloadLanguage ?? 'en';
     setup.chapterNamingScheme = value.chapterNamingScheme ?? setup.chapterNamingScheme;
+    setup.defaultNewChapterCheck = (value as { defaultNewChapterCheck?: string }).defaultNewChapterCheck ?? 'Daily';
     const first = fileLibraries.value?.[0];
     setup.libraryPath = first?.basePath ?? value.defaultLibraryPath ?? '';
     setup.libraryName = first?.libraryName ?? 'Library';
@@ -310,6 +322,7 @@ const saveSetup = async () => {
                 maxConcurrentDownloads: Number(setup.maxConcurrentDownloads),
                 downloadLanguage: setup.downloadLanguage,
                 chapterNamingScheme: setup.chapterNamingScheme,
+                defaultNewChapterCheck: setup.defaultNewChapterCheck,
             },
         });
         if (updated?.listenPort) setup.listenPort = updated.listenPort;

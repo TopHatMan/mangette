@@ -23,5 +23,8 @@ public struct Constants
     public static readonly TimeSpan WorkerTimeout = TimeSpan.FromSeconds(int.Parse(Environment.GetEnvironmentVariable("WORKER_TIMEOUT") ?? "600"));
     
     public static readonly TimeSpan NotificationSendInterval = TimeSpan.FromMinutes(int.Parse(Environment.GetEnvironmentVariable("MINUTES_BETWEEN_NOTIFICATIONS") ?? "1"));
-    public static readonly TimeSpan CheckForNewChaptersInterval = TimeSpan.FromHours(int.Parse(Environment.GetEnvironmentVariable("HOURS_BETWEEN_NEW_CHAPTERS_CHECK") ?? "3"));
+    /// <summary>
+    /// How often the worker looks for <em>due</em> series. Each series still uses its own Daily/Weekly cadence.
+    /// </summary>
+    public static readonly TimeSpan CheckForNewChaptersInterval = TimeSpan.FromHours(int.Parse(Environment.GetEnvironmentVariable("HOURS_BETWEEN_NEW_CHAPTERS_CHECK") ?? "1"));
 }

@@ -45,6 +45,7 @@ namespace API.Migrations.Actions
 
                     b.Property<string>("ChapterId")
                         .IsRequired()
+                        .ValueGeneratedOnUpdateSometimes()
                         .HasColumnType("TEXT")
                         .HasColumnName("ChapterId");
 
@@ -139,6 +140,25 @@ namespace API.Migrations.Actions
                         .HasColumnType("TEXT");
 
                     b.HasDiscriminator().HasValue(6);
+                });
+
+            modelBuilder.Entity("API.Schema.ActionsContext.Actions.NewChapterActionRecord", b =>
+                {
+                    b.HasBaseType("API.Schema.ActionsContext.ActionRecord");
+
+                    b.Property<string>("ChapterId")
+                        .IsRequired()
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("ChapterId");
+
+                    b.Property<string>("MangaId")
+                        .IsRequired()
+                        .ValueGeneratedOnUpdateSometimes()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("MangaId");
+
+                    b.HasDiscriminator().HasValue(7);
                 });
 
             modelBuilder.Entity("API.Schema.ActionsContext.Actions.StartupActionRecord", b =>

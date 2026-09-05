@@ -7,7 +7,7 @@ namespace API.Controllers.DTOs;
 /// <summary>
 /// <see cref="Schema.MangaContext.Manga"/> DTO
 /// </summary>
-public sealed record Manga(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<MangaConnectorId<Manga>> MangaConnectorIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId)
+public sealed record Manga(string Key, string Name, string Description, MangaReleaseStatus ReleaseStatus, IEnumerable<MangaConnectorId<Manga>> MangaConnectorIds, float IgnoreChaptersBefore, uint? Year, string? OriginalLanguage, IEnumerable<Author> Authors, IEnumerable<string> Tags, IEnumerable<Link> Links, IEnumerable<AltTitle> AltTitles, string? FileLibraryId, bool Monitored, NewChapterCheckInterval NewChapterCheck, DateTime? LastNewChapterCheck)
     : MinimalManga(Key, Name, Description, ReleaseStatus, MangaConnectorIds)
 {
     /// <summary>
@@ -63,4 +63,13 @@ public sealed record Manga(string Key, string Name, string Description, MangaRel
     [Required]
     [Description("Id of the Library the Manga gets downloaded to")]
     public string? FileLibraryId { get; init; } = FileLibraryId;
+
+    [Description("Series is monitored: missing chapters download and ongoing titles are scanned for new chapters.")]
+    public bool Monitored { get; init; } = Monitored;
+
+    [Description("How often to re-fetch the chapter list when the series is ongoing.")]
+    public NewChapterCheckInterval NewChapterCheck { get; init; } = NewChapterCheck;
+
+    [Description("UTC time of the last chapter-list refresh.")]
+    public DateTime? LastNewChapterCheck { get; init; } = LastNewChapterCheck;
 }

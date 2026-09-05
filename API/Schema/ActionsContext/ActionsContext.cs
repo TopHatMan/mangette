@@ -18,10 +18,14 @@ public class ActionsContext(DbContextOptions<ActionsContext> options) : Mangette
             .HasValue<MetadataUpdatedActionRecord>(Schema.ActionsContext.Actions.Actions.MetadataUpdated)
             .HasValue<DataMovedActionRecord>(Schema.ActionsContext.Actions.Actions.DataMoved)
             .HasValue<LibraryMovedActionRecord>(Schema.ActionsContext.Actions.Actions.LibraryMoved)
-            .HasValue<StartupActionRecord>(Schema.ActionsContext.Actions.Actions.Startup);
+            .HasValue<StartupActionRecord>(Schema.ActionsContext.Actions.Actions.Startup)
+            .HasValue<NewChapterActionRecord>(Schema.ActionsContext.Actions.Actions.NewChapter);
 
         modelBuilder.Entity<ChapterDownloadedActionRecord>().Property(a => a.MangaId).HasColumnName("MangaId");
         modelBuilder.Entity<ChapterDownloadedActionRecord>().Property(a => a.ChapterId).HasColumnName("ChapterId");
+
+        modelBuilder.Entity<NewChapterActionRecord>().Property(a => a.MangaId).HasColumnName("MangaId");
+        modelBuilder.Entity<NewChapterActionRecord>().Property(a => a.ChapterId).HasColumnName("ChapterId");
         
         modelBuilder.Entity<CoverDownloadedActionRecord>().Property(a => a.MangaId).HasColumnName("MangaId");
         

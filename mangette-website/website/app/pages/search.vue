@@ -81,6 +81,9 @@
                         <USelect v-model="libraryId" :items="libraryItems" class="w-full" />
                     </UFormField>
                     <UCheckbox v-model="monitor" label="Monitor and download missing chapters" />
+                    <UFormField v-if="monitor" label="Check for new chapters" hint="Ongoing series: the chapter total grows when a new chapter is published.">
+                        <USelect v-model="newChapterCheck" :items="checkItems" class="w-full" />
+                    </UFormField>
                     <p class="text-muted text-xs">
                         Only this series is added. Other search hits stay off the library until you add them.
                     </p>
@@ -135,6 +138,11 @@ const addOpen = ref(false);
 const pending = ref<SearchHit | null>(null);
 const libraryId = ref<string | undefined>();
 const monitor = ref(true);
+const newChapterCheck = ref('Daily');
+const checkItems = [
+    { label: 'Daily', value: 'Daily' },
+    { label: 'Weekly', value: 'Weekly' },
+];
 const adding = ref(false);
 const addingKey = ref('');
 const addError = ref('');
@@ -168,6 +176,7 @@ const openAdd = (hit: SearchHit) => {
     pending.value = hit;
     addError.value = '';
     monitor.value = true;
+    newChapterCheck.value = 'Daily';
     libraryId.value = libraries.value?.[0]?.key;
     addOpen.value = true;
 };
@@ -185,6 +194,7 @@ const confirmAdd = async () => {
                 idOnSite: pending.value.idOnSite,
                 libraryId: libraryId.value,
                 monitor: monitor.value,
+                newChapterCheck: monitor.value ? newChapterCheck.value : undefined,
             },
         });
         addOpen.value = false;

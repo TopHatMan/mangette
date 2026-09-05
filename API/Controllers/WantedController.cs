@@ -23,7 +23,7 @@ public class WantedController(MangaContext context) : ControllerBase
             .AsNoTracking()
             .Include(c => c.ParentManga)
             .Include(c => c.MangaConnectorIds)
-            .Where(c => !c.Downloaded && c.MangaConnectorIds.Any(id => id.UseForDownload))
+            .Where(c => !c.Downloaded && c.ParentManga.Monitored && c.MangaConnectorIds.Any(id => id.UseForDownload))
             .ToListAsync(HttpContext.RequestAborted);
 
         rows = rows

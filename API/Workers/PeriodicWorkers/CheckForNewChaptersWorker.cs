@@ -8,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Workers.PeriodicWorkers;
 
 /// <summary>
-/// Refresh chapter lists for monitored <em>ongoing</em> series.
-/// Completed/cancelled titles are skipped. Default interval is 3 hours.
+/// Refresh chapter lists for monitored <em>ongoing</em> series on their Daily/Weekly cadence.
+/// New chapters raise the series total so missing downloads can be queued.
+/// Completed/cancelled titles are skipped unless a user forces a refresh.
 /// </summary>
 public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
@@ -22,6 +23,21 @@ public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<Ba
         status is MangaReleaseStatus.Continuing
             or MangaReleaseStatus.OnHiatus
             or MangaReleaseStatus.Unreleased;
+
+    internal static TimeSpan IntervalDuration(NewChapterCheckInterval interval) =>
+        interval == NewChapterCheckInterval.Weekly ? TimeSpan.FromDays(7) : TimeSpan.FromDays(1);
+
+    /// <summary>
+    /// A monitored ongoing series is due when it has never been scanned, or when Daily/Weekly has elapsed.
+    /// </summary>
+    internal static bool IsDue(Manga manga, DateTime utcNow)
+    {
+        if (!manga.Monitored || !IsOngoing(manga.ReleaseStatus))
+            return false;
+        if (manga.LastNewChapterCheck is null)
+            return true;
+        return utcNow - manga.LastNewChapterCheck.Value >= IntervalDuration(manga.NewChapterCheck);
+    }
     
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     private MangaContext MangaContext = null!;
@@ -34,43 +50,45 @@ public class CheckForNewChaptersWorker(TimeSpan? interval = null, IEnumerable<Ba
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
         Log.Debug("Checking ongoing series for new chapters...");
-        int monitoredAll = await MangaContext.MangaConnectorToManga
-            .Where(id => id.UseForDownload)
-            .Select(id => id.ObjId)
-            .Distinct()
-            .CountAsync(CancellationToken);
-
-        List<string> ongoingMangaIds = await MangaContext.MangaConnectorToManga
-            .Where(id => id.UseForDownload &&
-                         (id.Obj.ReleaseStatus == MangaReleaseStatus.Continuing
-                          || id.Obj.ReleaseStatus == MangaReleaseStatus.OnHiatus
-                          || id.Obj.ReleaseStatus == MangaReleaseStatus.Unreleased))
-            .Select(id => id.ObjId)
-            .Distinct()
+        DateTime now = DateTime.UtcNow;
+        List<Manga> monitored = await MangaContext.Mangas
+            .Include(m => m.MangaConnectorIds)
+            .Where(m => m.Monitored)
             .ToListAsync(CancellationToken);
 
-        int skipped = monitoredAll - ongoingMangaIds.Count;
-        Log.InfoFormat("New-chapter search: {0} ongoing series every {1}h ({2} completed/cancelled skipped).",
-            ongoingMangaIds.Count, Interval.TotalHours, skipped);
+        List<Manga> due = monitored.Where(m => IsDue(m, now)).ToList();
+        int skippedCompleted = monitored.Count(m => !IsOngoing(m.ReleaseStatus));
+        int waiting = monitored.Count - due.Count - skippedCompleted;
+        Log.InfoFormat(
+            "New-chapter search: {0} due of {1} monitored ({2} completed/cancelled skipped, {3} waiting on Daily/Weekly).",
+            due.Count, monitored.Count, skippedCompleted, waiting);
 
-        if (ongoingMangaIds.Count == 0)
+        if (due.Count == 0)
             return [];
 
-        List<MangaConnectorId<Manga>> connectorIdsManga = await MangaContext.MangaConnectorToManga
-            .Include(id => id.Obj)
-            .Where(id => ongoingMangaIds.Contains(id.ObjId) && id.UseForDownload)
-            .ToListAsync(CancellationToken);
+        foreach (Manga manga in due)
+            manga.LastNewChapterCheck = now;
 
-        connectorIdsManga = connectorIdsManga
+        if (await MangaContext.Sync(CancellationToken, GetType(), "Mark new-chapter checks") is { success: false } sync)
+            Log.ErrorFormat("Failed to save last chapter-check times: {0}", sync.exceptionMessage);
+
+        List<BaseWorker> newWorkers = CreateRefreshJobs(due.SelectMany(ConnectorsToRefresh)).ToList();
+        Log.DebugFormat("Creating {0} update jobs...", newWorkers.Count);
+        return newWorkers.ToArray();
+    }
+
+    internal static IEnumerable<MangaConnectorId<Manga>> ConnectorsToRefresh(Manga manga)
+    {
+        IEnumerable<MangaConnectorId<Manga>> enabled = manga.MangaConnectorIds.Where(id => id.UseForDownload);
+        return enabled.Any() ? enabled : manga.MangaConnectorIds;
+    }
+
+    internal static List<BaseWorker> CreateRefreshJobs(IEnumerable<MangaConnectorId<Manga>> connectorIds)
+    {
+        return connectorIds
             .Where(id => Mangette.TryGetMangaConnector(id.MangaConnectorName, out MangaConnector? c) && c.Enabled)
             .Where(id => !DownloadFailureTracker.IsConnectorCoolingDown(id.MangaConnectorName))
+            .Select(id => (BaseWorker)new RetrieveMangaChaptersFromMangaconnectorWorker(id, Mangette.Settings.DownloadLanguage))
             .ToList();
-
-        Log.DebugFormat("Creating {0} update jobs...", connectorIdsManga.Count);
-
-        List<BaseWorker> newWorkers = connectorIdsManga.Select(id => new RetrieveMangaChaptersFromMangaconnectorWorker(id, Mangette.Settings.DownloadLanguage))
-            .ToList<BaseWorker>();
-
-        return newWorkers.ToArray();
     }
 }

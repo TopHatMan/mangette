@@ -12,14 +12,18 @@ public sealed record LibrarySeries(
     IEnumerable<MangaConnectorId<Manga>> MangaConnectorIds,
     uint? Year,
     bool Monitored,
+    NewChapterCheckInterval NewChapterCheck,
     int ChapterCount,
     int DownloadedCount)
     : MinimalManga(Key, Name, Description, ReleaseStatus, MangaConnectorIds)
 {
     public uint? Year { get; init; } = Year;
 
-    [Description("At least one site is set to download")]
+    [Description("Series is monitored: missing chapters download and ongoing titles are scanned for new chapters.")]
     public bool Monitored { get; init; } = Monitored;
+
+    [Description("How often to re-fetch the chapter list when the series is ongoing.")]
+    public NewChapterCheckInterval NewChapterCheck { get; init; } = NewChapterCheck;
 
     public int ChapterCount { get; init; } = ChapterCount;
     public int DownloadedCount { get; init; } = DownloadedCount;

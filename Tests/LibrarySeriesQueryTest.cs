@@ -21,6 +21,7 @@ public class LibrarySeriesQueryTest
         Assert.Equal(2, library.Count);
         LibrarySeries monitored = library.Single(m => m.Name == "Monitored");
         Assert.True(monitored.Monitored);
+        Assert.Equal(NewChapterCheckInterval.Daily, monitored.NewChapterCheck);
         Assert.Equal(3, monitored.ChapterCount);
         Assert.Equal(1, monitored.DownloadedCount);
         Assert.Contains(monitored.MangaConnectorIds, id => id.MangaConnectorName == "WeebCentral" && id.UseForDownload);
@@ -47,8 +48,9 @@ public class LibrarySeriesQueryTest
         ctx.FileLibraries.Add(library);
 
         Manga monitored = NewManga("Monitored", library);
+        monitored.SetMonitored(true);
         Manga imported = NewManga("Imported", library);
-        Manga leftover = NewManga("Leftover", library);
+        Manga leftover = NewManga("Leftover", null);
         ctx.Mangas.AddRange(monitored, imported, leftover);
 
         monitored.MangaConnectorIds.Add(new MangaConnectorId(
@@ -69,6 +71,6 @@ public class LibrarySeriesQueryTest
         return ctx;
     }
 
-    private static Manga NewManga(string title, FileLibrary library) =>
+    private static Manga NewManga(string title, FileLibrary? library) =>
         new(title, "d", "https://example.com/c.jpg", MangaReleaseStatus.Continuing, [], [], [], [], library);
 }

@@ -1,4 +1,5 @@
 ﻿using API.Controllers.DTOs;
+using API.Controllers.Requests;
 using API.Schema.ActionsContext;
 using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
@@ -30,7 +31,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     
     /// <summary>
     /// Returns series in the library. Search results are not included until they are added.
-    /// Unmonitored series with no downloaded chapters (leftover from the old search-adds-everything behavior) are omitted.
+    /// Unmonitored leftovers with no library folder and no downloaded chapters are omitted.
     /// </summary>
     /// <response code="200"><see cref="LibrarySeries"/> rows for the dashboard</response>
     /// <response code="500">Error during Database Operation</response>
@@ -57,7 +58,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         var rows = await context.Mangas
             .AsNoTracking()
             .IgnoreAutoIncludes()
-            .Where(m => m.MangaConnectorIds.Any(id => id.UseForDownload) || m.Chapters.Any(c => c.Downloaded))
+            .Where(m => m.Monitored || m.Chapters.Any(c => c.Downloaded) || m.LibraryId != null)
             .OrderBy(m => m.Name)
             .Select(m => new
             {
@@ -66,6 +67,8 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
                 m.Description,
                 m.ReleaseStatus,
                 m.Year,
+                m.Monitored,
+                m.NewChapterCheck,
                 Ids = m.MangaConnectorIds.Select(id => new
                 {
                     id.Key,
@@ -87,7 +90,8 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
             m.Ids.Select(id => new DTOs.MangaConnectorId<Manga>(
                 id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload)),
             m.Year,
-            m.Ids.Any(id => id.UseForDownload),
+            m.Monitored,
+            m.NewChapterCheck,
             m.ChapterCount,
             m.DownloadedCount)).ToList();
     }
@@ -104,7 +108,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
     {
         if (await context.Mangas
                 .Include(m => m.MangaConnectorIds)
-                .Where(m => m.MangaConnectorIds.Any(id => id.UseForDownload))
+                .Where(m => m.Monitored)
                 .OrderBy(m => m.Name)
                 .ToArrayAsync(HttpContext.RequestAborted) is not { } result)
             return TypedResults.InternalServerError();
@@ -135,7 +139,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         IEnumerable<string> tags = manga.MangaTags.Select(t => t.Tag);
         IEnumerable<Link> links = manga.Links.Select(l => new Link(l.Key, l.LinkProvider, l.LinkUrl));
         IEnumerable<AltTitle> altTitles = manga.AltTitles.Select(a => new AltTitle(a.Language, a.Title));
-        Manga result = new (manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.IgnoreChaptersBefore, manga.Year, manga.OriginalLanguage, authors, tags, links, altTitles, manga.LibraryId);
+        Manga result = new (manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.IgnoreChaptersBefore, manga.Year, manga.OriginalLanguage, authors, tags, links, altTitles, manga.LibraryId, manga.Monitored, manga.NewChapterCheck, manga.LastNewChapterCheck);
         
         return TypedResults.Ok(result);
     }
@@ -188,6 +192,76 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
             return TypedResults.NotFound(nameof(MangaId));
         int queued = await StartNewChapterDownloadsWorker.EnqueueAvailableDownloads(context, HttpContext.RequestAborted, MangaId);
         return TypedResults.Ok(queued);
+    }
+
+    /// <summary>Monitor or unmonitor a series. Optionally set Daily/Weekly new-chapter scans.</summary>
+    [HttpPatch("{MangaId}/Monitor")]
+    [ProducesResponseType<LibrarySeries>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok<LibrarySeries>, NotFound<string>, InternalServerError<string>>> PatchMonitor(
+        string MangaId,
+        [FromBody] PatchMonitorRequest request)
+    {
+        if (await context.Mangas
+                .Include(m => m.MangaConnectorIds)
+                .Include(m => m.Chapters)
+                .ThenInclude(c => c.MangaConnectorIds)
+                .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        bool turnedOn = request.Monitored && !manga.Monitored;
+        manga.SetMonitored(request.Monitored);
+        if (request.NewChapterCheck is { } interval)
+            manga.NewChapterCheck = interval;
+
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), "Set monitor") is { success: false } sync)
+            return TypedResults.InternalServerError(sync.exceptionMessage);
+
+        if (turnedOn)
+        {
+            QueueChapterRefresh(manga, DateTime.UtcNow);
+            await StartNewChapterDownloadsWorker.EnqueueAvailableDownloads(context, HttpContext.RequestAborted, manga.Key);
+        }
+
+        int chapters = manga.Chapters.Count;
+        int downloaded = manga.Chapters.Count(c => c.Downloaded);
+        IEnumerable<DTOs.MangaConnectorId<Manga>> ids = manga.MangaConnectorIds.Select(id =>
+            new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
+        return TypedResults.Ok(new LibrarySeries(
+            manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Year,
+            manga.Monitored, manga.NewChapterCheck, chapters, downloaded));
+    }
+
+    /// <summary>
+    /// Re-fetch the chapter list from attached sites now. Ongoing monitored series also do this on Daily/Weekly.
+    /// New chapters raise the series total.
+    /// </summary>
+    [HttpPost("{MangaId}/RefreshChapters")]
+    [ProducesResponseType<int>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok<int>, NotFound<string>, InternalServerError<string>>> RefreshChapters(string MangaId)
+    {
+        if (await context.Mangas
+                .Include(m => m.MangaConnectorIds)
+                .FirstOrDefaultAsync(m => m.Key == MangaId, HttpContext.RequestAborted) is not { } manga)
+            return TypedResults.NotFound(nameof(MangaId));
+
+        int queued = QueueChapterRefresh(manga, DateTime.UtcNow);
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), "Refresh chapters") is { success: false } sync)
+            return TypedResults.InternalServerError(sync.exceptionMessage);
+        return TypedResults.Ok(queued);
+    }
+
+    private static int QueueChapterRefresh(Schema.MangaContext.Manga manga, DateTime utcNow)
+    {
+        manga.LastNewChapterCheck = utcNow;
+        List<BaseWorker> jobs = CheckForNewChaptersWorker.CreateRefreshJobs(
+            CheckForNewChaptersWorker.ConnectorsToRefresh(manga));
+        if (jobs.Count > 0)
+            Mangette.AddWorkers(jobs);
+        return jobs.Count;
     }
 
     /// <summary>
@@ -396,6 +470,8 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         else
         {
             mcId.UseForDownload = IsRequested;
+            if (IsRequested)
+                manga.SetMonitored(true);
         }
 
         if (manga.Chapters.SelectMany(ch =>
@@ -473,6 +549,8 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         else
             mcId.UseForDownload = true;
 
+        manga.SetMonitored(true);
+
         foreach (Schema.MangaContext.MangaConnectorId<Chapter> chId in manga.Chapters.SelectMany(ch =>
                      ch.MangaConnectorIds.Where(id => id.MangaConnectorName.Equals(connector.Name, StringComparison.OrdinalIgnoreCase))))
             chId.UseForDownload = true;
@@ -548,7 +626,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
             IEnumerable<string> tags = m.MangaTags.Select(t => t.Tag);
             IEnumerable<Link> links = m.Links.Select(l => new Link(l.Key, l.LinkProvider, l.LinkUrl));
             IEnumerable<AltTitle> altTitles = m.AltTitles.Select(a => new AltTitle(a.Language, a.Title));
-            return new Manga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.IgnoreChaptersBefore, m.Year, m.OriginalLanguage, authors, tags, links, altTitles, m.LibraryId);
+            return new Manga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.IgnoreChaptersBefore, m.Year, m.OriginalLanguage, authors, tags, links, altTitles, m.LibraryId, m.Monitored, m.NewChapterCheck, m.LastNewChapterCheck);
         }).ToList());
     }
     

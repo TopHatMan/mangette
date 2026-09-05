@@ -205,13 +205,25 @@ public class DownloadChapterFromMangaconnectorWorker(MangaConnectorId<Chapter> c
         Log.Debug($"Downloaded chapter {chapter}.");
 
         await ActionsContext.Actions.AddAsync(new ChapterDownloadedActionRecord(chapter.ParentManga, chapter));
+        if (chapter.NewRelease)
+            await ActionsContext.Actions.AddAsync(new NewChapterActionRecord(chapter.ParentManga, chapter));
         if(await ActionsContext.Sync(CancellationToken, GetType(), "Download complete") is { success: false } actionsContextException)
             Log.Error($"Failed to save database changes: {actionsContextException.exceptionMessage}");
 
-        await NotificationsContext.Notifications.AddAsync(new Notification(
-            "Chapter downloaded",
-            $"{chapter.ParentManga.Name} Ch. {chapter.ChapterNumber} - {chapter.FileName}"
-            ), CancellationToken);
+        if (chapter.NewRelease)
+        {
+            await NotificationsContext.Notifications.AddAsync(new Notification(
+                "New chapter",
+                Chapter.NotifyText(chapter.ParentManga, chapter),
+                NotificationUrgency.High), CancellationToken);
+        }
+        else
+        {
+            await NotificationsContext.Notifications.AddAsync(new Notification(
+                "Chapter downloaded",
+                $"{chapter.ParentManga.Name} Ch. {chapter.ChapterNumber} - {chapter.FileName}"
+                ), CancellationToken);
+        }
         if(await NotificationsContext.Sync(CancellationToken, GetType(), "Download complete") is { success: false } notificationsContextException)
             Log.Error($"Failed to save database changes: {notificationsContextException.exceptionMessage}");
 

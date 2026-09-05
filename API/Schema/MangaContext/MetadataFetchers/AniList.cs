@@ -198,13 +198,118 @@ public class AniList : MetadataFetcher
         return new MetadataSearchResult(id.ToString(), name, url, desc.Trim(), cover);
     }
 
-    private static string StripHtml(string html)
+    internal static string StripHtml(string html)
     {
         if (string.IsNullOrWhiteSpace(html))
             return "";
         string text = HtmlTag.Replace(html, " ");
         text = text.Replace("&amp;", "&").Replace("&lt;", "<").Replace("&gt;", ">").Replace("&quot;", "\"").Replace("&#039;", "'");
         return Regex.Replace(text, @"\s+", " ").Trim();
+    }
+
+    internal readonly record struct BrowseItem(
+        int Id,
+        string Name,
+        string Description,
+        uint? Year,
+        MangaReleaseStatus Status,
+        string CoverUrl,
+        string SiteUrl,
+        int? AverageScore,
+        int Popularity,
+        string Kind,
+        IReadOnlyList<string> Genres,
+        int? Chapters);
+
+    /// <summary>Public AniList catalog lists (trending, popular, new). No API key.</summary>
+    internal List<BrowseItem> Browse(string sort, int perPage = 24, string extraFilters = "")
+    {
+        string filters = string.IsNullOrWhiteSpace(extraFilters) ? "" : extraFilters.Trim();
+        if (filters.Length > 0 && !filters.StartsWith(','))
+            filters = ", " + filters;
+        JToken? media = Query($$"""
+            query ($page: Int, $perPage: Int) {
+              Page(page: $page, perPage: $perPage) {
+                media(type: MANGA, sort: [{{sort}}], isAdult: false, format_not_in: [NOVEL]{{filters}}) {
+                  id
+                  title { romaji english native }
+                  description(asHtml: false)
+                  status
+                  format
+                  countryOfOrigin
+                  startDate { year }
+                  coverImage { extraLarge large }
+                  averageScore
+                  popularity
+                  genres
+                  chapters
+                  siteUrl
+                }
+              }
+            }
+            """, new JObject { ["page"] = 1, ["perPage"] = perPage })?["data"]?["Page"]?["media"];
+        if (media is not JArray arr)
+            return [];
+        List<BrowseItem> items = [];
+        foreach (JToken token in arr)
+        {
+            BrowseItem? parsed = ParseBrowseItem(token);
+            if (parsed is { } item)
+                items.Add(item);
+        }
+        return items;
+    }
+
+    internal static BrowseItem? ParseBrowseItem(JToken media)
+    {
+        int id = media["id"]?.Value<int>() ?? 0;
+        if (id <= 0)
+            return null;
+        string name = media["title"]?["english"]?.Value<string>()
+                      ?? media["title"]?["romaji"]?.Value<string>()
+                      ?? media["title"]?["native"]?.Value<string>()
+                      ?? id.ToString();
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+        string cover = media["coverImage"]?["extraLarge"]?.Value<string>()
+                       ?? media["coverImage"]?["large"]?.Value<string>()
+                       ?? "";
+        string url = media["siteUrl"]?.Value<string>() ?? $"https://anilist.co/manga/{id}";
+        string desc = StripHtml(media["description"]?.Value<string>() ?? "");
+        uint? year = media["startDate"]?["year"]?.Value<uint?>();
+        int? score = media["averageScore"]?.Value<int?>();
+        int popularity = media["popularity"]?.Value<int>() ?? 0;
+        int? chapters = media["chapters"]?.Value<int?>();
+        List<string> genres = (media["genres"] as JArray)?
+            .Select(g => g.Value<string>())
+            .Where(g => !string.IsNullOrWhiteSpace(g))
+            .Select(g => g!)
+            .ToList() ?? [];
+        return new BrowseItem(
+            id,
+            name.Trim(),
+            desc,
+            year,
+            MapStatus(media["status"]?.Value<string>()),
+            cover,
+            url,
+            score,
+            popularity,
+            KindFrom(media["countryOfOrigin"]?.Value<string>(), media["format"]?.Value<string>()),
+            genres,
+            chapters);
+    }
+
+    internal static string KindFrom(string? country, string? format)
+    {
+        if (format is "ONE_SHOT")
+            return "One-shot";
+        return country?.ToUpperInvariant() switch
+        {
+            "KR" => "Manhwa",
+            "CN" or "TW" or "HK" => "Manhua",
+            _ => "Manga"
+        };
     }
 
     private JObject? Query(string graphql, JObject variables)

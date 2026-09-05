@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using API.Schema.MangaContext;
 
 namespace API.Controllers.Requests;
 
@@ -29,4 +30,7 @@ public sealed record PatchSetupSettingsRecord
     public bool? AuthenticationEnabled { get; init; }
     public string? AuthUsername { get; init; }
     public string? AuthPassword { get; init; }
+
+    [Description("Default new-chapter scan interval for newly added monitored series.")]
+    public NewChapterCheckInterval? DefaultNewChapterCheck { get; init; }
 }

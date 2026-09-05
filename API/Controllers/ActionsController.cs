@@ -49,7 +49,9 @@ public class ActionsController(ActionsContext context, MangaContext mangaContext
         if (await context.FilterActions(filter.MangaId, filter.ChapterId)
                 .Where(a => filter.Start == null || a.PerformedAt >= filter.Start.Value.ToUniversalTime())
                 .Where(a => filter.End == null || a.PerformedAt <= filter.End.Value.ToUniversalTime())
-                .Where(a => filter.Action == null || a.Action == filter.Action)
+                .Where(a => filter.Action == null
+                            || a.Action == filter.Action
+                            || (filter.Action == Actions.ChapterDownloaded && a.Action == Actions.NewChapter))
                 .CreatePagedResponse(a => a.PerformedAt, page, pageSize, HttpContext.RequestAborted)
             is not { } result)
             return TypedResults.InternalServerError();

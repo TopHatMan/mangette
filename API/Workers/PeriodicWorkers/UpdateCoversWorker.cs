@@ -26,7 +26,7 @@ public class UpdateCoversWorker(TimeSpan? interval = null, IEnumerable<BaseWorke
     
     protected override async Task<BaseWorker[]> DoWorkInternal()
     {
-        List<MangaConnectorId<Manga>> manga = await MangaContext.MangaConnectorToManga.Where(mcId => mcId.UseForDownload).ToListAsync(CancellationToken);
+        List<MangaConnectorId<Manga>> manga = await MangaContext.MangaConnectorToManga.Where(mcId => mcId.Obj.Monitored && mcId.UseForDownload).ToListAsync(CancellationToken);
         List<BaseWorker> newWorkers = manga.Select(m => new DownloadCoverFromMangaconnectorWorker(m)).ToList<BaseWorker>();
         return newWorkers.ToArray();
     }

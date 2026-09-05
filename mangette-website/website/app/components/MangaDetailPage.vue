@@ -6,6 +6,10 @@
                 <USkeleton v-else class="w-[240px] h-[350px]" />
                 <p v-if="manga" class="font-semibold text-xl leading-tight">{{ manga.name }}</p>
                 <p v-if="manga?.year" class="text-muted text-sm">{{ manga.year }}</p>
+                <UBadge v-if="manga" :color="manga.monitored ? 'primary' : 'neutral'" variant="subtle" size="sm" class="w-fit">
+                    {{ manga.monitored ? 'Monitored' : 'Unmonitored' }}
+                    <span v-if="manga.monitored && manga.newChapterCheck" class="ml-1">· {{ manga.newChapterCheck }}</span>
+                </UBadge>
                 <div v-if="manga" class="flex flex-wrap gap-1">
                     <UBadge
                         v-for="m in manga.mangaConnectorIds"

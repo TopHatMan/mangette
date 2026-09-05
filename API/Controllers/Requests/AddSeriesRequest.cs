@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using API.Schema.MangaContext;
 
 namespace API.Controllers.Requests;
 
@@ -15,4 +16,7 @@ public sealed record AddSeriesRequest
 
     [Description("Monitor and download missing chapters. Default true.")]
     public bool Monitor { get; init; } = true;
+
+    [Description("How often to look for newly published chapters on ongoing series. Default Daily.")]
+    public NewChapterCheckInterval? NewChapterCheck { get; init; }
 }

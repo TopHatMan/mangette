@@ -101,7 +101,7 @@ public class StartNewChapterDownloadsWorker(TimeSpan? interval = null, IEnumerab
         IQueryable<MangaConnectorId<Chapter>> query = ctx.MangaConnectorToChapter
             .Include(id => id.Obj)
             .ThenInclude(c => c.ParentManga)
-            .Where(id => !id.Obj.Downloaded && id.UseForDownload);
+            .Where(id => !id.Obj.Downloaded && id.UseForDownload && id.Obj.ParentManga.Monitored);
         if (!string.IsNullOrWhiteSpace(mangaId))
             query = query.Where(id => id.Obj.ParentMangaId == mangaId);
 

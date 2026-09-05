@@ -8,6 +8,14 @@
                 <div class="series-poster__bar-fill" :style="{ width: `${progress}%` }" />
             </div>
             <span v-if="badge" class="series-poster__badge">{{ badge }}</span>
+            <span
+                v-if="showMonitor !== false"
+                class="series-poster__monitor"
+                :class="{ 'series-poster__monitor--on': monitored }"
+                :title="monitored ? 'Unmonitor' : 'Monitor'"
+                @click.stop="$emit('toggleMonitor', !monitored)">
+                <UIcon :name="monitored ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'" class="size-4" />
+            </span>
         </div>
         <p v-if="subtitle" class="series-poster__sub">{{ subtitle }}</p>
     </button>
@@ -22,9 +30,11 @@ const props = defineProps<{
     downloadedCount?: number | null;
     badge?: string;
     subtitle?: string;
+    monitored?: boolean;
+    showMonitor?: boolean;
 }>();
 
-defineEmits<{ click: [] }>();
+defineEmits<{ click: []; toggleMonitor: [monitored: boolean] }>();
 
 const broken = ref(false);
 const progress = computed(() => {

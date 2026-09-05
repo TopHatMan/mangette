@@ -80,7 +80,7 @@ public class MaintenanceController(MangaContext mangaContext, ActionsContext act
                 chapter.ParentManga = manga;
                 if (chapter.ApplyDownloadedMatch(quarantined, inspectZip: true))
                     matched++;
-                else if (chapter.MangaConnectorIds.Any(id => id.UseForDownload))
+                else if (manga.Monitored && chapter.MangaConnectorIds.Any(id => id.UseForDownload))
                     missingMonitored++;
             }
         }

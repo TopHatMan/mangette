@@ -133,19 +133,29 @@ const { data: ActionTypes } = useApi('/v2/Actions/Types', { key: FetchKeys.Actio
 
 const typeItems = computed(() =>
     (ActionTypes.value ?? []).map((t: string) => ({
-        label: t === 'ChapterDownloaded' ? 'Downloads' : t.replace(/([A-Z])/g, ' $1').trim(),
+        label:
+            t === 'ChapterDownloaded'
+                ? 'Downloads'
+                : t === 'NewChapter'
+                  ? 'New chapters'
+                  : t.replace(/([A-Z])/g, ' $1').trim(),
         value: t,
     })),
 );
 
 const eventLabel = (action: string) => {
+    if (action === 'NewChapter') return 'New chapter';
     if (action === 'ChapterDownloaded') return 'Downloaded';
     if (action === 'ChaptersRetrieved') return 'Updated';
     if (action === 'CoverDownloaded') return 'Cover';
     return action.replace(/([A-Z])/g, ' $1').trim();
 };
 
-const eventColor = (action: string) => (action === 'ChapterDownloaded' ? 'success' : 'neutral');
+const eventColor = (action: string) => {
+    if (action === 'NewChapter') return 'warning';
+    if (action === 'ChapterDownloaded') return 'success';
+    return 'neutral';
+};
 
 const coverSrc = (mangaId: string) => `/v2/Manga/${mangaId}/Cover/Small`;
 const seriesLink = (row: HistoryRow) => `/manga/${row.mangaId}?return=${encodeURIComponent('/actions')}`;

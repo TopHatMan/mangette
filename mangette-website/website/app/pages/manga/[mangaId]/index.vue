@@ -8,14 +8,37 @@
                         <h1 class="font-semibold">Download</h1>
                     </template>
                     <p class="text-muted text-xs mb-3">
-                        Sites set to Use are monitored. Search missing queues holes for this series only.
+                        Monitor to download missing chapters and scan for new ones. Ongoing series grow their chapter total on Daily or Weekly.
                     </p>
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <span class="text-sm font-medium">Monitor</span>
+                        <USwitch :model-value="!!manga?.monitored" :disabled="!manga || togglingMonitor" @update:model-value="setMonitored" />
+                    </div>
+                    <UFormField v-if="manga?.monitored" label="Check for new chapters" class="mb-3">
+                        <USelect
+                            :model-value="manga.newChapterCheck ?? 'Daily'"
+                            :items="checkItems"
+                            class="w-full"
+                            :disabled="togglingMonitor"
+                            @update:model-value="setCheckInterval" />
+                    </UFormField>
+                    <p v-if="manga?.monitored && lastCheckLabel" class="text-muted text-xs mb-3">Last scan {{ lastCheckLabel }}</p>
+                    <UButton
+                        class="mb-2 w-full"
+                        icon="i-lucide-list-plus"
+                        size="sm"
+                        :loading="refreshingChapters"
+                        :disabled="!manga?.fileLibraryId"
+                        @click="refreshChapters">
+                        Refresh chapter list
+                    </UButton>
                     <UButton
                         class="mb-3 w-full"
                         icon="i-lucide-search"
                         size="sm"
+                        variant="outline"
                         :loading="searchingMissing"
-                        :disabled="!manga?.fileLibraryId"
+                        :disabled="!manga?.fileLibraryId || !manga?.monitored"
                         @click="searchMissing">
                         Search missing
                     </UButton>
@@ -80,6 +103,14 @@
             </div>
         </div>
         <template #actions>
+            <UButton
+                :icon="manga?.monitored ? 'i-lucide-bookmark-check' : 'i-lucide-bookmark'"
+                :color="manga?.monitored ? 'primary' : 'neutral'"
+                variant="soft"
+                :loading="togglingMonitor"
+                @click="setMonitored(!manga?.monitored)">
+                {{ manga?.monitored ? 'Monitored' : 'Unmonitored' }}
+            </UButton>
             <UButton icon="i-lucide-pencil" variant="soft" color="secondary" @click="openRename">Rename</UButton>
             <UButton
                 icon="i-lucide-history"
@@ -195,6 +226,72 @@ const remove = async () => {
     await $api('/v2/Manga/{MangaId}', { method: 'DELETE', path: { MangaId: mangaId } });
     await refreshNuxtData(FetchKeys.Manga.All);
     navigateTo('/');
+};
+
+const togglingMonitor = ref(false);
+const refreshingChapters = ref(false);
+const checkItems = [
+    { label: 'Daily', value: 'Daily' },
+    { label: 'Weekly', value: 'Weekly' },
+];
+
+type MonitorSeries = {
+    monitored?: boolean;
+    newChapterCheck?: string;
+    lastNewChapterCheck?: string | null;
+    fileLibraryId?: string | null;
+};
+
+const series = computed(() => manga.value as MonitorSeries | null | undefined);
+
+const lastCheckLabel = computed(() => {
+    const raw = series.value?.lastNewChapterCheck;
+    if (!raw) return '';
+    const at = new Date(raw);
+    if (Number.isNaN(at.getTime()) || at.getFullYear() < 2000) return '';
+    return at.toLocaleString();
+});
+
+const patchMonitor = async (monitored: boolean, newChapterCheck?: string) => {
+    togglingMonitor.value = true;
+    try {
+        await $fetch(`/v2/Manga/${encodeURIComponent(mangaId)}/Monitor`, {
+            method: 'PATCH',
+            body: { monitored, newChapterCheck },
+        });
+        await refreshNuxtData([FetchKeys.Manga.Id(mangaId), FetchKeys.Manga.All, FetchKeys.Chapters.Manga(mangaId)]);
+    } finally {
+        togglingMonitor.value = false;
+    }
+};
+
+const setMonitored = async (value: boolean) => {
+    await patchMonitor(value, series.value?.newChapterCheck);
+};
+
+const asInterval = (value: unknown): 'Daily' | 'Weekly' | undefined => {
+    if (value === 'Daily' || value === 'Weekly') return value;
+    if (value && typeof value === 'object' && 'value' in value) {
+        const inner = (value as { value: unknown }).value;
+        if (inner === 'Daily' || inner === 'Weekly') return inner;
+    }
+    return undefined;
+};
+
+const setCheckInterval = async (value: unknown) => {
+    const interval = asInterval(value);
+    if (!interval) return;
+    await patchMonitor(true, interval);
+};
+
+const refreshChapters = async () => {
+    refreshingChapters.value = true;
+    try {
+        await $fetch(`/v2/Manga/${encodeURIComponent(mangaId)}/RefreshChapters`, { method: 'POST' });
+        await refreshNuxtData([FetchKeys.Manga.Id(mangaId), FetchKeys.Manga.All, FetchKeys.Chapters.Manga(mangaId)]);
+    } finally {
+        refreshingChapters.value = false;
+    }
 };
 
 const searchingMissing = ref(false);

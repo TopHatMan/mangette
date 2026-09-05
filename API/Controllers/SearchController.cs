@@ -100,6 +100,8 @@ public class SearchController(MangaContext context) : ControllerBase
             x.MangaConnectorName.Equals(request.ConnectorName, StringComparison.OrdinalIgnoreCase))
             ?? added.Value.id;
         link.UseForDownload = request.Monitor;
+        manga.SetMonitored(request.Monitor);
+        manga.NewChapterCheck = request.NewChapterCheck ?? Mangette.Settings.DefaultNewChapterCheck;
 
         if (await context.Sync(HttpContext.RequestAborted, GetType(), "Add series") is { success: false } sync)
             return TypedResults.InternalServerError(sync.exceptionMessage);
@@ -195,7 +197,6 @@ public class SearchController(MangaContext context) : ControllerBase
             new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
         int chapters = manga.Chapters?.Count ?? 0;
         int downloaded = manga.Chapters?.Count(c => c.Downloaded) ?? 0;
-        bool monitored = manga.MangaConnectorIds.Any(id => id.UseForDownload);
-        return new LibrarySeries(manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Year, monitored, chapters, downloaded);
+        return new LibrarySeries(manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Year, manga.Monitored, manga.NewChapterCheck, chapters, downloaded);
     }
 }

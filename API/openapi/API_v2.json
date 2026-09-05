@@ -1486,6 +1486,82 @@
         }
       }
     },
+    "/v2/Manga/{MangaId}/Monitor": {
+      "patch": {
+        "tags": [
+          "Manga"
+        ],
+        "summary": "Monitor or unmonitor a series. Optionally set Daily/Weekly new-chapter scans.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMonitorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibrarySeries"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/RefreshChapters": {
+      "post": {
+        "tags": [
+          "Manga"
+        ],
+        "summary": "Re-fetch the chapter list from attached sites now. New chapters raise the series total.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Number of refresh jobs queued",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/v2/Manga/{MangaIdFrom}/MergeInto/{MangaIdInto}": {
       "post": {
         "tags": [
@@ -3097,6 +3173,35 @@
         }
       }
     },
+    "/v2/Discover": {
+      "get": {
+        "tags": [
+          "Discover"
+        ],
+        "summary": "Trending, popular, new, and recently updated manga from AniList. Cached for 30 minutes.",
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Search/Lookup": {
       "get": {
         "tags": [
@@ -4227,7 +4332,8 @@
           "CoverDownloaded",
           "DataMoved",
           "LibraryMoved",
-          "MetadataUpdated"
+          "MetadataUpdated",
+          "NewChapter"
         ],
         "type": "string"
       },
@@ -4258,6 +4364,41 @@
         },
         "additionalProperties": false
       },
+      "DiscoverHit": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "year": { "type": "integer", "format": "int32", "nullable": true },
+          "releaseStatus": { "$ref": "#/components/schemas/MangaReleaseStatus" },
+          "coverUrl": { "type": "string" },
+          "aniListId": { "type": "integer", "format": "int32" },
+          "siteUrl": { "type": "string" },
+          "averageScore": { "type": "integer", "format": "int32", "nullable": true },
+          "popularity": { "type": "integer", "format": "int32" },
+          "kind": { "type": "string" },
+          "genres": { "type": "array", "items": { "type": "string" } },
+          "chapters": { "type": "integer", "format": "int32", "nullable": true },
+          "alreadyInLibrary": { "type": "boolean" },
+          "existingMangaId": { "type": "string", "nullable": true },
+          "connectorName": { "type": "string", "nullable": true },
+          "idOnSite": { "type": "string", "nullable": true }
+        },
+        "additionalProperties": false
+      },
+      "DiscoverPage": {
+        "type": "object",
+        "properties": {
+          "trending": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
+          "popular": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
+          "newReleases": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
+          "recentlyUpdated": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
+          "popularOnSites": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
+          "generatedAtUtc": { "type": "string", "format": "date-time" },
+          "source": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
       "AddSeriesRequest": {
         "required": [
           "connectorName",
@@ -4283,6 +4424,9 @@
           "monitor": {
             "type": "boolean",
             "description": "Monitor and download missing chapters. Default true."
+          },
+          "newChapterCheck": {
+            "$ref": "#/components/schemas/NewChapterCheckInterval"
           }
         },
         "additionalProperties": false
@@ -4934,7 +5078,10 @@
           },
           "monitored": {
             "type": "boolean",
-            "description": "At least one site is set to download"
+            "description": "Series is monitored: missing chapters download and ongoing titles are scanned for new chapters."
+          },
+          "newChapterCheck": {
+            "$ref": "#/components/schemas/NewChapterCheckInterval"
           },
           "chapterCount": {
             "type": "integer",
@@ -5074,6 +5221,19 @@
             "type": "string",
             "description": "Id of the Library the Manga gets downloaded to"
           },
+          "monitored": {
+            "type": "boolean",
+            "description": "Series is monitored: missing chapters download and ongoing titles are scanned for new chapters."
+          },
+          "newChapterCheck": {
+            "$ref": "#/components/schemas/NewChapterCheckInterval"
+          },
+          "lastNewChapterCheck": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "UTC time of the last chapter-list refresh."
+          },
           "name": {
             "minLength": 1,
             "type": "string",
@@ -5190,6 +5350,14 @@
         ],
         "type": "string"
       },
+      "NewChapterCheckInterval": {
+        "enum": [
+          "Daily",
+          "Weekly"
+        ],
+        "type": "string",
+        "description": "How often to re-fetch the chapter list when the series is ongoing."
+      },
       "MangetteSettings": {
         "type": "object",
         "properties": {
@@ -5258,6 +5426,9 @@
           "refreshLibraryWhileDownloadingEveryMinutes": {
             "type": "integer",
             "format": "int32"
+          },
+          "defaultNewChapterCheck": {
+            "$ref": "#/components/schemas/NewChapterCheckInterval"
           },
           "defaultLibraryPath": {
             "type": "string",
@@ -5455,6 +5626,22 @@
         },
         "additionalProperties": false
       },
+      "PatchMonitorRequest": {
+        "required": [
+          "monitored"
+        ],
+        "type": "object",
+        "properties": {
+          "monitored": {
+            "type": "boolean",
+            "description": "Monitor this series. Missing chapters download; ongoing titles are scanned for new chapters."
+          },
+          "newChapterCheck": {
+            "$ref": "#/components/schemas/NewChapterCheckInterval"
+          }
+        },
+        "additionalProperties": false
+      },
       "PatchSetupSettingsRecord": {
         "type": "object",
         "properties": {
@@ -5500,6 +5687,9 @@
           "flareSolverrUrl": {
             "type": "string",
             "nullable": true
+          },
+          "defaultNewChapterCheck": {
+            "$ref": "#/components/schemas/NewChapterCheckInterval"
           }
         },
         "additionalProperties": false

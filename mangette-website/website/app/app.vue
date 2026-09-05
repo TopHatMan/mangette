@@ -71,6 +71,7 @@ const logout = async () => {
 
 const items = [
     { label: 'Library', to: '/', icon: 'i-lucide-layout-grid' },
+    { label: 'Discover', to: '/discover', icon: 'i-lucide-sparkles' },
     { label: 'Add New', to: '/search', icon: 'i-lucide-plus' },
     { label: 'Import', to: '/import', icon: 'i-lucide-folder-input' },
     { label: 'Wanted', to: '/wanted', icon: 'i-lucide-circle-alert' },
@@ -80,6 +81,7 @@ const items = [
 const title = computed(() => {
     const map: Record<string, string> = {
         '/': 'Library',
+        '/discover': 'Discover',
         '/search': 'Add New',
         '/import': 'Library Import',
         '/wanted': 'Wanted',

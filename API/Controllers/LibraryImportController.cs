@@ -46,7 +46,7 @@ public class LibraryImportController(MangaContext context) : ControllerBase
             .Where(m => m.LibraryId == library.Key)
             .ToListAsync(HttpContext.RequestAborted);
         HashSet<string> mapped = inLibrary
-            .Where(m => m.MangaConnectorIds.Any(id => id.UseForDownload) || m.Chapters.Any(c => c.Downloaded))
+            .Where(m => m.Monitored || m.MangaConnectorIds.Any(id => id.UseForDownload) || m.Chapters.Any(c => c.Downloaded))
             .Select(m => NormalizeFolderKey(m.DirectoryName))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -188,6 +188,8 @@ public class LibraryImportController(MangaContext context) : ControllerBase
                 x.MangaConnectorName.Equals(request.ConnectorName, StringComparison.OrdinalIgnoreCase))
                 ?? added.Value.id;
             monitor.UseForDownload = true;
+            manga.SetMonitored(true);
+            manga.NewChapterCheck = Mangette.Settings.DefaultNewChapterCheck;
 
             if (await context.Sync(HttpContext.RequestAborted, GetType(), "Library import") is { success: false } sync)
             {
