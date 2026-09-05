@@ -16,11 +16,17 @@ public class SabnzbdDownloadClient : IExternalDownloadClient
         if (!IsConfigured())
             return null;
 
+        // The category (Settings -> SABnzbd) routes Comic NZBs to their own Folder/Category Dir in
+        // SABnzbd's own Categories config, instead of the default completed-download directory.
+        string category = string.IsNullOrWhiteSpace(Mangette.Settings.SabnzbdCategory)
+            ? ""
+            : $"&cat={HttpUtility.UrlEncode(Mangette.Settings.SabnzbdCategory)}";
         string requestUrl = $"{Mangette.Settings.SabnzbdUrl}/api" +
                              $"?mode=addurl" +
                              $"&name={HttpUtility.UrlEncode(release.DownloadUrl)}" +
                              $"&nzbname={HttpUtility.UrlEncode(release.Title)}" +
                              $"&apikey={Mangette.Settings.SabnzbdApiKey}" +
+                             category +
                              $"&output=json";
 
         JObject? result = await Get(requestUrl, cancellationToken);

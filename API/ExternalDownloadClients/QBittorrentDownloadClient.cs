@@ -26,21 +26,13 @@ public class QBittorrentDownloadClient : IExternalDownloadClient
             return null;
 
         string tag = $"mangette-{Guid.NewGuid():N}";
-        using MultipartFormDataContent form = new()
-        {
-            { new StringContent(release.DownloadUrl), "urls" },
-            { new StringContent(tag), "tags" }
-        };
 
+        using MultipartFormDataContent form = BuildAddForm(release.DownloadUrl, tag);
         HttpResponseMessage response = await Client.PostAsync(
             $"{Mangette.Settings.QBittorrentUrl}/api/v2/torrents/add", form, cancellationToken);
         if (response.StatusCode == HttpStatusCode.Forbidden && await Reauthenticate(cancellationToken))
         {
-            using MultipartFormDataContent retryForm = new()
-            {
-                { new StringContent(release.DownloadUrl), "urls" },
-                { new StringContent(tag), "tags" }
-            };
+            using MultipartFormDataContent retryForm = BuildAddForm(release.DownloadUrl, tag);
             response = await Client.PostAsync($"{Mangette.Settings.QBittorrentUrl}/api/v2/torrents/add", retryForm, cancellationToken);
         }
         if (!response.IsSuccessStatusCode)
@@ -60,6 +52,22 @@ public class QBittorrentDownloadClient : IExternalDownloadClient
 
         Log.Warn($"qBittorrent accepted \"{release.Title}\" but it never showed up under tag {tag}.");
         return null;
+    }
+
+    /// <summary>
+    /// The category (Settings → qBittorrent) routes Comic torrents to their own Default Save Path in
+    /// qBittorrent's own Categories config, instead of the general download directory.
+    /// </summary>
+    private static MultipartFormDataContent BuildAddForm(string downloadUrl, string tag)
+    {
+        MultipartFormDataContent form = new()
+        {
+            { new StringContent(downloadUrl), "urls" },
+            { new StringContent(tag), "tags" }
+        };
+        if (!string.IsNullOrWhiteSpace(Mangette.Settings.QBittorrentCategory))
+            form.Add(new StringContent(Mangette.Settings.QBittorrentCategory), "category");
+        return form;
     }
 
     public async Task<ExternalDownloadStatus> GetStatus(string externalId, CancellationToken cancellationToken)

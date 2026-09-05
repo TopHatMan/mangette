@@ -5021,22 +5021,22 @@
           "content": {
             "application/json-patch+json; x-version=2.0": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/SetComicVineRecord"
               }
             },
             "application/json; x-version=2.0": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/SetComicVineRecord"
               }
             },
             "text/json; x-version=2.0": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/SetComicVineRecord"
               }
             },
             "application/*+json; x-version=2.0": {
               "schema": {
-                "type": "string"
+                "$ref": "#/components/schemas/SetComicVineRecord"
               }
             }
           }
@@ -7144,6 +7144,11 @@
             "type": "string",
             "nullable": true
           },
+          "qBittorrentCategory": {
+            "type": "string",
+            "description": "Category applied to every Comic torrent, so qBittorrent (Categories settings, \"Default Save Path\")\r\ncan route them into their own folder instead of the general download directory.",
+            "nullable": true
+          },
           "sabnzbdUrl": {
             "type": "string",
             "description": "SABnzbd, used as the Usenet download client for Comics.",
@@ -7151,6 +7156,11 @@
           },
           "sabnzbdApiKey": {
             "type": "string",
+            "nullable": true
+          },
+          "sabnzbdCategory": {
+            "type": "string",
+            "description": "Category applied to every Comic NZB, so SABnzbd (Categories settings, \"Folder/Category Dir\")\r\ncan route them into their own folder instead of the default completed-download directory.",
             "nullable": true
           },
           "comicProtocolPreference": {
@@ -7710,6 +7720,16 @@
         "additionalProperties": false,
         "description": "Preview of a series from a site. Not in the library until Add is called."
       },
+      "SetComicVineRecord": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "SetProwlarrRecord": {
         "type": "object",
         "properties": {
@@ -7738,6 +7758,10 @@
           "password": {
             "type": "string",
             "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7750,6 +7774,10 @@
             "nullable": true
           },
           "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
             "type": "string",
             "nullable": true
           }

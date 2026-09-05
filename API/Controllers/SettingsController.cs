@@ -434,7 +434,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     public Ok SetQBittorrent([FromBody] SetQBittorrentRecord requestData)
     {
         string password = requestData.Password == MaskedSecret ? Mangette.Settings.QBittorrentPassword : requestData.Password;
-        Mangette.Settings.SetQBittorrent(requestData.Url, requestData.Username, password);
+        Mangette.Settings.SetQBittorrent(requestData.Url, requestData.Username, password, requestData.Category);
         return TypedResults.Ok();
     }
 
@@ -474,7 +474,7 @@ public class SettingsController(MangaContext context) : ControllerBase
     public Ok SetSabnzbd([FromBody] SetSabnzbdRecord requestData)
     {
         string apiKey = requestData.ApiKey == MaskedSecret ? Mangette.Settings.SabnzbdApiKey : requestData.ApiKey;
-        Mangette.Settings.SetSabnzbd(requestData.Url, apiKey);
+        Mangette.Settings.SetSabnzbd(requestData.Url, apiKey, requestData.Category);
         return TypedResults.Ok();
     }
 

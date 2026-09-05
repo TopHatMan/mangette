@@ -90,10 +90,20 @@ public class MangetteSettings
     public string QBittorrentUrl { get; set; } = "";
     public string QBittorrentUsername { get; set; } = "";
     public string QBittorrentPassword { get; set; } = "";
+    /// <summary>
+    /// Category applied to every Comic torrent, so qBittorrent (Categories settings, "Default Save Path")
+    /// can route them into their own folder instead of the general download directory.
+    /// </summary>
+    public string QBittorrentCategory { get; set; } = "mangette-comic";
 
     /// <summary>SABnzbd, used as the Usenet download client for Comics.</summary>
     public string SabnzbdUrl { get; set; } = "";
     public string SabnzbdApiKey { get; set; } = "";
+    /// <summary>
+    /// Category applied to every Comic NZB, so SABnzbd (Categories settings, "Folder/Category Dir")
+    /// can route them into their own folder instead of the default completed-download directory.
+    /// </summary>
+    public string SabnzbdCategory { get; set; } = "mangette-comic";
 
     /// <summary>Which protocol wins when a Comic search finds both a torrent and a Usenet release.</summary>
     [JsonConverter(typeof(StringEnumConverter))]
@@ -332,18 +342,20 @@ public class MangetteSettings
         Save();
     }
 
-    public void SetQBittorrent(string url, string username, string password)
+    public void SetQBittorrent(string url, string username, string password, string category)
     {
         QBittorrentUrl = url.Trim().TrimEnd('/');
         QBittorrentUsername = username.Trim();
         QBittorrentPassword = password;
+        QBittorrentCategory = category.Trim();
         Save();
     }
 
-    public void SetSabnzbd(string url, string apiKey)
+    public void SetSabnzbd(string url, string apiKey, string category)
     {
         SabnzbdUrl = url.Trim().TrimEnd('/');
         SabnzbdApiKey = apiKey.Trim();
+        SabnzbdCategory = category.Trim();
         Save();
     }
 

@@ -141,6 +141,9 @@
                     <UFormField label="qBittorrent password">
                         <UInput v-model="comic.qBittorrentPassword" type="password" class="w-full" />
                     </UFormField>
+                    <UFormField label="qBittorrent category" hint="Set this category's Default Save Path in qBittorrent to route Comics into their own folder.">
+                        <UInput v-model="comic.qBittorrentCategory" class="w-full" placeholder="mangette-comic" />
+                    </UFormField>
                     <div class="flex items-end">
                         <UButton variant="outline" :loading="testingQBittorrent" @click="testQBittorrent">Test qBittorrent</UButton>
                     </div>
@@ -149,6 +152,9 @@
                     </UFormField>
                     <UFormField label="SABnzbd API key">
                         <UInput v-model="comic.sabnzbdApiKey" type="password" class="w-full" />
+                    </UFormField>
+                    <UFormField label="SABnzbd category" hint="Set this category's Folder in SABnzbd to route Comics into their own folder.">
+                        <UInput v-model="comic.sabnzbdCategory" class="w-full" placeholder="mangette-comic" />
                     </UFormField>
                     <div class="flex items-end">
                         <UButton variant="outline" :loading="testingSabnzbd" @click="testSabnzbd">Test SABnzbd</UButton>
@@ -346,8 +352,10 @@ const comic = reactive({
     qBittorrentUrl: '',
     qBittorrentUsername: '',
     qBittorrentPassword: '',
+    qBittorrentCategory: 'mangette-comic',
     sabnzbdUrl: '',
     sabnzbdApiKey: '',
+    sabnzbdCategory: 'mangette-comic',
     comicVineApiKey: '',
     protocolPreference: 'Usenet',
 });
@@ -381,8 +389,10 @@ const applySetupFromSettings = () => {
     comic.qBittorrentUrl = value.qBittorrentUrl ?? '';
     comic.qBittorrentUsername = value.qBittorrentUsername ?? '';
     comic.qBittorrentPassword = value.qBittorrentPassword ?? '';
+    comic.qBittorrentCategory = value.qBittorrentCategory ?? 'mangette-comic';
     comic.sabnzbdUrl = value.sabnzbdUrl ?? '';
     comic.sabnzbdApiKey = value.sabnzbdApiKey ?? '';
+    comic.sabnzbdCategory = value.sabnzbdCategory ?? 'mangette-comic';
     comic.comicVineApiKey = value.comicVineApiKey ?? '';
     comic.protocolPreference = value.comicProtocolPreference ?? 'Usenet';
 };
@@ -543,11 +553,16 @@ const saveComic = async () => {
         });
         await $fetch('/v2/Settings/QBittorrent', {
             method: 'PATCH',
-            body: { url: comic.qBittorrentUrl, username: comic.qBittorrentUsername, password: comic.qBittorrentPassword },
+            body: {
+                url: comic.qBittorrentUrl,
+                username: comic.qBittorrentUsername,
+                password: comic.qBittorrentPassword,
+                category: comic.qBittorrentCategory,
+            },
         });
         await $fetch('/v2/Settings/Sabnzbd', {
             method: 'PATCH',
-            body: { url: comic.sabnzbdUrl, apiKey: comic.sabnzbdApiKey },
+            body: { url: comic.sabnzbdUrl, apiKey: comic.sabnzbdApiKey, category: comic.sabnzbdCategory },
         });
         await $fetch(`/v2/Settings/ComicProtocolPreference/${comic.protocolPreference}`, { method: 'PATCH' });
         await $fetch('/v2/Settings/ComicVine', { method: 'PATCH', body: { apiKey: comic.comicVineApiKey } });
