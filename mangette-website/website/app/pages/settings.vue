@@ -543,29 +543,34 @@ const apiErrorText = (e: unknown): string => {
     return body;
 };
 
+// Test buttons save their own section first -- otherwise "Test" checks whatever was last
+// persisted, not what's currently typed in the box, which reads as "it says empty" even
+// though the field visibly has a value in it.
+const saveProwlarr = () => $fetch('/v2/Settings/Prowlarr', { method: 'PATCH', body: { url: comic.prowlarrUrl, apiKey: comic.prowlarrApiKey } });
+const saveQBittorrent = () =>
+    $fetch('/v2/Settings/QBittorrent', {
+        method: 'PATCH',
+        body: {
+            url: comic.qBittorrentUrl,
+            username: comic.qBittorrentUsername,
+            password: comic.qBittorrentPassword,
+            category: comic.qBittorrentCategory,
+        },
+    });
+const saveSabnzbd = () =>
+    $fetch('/v2/Settings/Sabnzbd', { method: 'PATCH', body: { url: comic.sabnzbdUrl, apiKey: comic.sabnzbdApiKey, category: comic.sabnzbdCategory } });
+const saveComicVineKey = () => $fetch('/v2/Settings/ComicVine', { method: 'PATCH', body: { apiKey: comic.comicVineApiKey } });
+const saveProtocolPreference = () => $fetch(`/v2/Settings/ComicProtocolPreference/${comic.protocolPreference}`, { method: 'PATCH' });
+
 const saveComic = async () => {
     savingComic.value = true;
     comicMessage.value = '';
     try {
-        await $fetch('/v2/Settings/Prowlarr', {
-            method: 'PATCH',
-            body: { url: comic.prowlarrUrl, apiKey: comic.prowlarrApiKey },
-        });
-        await $fetch('/v2/Settings/QBittorrent', {
-            method: 'PATCH',
-            body: {
-                url: comic.qBittorrentUrl,
-                username: comic.qBittorrentUsername,
-                password: comic.qBittorrentPassword,
-                category: comic.qBittorrentCategory,
-            },
-        });
-        await $fetch('/v2/Settings/Sabnzbd', {
-            method: 'PATCH',
-            body: { url: comic.sabnzbdUrl, apiKey: comic.sabnzbdApiKey, category: comic.sabnzbdCategory },
-        });
-        await $fetch(`/v2/Settings/ComicProtocolPreference/${comic.protocolPreference}`, { method: 'PATCH' });
-        await $fetch('/v2/Settings/ComicVine', { method: 'PATCH', body: { apiKey: comic.comicVineApiKey } });
+        await saveProwlarr();
+        await saveQBittorrent();
+        await saveSabnzbd();
+        await saveProtocolPreference();
+        await saveComicVineKey();
         await refreshNuxtData(FetchKeys.Settings.All);
         comicOk.value = true;
         comicMessage.value = 'Saved.';
@@ -581,14 +586,16 @@ const testProwlarr = async () => {
     testingProwlarr.value = true;
     comicMessage.value = '';
     try {
+        await saveProwlarr();
         const msg = await $fetch<string>('/v2/Settings/Prowlarr/Test', { method: 'POST' });
         comicOk.value = true;
         comicMessage.value = msg || 'Prowlarr is reachable.';
     } catch (e: unknown) {
         comicOk.value = false;
-        comicMessage.value = apiErrorText(e) || 'Could not reach Prowlarr. Save the URL/API key first.';
+        comicMessage.value = apiErrorText(e) || 'Could not reach Prowlarr.';
     } finally {
         testingProwlarr.value = false;
+        await refreshNuxtData(FetchKeys.Settings.All);
     }
 };
 
@@ -596,14 +603,16 @@ const testQBittorrent = async () => {
     testingQBittorrent.value = true;
     comicMessage.value = '';
     try {
+        await saveQBittorrent();
         const msg = await $fetch<string>('/v2/Settings/QBittorrent/Test', { method: 'POST' });
         comicOk.value = true;
         comicMessage.value = msg || 'qBittorrent login works.';
     } catch (e: unknown) {
         comicOk.value = false;
-        comicMessage.value = apiErrorText(e) || 'Could not log in to qBittorrent. Save the URL/credentials first.';
+        comicMessage.value = apiErrorText(e) || 'Could not log in to qBittorrent.';
     } finally {
         testingQBittorrent.value = false;
+        await refreshNuxtData(FetchKeys.Settings.All);
     }
 };
 
@@ -611,14 +620,16 @@ const testSabnzbd = async () => {
     testingSabnzbd.value = true;
     comicMessage.value = '';
     try {
+        await saveSabnzbd();
         const msg = await $fetch<string>('/v2/Settings/Sabnzbd/Test', { method: 'POST' });
         comicOk.value = true;
         comicMessage.value = msg || 'SABnzbd is reachable.';
     } catch (e: unknown) {
         comicOk.value = false;
-        comicMessage.value = apiErrorText(e) || 'Could not reach SABnzbd. Save the URL/API key first.';
+        comicMessage.value = apiErrorText(e) || 'Could not reach SABnzbd.';
     } finally {
         testingSabnzbd.value = false;
+        await refreshNuxtData(FetchKeys.Settings.All);
     }
 };
 
@@ -626,14 +637,16 @@ const testComicVine = async () => {
     testingComicVine.value = true;
     comicMessage.value = '';
     try {
+        await saveComicVineKey();
         const msg = await $fetch<string>('/v2/Settings/ComicVine/Test', { method: 'POST' });
         comicOk.value = true;
         comicMessage.value = msg || 'ComicVine API key works.';
     } catch (e: unknown) {
         comicOk.value = false;
-        comicMessage.value = apiErrorText(e) || 'Could not verify the ComicVine API key. Save it first.';
+        comicMessage.value = apiErrorText(e) || 'Could not verify the ComicVine API key.';
     } finally {
         testingComicVine.value = false;
+        await refreshNuxtData(FetchKeys.Settings.All);
     }
 };
 

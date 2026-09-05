@@ -1,21 +1,24 @@
 using API.Controllers.Requests;
 using API.Schema.MangaContext;
+using API.Schema.MangaContext.MetadataFetchers;
 using API.Workers.PeriodicWorkers;
 using Asp.Versioning;
 using log4net;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json.Linq;
 using static Microsoft.AspNetCore.Http.StatusCodes;
 using Manga = API.Schema.MangaContext.Manga;
 
 namespace API.Controllers;
 
 /// <summary>
-/// Comics have no scraping connector (see AGENTS/plan notes), so a series is added by hand instead of
-/// searched: a title, an optional cover, a Comic-kind library, and the issue-number range to watch.
-/// <see cref="MaterializeWantedComicIssuesWorker"/> then creates placeholder Chapters for those issues
-/// and the indexer/download pipeline takes it from there.
+/// Comics have no scraping connector, so watching a series works like the manga "Add New" search
+/// page but against ComicVine instead of a site: search a title, pick the exact volume/run (e.g.
+/// "Batman v1 (1940)" vs "Batman (2011) New 52" are different ComicVine volumes), then add it with
+/// an issue-number range to watch. <see cref="MaterializeWantedComicIssuesWorker"/> turns that range
+/// into placeholder Chapters and the indexer/download pipeline takes it from there.
 /// </summary>
 [ApiVersion(2)]
 [ApiController]
@@ -23,6 +26,23 @@ namespace API.Controllers;
 public class ComicController(MangaContext context) : ControllerBase
 {
     private readonly ILog Log = LogManager.GetLogger(typeof(ComicController));
+
+    /// <summary>Searches ComicVine volumes -- pick the exact result you want, then AddComic with its ComicVineVolumeId.</summary>
+    /// <response code="200"></response>
+    /// <response code="400">Query is empty, or ComicVine is not configured</response>
+    [HttpGet("Search")]
+    [ProducesResponseType<List<ComicVineVolumeSummary>>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<List<ComicVineVolumeSummary>>, BadRequest<string>>> Search([FromQuery] string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return TypedResults.BadRequest("Query is required.");
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.ComicVineApiKey))
+            return TypedResults.BadRequest("ComicVine is not configured. Set an API key in Settings first.");
+
+        ComicVineVolumeSummary[] results = await Mangette.ComicVine.SearchVolumes(query.Trim(), HttpContext.RequestAborted);
+        return TypedResults.Ok(results.ToList());
+    }
 
     /// <summary>
     /// Adds a Comic series to watch and queues materialization of its wanted issues.
@@ -37,8 +57,6 @@ public class ComicController(MangaContext context) : ControllerBase
     public async Task<Results<Created<string>, BadRequest<string>, InternalServerError<string>>> AddComic(
         [FromBody] AddComicRecord requestData)
     {
-        if (string.IsNullOrWhiteSpace(requestData.Name))
-            return TypedResults.BadRequest("Name is required.");
         if (requestData.IssueEnd is { } issueEnd && issueEnd < requestData.IssueStart)
             return TypedResults.BadRequest("IssueEnd must be greater than or equal to IssueStart.");
 
@@ -49,14 +67,40 @@ public class ComicController(MangaContext context) : ControllerBase
         if (library.Kind != MediaKind.Comic)
             return TypedResults.BadRequest($"Library \"{library.LibraryName}\" is not a Comic library.");
 
-        Manga comic = new(requestData.Name, "", requestData.CoverUrl ?? "", MangaReleaseStatus.Continuing,
-            [], [], [], [], library, year: requestData.Year)
+        string name = requestData.Name ?? "";
+        string coverUrl = requestData.CoverUrl ?? "";
+        string description = "";
+        uint? year = requestData.Year;
+        int? issueEndFromComicVine = requestData.IssueEnd;
+        string? comicVineSiteUrl = null;
+
+        if (!string.IsNullOrWhiteSpace(requestData.ComicVineVolumeId))
+        {
+            JObject? volume = await Mangette.ComicVine.GetVolume(requestData.ComicVineVolumeId, HttpContext.RequestAborted);
+            if (volume is null)
+                return TypedResults.BadRequest($"Could not load ComicVine volume {requestData.ComicVineVolumeId}.");
+
+            name = volume.Value<string>("name") ?? name;
+            coverUrl = volume.Value<JObject>("image")?.Value<string>("medium_url") ?? coverUrl;
+            description = ComicVine.StripHtml(volume.Value<string>("description") ?? "");
+            year = uint.TryParse(volume.Value<string>("start_year"), out uint y) ? y : year;
+            comicVineSiteUrl = volume.Value<string>("site_detail_url");
+            if (issueEndFromComicVine is null && volume.Value<int?>("count_of_issues") is { } issueCount and > 0)
+                issueEndFromComicVine = issueCount;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+            return TypedResults.BadRequest("Name is required when ComicVineVolumeId is not set.");
+
+        Manga comic = new(name, description, coverUrl, MangaReleaseStatus.Continuing, [], [], [], [], library, year: year)
         {
             Kind = MediaKind.Comic,
             ComicIssueStart = requestData.IssueStart,
-            ComicIssueEnd = requestData.IssueEnd
+            ComicIssueEnd = issueEndFromComicVine
         };
         comic.SetMonitored(true);
+        if (!string.IsNullOrWhiteSpace(comicVineSiteUrl))
+            comic.Links.Add(new Link("ComicVine", comicVineSiteUrl));
 
         context.Mangas.Add(comic);
         if (await context.Sync(HttpContext.RequestAborted, GetType(), "Add comic") is { success: false } result)
@@ -64,7 +108,7 @@ public class ComicController(MangaContext context) : ControllerBase
 
         Mangette.AddWorker(new MaterializeWantedComicIssuesWorker(mangaId: comic.Key));
         Log.InfoFormat("Added Comic \"{0}\" (issues {1}-{2}) to library {3}.",
-            comic.Name, requestData.IssueStart, requestData.IssueEnd?.ToString() ?? "∞", library.LibraryName);
+            comic.Name, requestData.IssueStart, comic.ComicIssueEnd?.ToString() ?? "∞", library.LibraryName);
 
         return TypedResults.Created(string.Empty, comic.Key);
     }

@@ -827,6 +827,48 @@
         }
       }
     },
+    "/v2/Comic/Search": {
+      "get": {
+        "tags": [
+          "Comic"
+        ],
+        "summary": "Searches ComicVine volumes -- pick the exact result you want, then AddComic with its ComicVineVolumeId.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComicVineVolumeSummary"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Query is empty, or ComicVine is not configured",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Comic": {
       "put": {
         "tags": [
@@ -5633,15 +5675,19 @@
       "AddComicRecord": {
         "required": [
           "fileLibraryId",
-          "issueStart",
-          "name"
+          "issueStart"
         ],
         "type": "object",
         "properties": {
-          "name": {
-            "minLength": 1,
+          "comicVineVolumeId": {
             "type": "string",
-            "description": "Series title"
+            "description": "ComicVine volume id from GET Comic/Search. When set, Name/CoverUrl/Year/IssueEnd are filled from ComicVine.",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Series title. Required only when ComicVineVolumeId is not set.",
+            "nullable": true
           },
           "coverUrl": {
             "type": "string",
@@ -5664,7 +5710,7 @@
             "maximum": 2147483647,
             "minimum": 1,
             "type": "integer",
-            "description": "Last issue number to watch for. Omit for an open-ended/ongoing series",
+            "description": "Last issue number to watch for. Omit for an open-ended/ongoing series, or to use ComicVine's real issue count.",
             "format": "int32",
             "nullable": true
           },
@@ -5675,7 +5721,7 @@
           }
         },
         "additionalProperties": false,
-        "description": "Manually adds a Comic series to watch. There is no scraping connector for comics, so issues are\r\ndiscovered by expected issue number instead of a site's chapter list."
+        "description": "Adds a Comic series to watch. Pass API.Controllers.Requests.AddComicRecord.ComicVineVolumeId (from\r\n`GET Comic/Search`) to fill Name/CoverUrl/Year/IssueEnd from real ComicVine data --\r\nAPI.Controllers.Requests.AddComicRecord.Name/API.Controllers.Requests.AddComicRecord.CoverUrl/API.Controllers.Requests.AddComicRecord.Year are only a fallback for the rare\r\ncase ComicVine has nothing for a series and it's being watched by title alone."
       },
       "AddSeriesRequest": {
         "required": [
@@ -6149,6 +6195,46 @@
           }
         },
         "additionalProperties": false
+      },
+      "ComicVineVolumeSummary": {
+        "type": "object",
+        "properties": {
+          "comicVineVolumeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "publisher": {
+            "type": "string",
+            "nullable": true
+          },
+          "issueCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false,
+        "description": "One ComicVine volume search result with the fields the \"Add Comic\" search UI needs displayed\r\nseparately (year, issue count) rather than folded into one description string."
       },
       "CoverSize": {
         "enum": [

@@ -11,6 +11,14 @@ namespace API.Schema.MangaContext.MetadataFetchers;
 public sealed record ComicVineIssue(string IssueNumber, string? Name, DateTime? CoverDate);
 
 /// <summary>
+/// One ComicVine volume search result with the fields the "Add Comic" search UI needs displayed
+/// separately (year, issue count) rather than folded into one description string.
+/// </summary>
+public sealed record ComicVineVolumeSummary(
+    string ComicVineVolumeId, string Name, string? Url, string? CoverUrl, string? Description,
+    int? Year, string? Publisher, int IssueCount);
+
+/// <summary>
 /// ComicVine REST API (https://comicvine.gamespot.com/api/) -- the metadata source for Comics,
 /// the same role AniList/MyAnimeList play for Manga. Needs a free API key set in Settings.
 /// </summary>
@@ -95,6 +103,38 @@ public class ComicVine : MetadataFetcher
 
         if (await dbContext.Sync(token, GetType(), "Update ComicVine metadata") is { success: true })
             Log.InfoFormat("Updated ComicVine metadata: {0}", metadataEntry.MangaId);
+    }
+
+    /// <summary>
+    /// Search ComicVine volumes with year/issue-count/publisher exposed as their own fields, for the
+    /// "Add Comic" search UI (picking "Batman v1 (1940) - 713 issues" apart from "Batman (2016) Rebirth").
+    /// </summary>
+    public async Task<ComicVineVolumeSummary[]> SearchVolumes(string searchTerm, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.ComicVineApiKey))
+            return [];
+
+        string url = $"{BaseUrl}/search/?api_key={Mangette.Settings.ComicVineApiKey}&format=json&resources=volume" +
+                     $"&query={Uri.EscapeDataString(searchTerm)}" +
+                     "&field_list=id,name,start_year,image,description,count_of_issues,publisher,site_detail_url&limit=15";
+        JObject? body = await Get(url, cancellationToken);
+        JArray? results = body?.Value<JArray>("results");
+        return results?.OfType<JObject>().Select(ToSummary).ToArray() ?? [];
+    }
+
+    private static ComicVineVolumeSummary ToSummary(JObject volume)
+    {
+        int id = volume.Value<int?>("id") ?? 0;
+        int? year = int.TryParse(volume.Value<string>("start_year"), out int y) ? y : null;
+        return new ComicVineVolumeSummary(
+            id.ToString(),
+            volume.Value<string>("name") ?? id.ToString(),
+            volume.Value<string>("site_detail_url"),
+            volume.Value<JObject>("image")?.Value<string>("medium_url"),
+            StripHtml(volume.Value<string>("description") ?? ""),
+            year,
+            volume.Value<JObject>("publisher")?.Value<string>("name"),
+            volume.Value<int?>("count_of_issues") ?? 0);
     }
 
     internal async Task<JObject?> GetVolume(string volumeId, CancellationToken cancellationToken = default)
