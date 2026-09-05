@@ -115,6 +115,59 @@
             </UCard>
             <UCard v-if="settingsStatus === 'success'">
                 <template #header>
+                    <h1>Comic downloads</h1>
+                </template>
+                <p class="text-muted text-sm mb-3">
+                    Comics have no scraping connector. Prowlarr searches your indexers, and the winning release goes to
+                    qBittorrent (torrent) or SABnzbd (Usenet) depending on protocol preference. ComicVine is the metadata
+                    source used to match series and build the wanted-issue list on import.
+                </p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <UFormField label="Prowlarr URL" class="sm:col-span-2">
+                        <UInput v-model="comic.prowlarrUrl" class="w-full" placeholder="http://192.168.1.50:9696" />
+                    </UFormField>
+                    <UFormField label="Prowlarr API key">
+                        <UInput v-model="comic.prowlarrApiKey" type="password" class="w-full" />
+                    </UFormField>
+                    <div class="flex items-end">
+                        <UButton variant="outline" :loading="testingProwlarr" @click="testProwlarr">Test Prowlarr</UButton>
+                    </div>
+                    <UFormField label="qBittorrent URL" class="sm:col-span-2">
+                        <UInput v-model="comic.qBittorrentUrl" class="w-full" placeholder="http://192.168.1.50:8080" />
+                    </UFormField>
+                    <UFormField label="qBittorrent username">
+                        <UInput v-model="comic.qBittorrentUsername" class="w-full" />
+                    </UFormField>
+                    <UFormField label="qBittorrent password">
+                        <UInput v-model="comic.qBittorrentPassword" type="password" class="w-full" />
+                    </UFormField>
+                    <div class="flex items-end">
+                        <UButton variant="outline" :loading="testingQBittorrent" @click="testQBittorrent">Test qBittorrent</UButton>
+                    </div>
+                    <UFormField label="SABnzbd URL" class="sm:col-span-2">
+                        <UInput v-model="comic.sabnzbdUrl" class="w-full" placeholder="http://192.168.1.50:8080" />
+                    </UFormField>
+                    <UFormField label="SABnzbd API key">
+                        <UInput v-model="comic.sabnzbdApiKey" type="password" class="w-full" />
+                    </UFormField>
+                    <div class="flex items-end">
+                        <UButton variant="outline" :loading="testingSabnzbd" @click="testSabnzbd">Test SABnzbd</UButton>
+                    </div>
+                    <UFormField label="Protocol preference" hint="Which client wins when a search finds both.">
+                        <USelect v-model="comic.protocolPreference" :items="['Usenet', 'Torrent']" class="w-full" />
+                    </UFormField>
+                    <UFormField label="ComicVine API key" class="sm:col-span-2" hint="Free key from comicvine.gamespot.com">
+                        <UInput v-model="comic.comicVineApiKey" type="password" class="w-full" />
+                    </UFormField>
+                    <div class="flex items-end">
+                        <UButton variant="outline" :loading="testingComicVine" @click="testComicVine">Test ComicVine</UButton>
+                    </div>
+                </div>
+                <UButton class="mt-4 w-fit" :loading="savingComic" @click="saveComic">Save comic downloads</UButton>
+                <p v-if="comicMessage" class="mt-2 text-sm" :class="comicOk ? 'text-success' : 'text-error'">{{ comicMessage }}</p>
+            </UCard>
+            <UCard v-if="settingsStatus === 'success'">
+                <template #header>
                     <h1>Download source priority</h1>
                 </template>
                 <p class="text-muted text-sm mb-3">
@@ -287,6 +340,25 @@ const savingAuth = ref(false);
 const authMessage = ref('');
 const authOk = ref(false);
 
+const comic = reactive({
+    prowlarrUrl: '',
+    prowlarrApiKey: '',
+    qBittorrentUrl: '',
+    qBittorrentUsername: '',
+    qBittorrentPassword: '',
+    sabnzbdUrl: '',
+    sabnzbdApiKey: '',
+    comicVineApiKey: '',
+    protocolPreference: 'Usenet',
+});
+const savingComic = ref(false);
+const comicMessage = ref('');
+const comicOk = ref(false);
+const testingProwlarr = ref(false);
+const testingQBittorrent = ref(false);
+const testingSabnzbd = ref(false);
+const testingComicVine = ref(false);
+
 const applySetupFromSettings = () => {
     const value = settings.value;
     if (!value) return;
@@ -298,11 +370,21 @@ const applySetupFromSettings = () => {
     setup.downloadLanguage = value.downloadLanguage ?? 'en';
     setup.chapterNamingScheme = value.chapterNamingScheme ?? setup.chapterNamingScheme;
     setup.defaultNewChapterCheck = (value as { defaultNewChapterCheck?: string }).defaultNewChapterCheck ?? 'Daily';
-    const first = fileLibraries.value?.[0];
+    const first = fileLibraries.value?.find((l) => l.kind === 'Manga') ?? fileLibraries.value?.[0];
     setup.libraryPath = first?.basePath ?? value.defaultLibraryPath ?? '';
     setup.libraryName = first?.libraryName ?? 'Library';
     auth.enabled = !!value.authenticationEnabled;
     auth.username = value.authUsername || 'admin';
+
+    comic.prowlarrUrl = value.prowlarrUrl ?? '';
+    comic.prowlarrApiKey = value.prowlarrApiKey ?? '';
+    comic.qBittorrentUrl = value.qBittorrentUrl ?? '';
+    comic.qBittorrentUsername = value.qBittorrentUsername ?? '';
+    comic.qBittorrentPassword = value.qBittorrentPassword ?? '';
+    comic.sabnzbdUrl = value.sabnzbdUrl ?? '';
+    comic.sabnzbdApiKey = value.sabnzbdApiKey ?? '';
+    comic.comicVineApiKey = value.comicVineApiKey ?? '';
+    comic.protocolPreference = value.comicProtocolPreference ?? 'Usenet';
 };
 
 watch([settings, fileLibraries], applySetupFromSettings, { immediate: true });
@@ -443,6 +525,100 @@ const testChromium = async () => {
         flareMessage.value = 'Chromium failed. Install Google Chrome or Edge on this machine.';
     } finally {
         testingChromium.value = false;
+    }
+};
+
+const apiErrorText = (e: unknown): string => {
+    const body = typeof e === 'object' && e && 'data' in e ? String((e as { data?: unknown }).data ?? '') : '';
+    return body;
+};
+
+const saveComic = async () => {
+    savingComic.value = true;
+    comicMessage.value = '';
+    try {
+        await $fetch('/v2/Settings/Prowlarr', {
+            method: 'PATCH',
+            body: { url: comic.prowlarrUrl, apiKey: comic.prowlarrApiKey },
+        });
+        await $fetch('/v2/Settings/QBittorrent', {
+            method: 'PATCH',
+            body: { url: comic.qBittorrentUrl, username: comic.qBittorrentUsername, password: comic.qBittorrentPassword },
+        });
+        await $fetch('/v2/Settings/Sabnzbd', {
+            method: 'PATCH',
+            body: { url: comic.sabnzbdUrl, apiKey: comic.sabnzbdApiKey },
+        });
+        await $fetch(`/v2/Settings/ComicProtocolPreference/${comic.protocolPreference}`, { method: 'PATCH' });
+        await $fetch('/v2/Settings/ComicVine', { method: 'PATCH', body: { apiKey: comic.comicVineApiKey } });
+        await refreshNuxtData(FetchKeys.Settings.All);
+        comicOk.value = true;
+        comicMessage.value = 'Saved.';
+    } catch (e: unknown) {
+        comicOk.value = false;
+        comicMessage.value = apiErrorText(e) || 'Could not save comic download settings.';
+    } finally {
+        savingComic.value = false;
+    }
+};
+
+const testProwlarr = async () => {
+    testingProwlarr.value = true;
+    comicMessage.value = '';
+    try {
+        const msg = await $fetch<string>('/v2/Settings/Prowlarr/Test', { method: 'POST' });
+        comicOk.value = true;
+        comicMessage.value = msg || 'Prowlarr is reachable.';
+    } catch (e: unknown) {
+        comicOk.value = false;
+        comicMessage.value = apiErrorText(e) || 'Could not reach Prowlarr. Save the URL/API key first.';
+    } finally {
+        testingProwlarr.value = false;
+    }
+};
+
+const testQBittorrent = async () => {
+    testingQBittorrent.value = true;
+    comicMessage.value = '';
+    try {
+        const msg = await $fetch<string>('/v2/Settings/QBittorrent/Test', { method: 'POST' });
+        comicOk.value = true;
+        comicMessage.value = msg || 'qBittorrent login works.';
+    } catch (e: unknown) {
+        comicOk.value = false;
+        comicMessage.value = apiErrorText(e) || 'Could not log in to qBittorrent. Save the URL/credentials first.';
+    } finally {
+        testingQBittorrent.value = false;
+    }
+};
+
+const testSabnzbd = async () => {
+    testingSabnzbd.value = true;
+    comicMessage.value = '';
+    try {
+        const msg = await $fetch<string>('/v2/Settings/Sabnzbd/Test', { method: 'POST' });
+        comicOk.value = true;
+        comicMessage.value = msg || 'SABnzbd is reachable.';
+    } catch (e: unknown) {
+        comicOk.value = false;
+        comicMessage.value = apiErrorText(e) || 'Could not reach SABnzbd. Save the URL/API key first.';
+    } finally {
+        testingSabnzbd.value = false;
+    }
+};
+
+const testComicVine = async () => {
+    testingComicVine.value = true;
+    comicMessage.value = '';
+    try {
+        const msg = await $fetch<string>('/v2/Settings/ComicVine/Test', { method: 'POST' });
+        comicOk.value = true;
+        comicMessage.value = msg || 'ComicVine API key works.';
+    } catch (e: unknown) {
+        comicOk.value = false;
+        comicMessage.value = apiErrorText(e) || 'Could not verify the ComicVine API key. Save it first.';
+    } finally {
+        testingComicVine.value = false;
     }
 };
 

@@ -10,6 +10,9 @@
             <UFormField label="Folder" class="grow">
                 <UInput v-model="l.basePath" class="w-full" />
             </UFormField>
+            <UBadge :color="l.kind === 'Comic' ? 'secondary' : 'primary'" variant="subtle" class="h-fit self-center">
+                {{ l.kind }}
+            </UBadge>
             <div class="flex gap-2">
                 <UButton :loading="busyKey === l.key" class="w-fit" @click="saveLibrary(l)">Save</UButton>
                 <UButton color="warning" variant="outline" :loading="busyKey === l.key" class="w-fit" @click="deleteLibrary(l)">
@@ -28,11 +31,11 @@ const { $api } = useNuxtApp();
 
 const { data: fileLibraries } = await useApi('/v2/FileLibrary', { key: FetchKeys.FileLibraries, server: false });
 
-const drafts = ref<{ key: string; libraryName: string; basePath: string }[]>([]);
+const drafts = ref<{ key: string; libraryName: string; basePath: string; kind: string }[]>([]);
 watch(
     fileLibraries,
     (list) => {
-        drafts.value = (list ?? []).map((l) => ({ key: l.key, libraryName: l.libraryName, basePath: l.basePath }));
+        drafts.value = (list ?? []).map((l) => ({ key: l.key, libraryName: l.libraryName, basePath: l.basePath, kind: l.kind }));
     },
     { immediate: true },
 );

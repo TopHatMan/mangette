@@ -74,6 +74,7 @@ const items = [
     { label: 'Discover', to: '/discover', icon: 'i-lucide-sparkles' },
     { label: 'Add New', to: '/search', icon: 'i-lucide-plus' },
     { label: 'Import', to: '/import', icon: 'i-lucide-folder-input' },
+    { label: 'Comics', to: '/comics/import', icon: 'i-lucide-book-open' },
     { label: 'Wanted', to: '/wanted', icon: 'i-lucide-circle-alert' },
     { label: 'Activity', to: '/actions', icon: 'i-lucide-activity' },
     { label: 'Settings', to: '/settings', icon: 'i-lucide-settings' },

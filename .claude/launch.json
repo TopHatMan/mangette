@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mangette-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "API/API.csproj", "--no-launch-profile"],
+      "port": 8585
+    },
+    {
+      "name": "mangette-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}

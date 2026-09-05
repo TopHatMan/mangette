@@ -72,7 +72,12 @@ public class SettingsController(MangaContext context) : ControllerBase
                 return TypedResults.BadRequest($"Could not create library folder: {ex.Message}");
             }
 
-            FileLibrary? library = await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(HttpContext.RequestAborted);
+            // Scoped to Manga-kind libraries only: with a Comic-kind library also present, "first
+            // library alphabetically" is ambiguous and this quick-setup field must never touch it.
+            FileLibrary? library = await context.FileLibraries
+                .Where(l => l.Kind == MediaKind.Manga)
+                .OrderBy(l => l.LibraryName)
+                .FirstOrDefaultAsync(HttpContext.RequestAborted);
             if (library is null)
             {
                 library = new FileLibrary(full, string.IsNullOrWhiteSpace(requestData.LibraryName) ? "Library" : requestData.LibraryName);
@@ -511,9 +516,9 @@ public class SettingsController(MangaContext context) : ControllerBase
     /// <summary>Sets the ComicVine API key used as the metadata source for Comics.</summary>
     [HttpPatch("ComicVine")]
     [ProducesResponseType(Status200OK)]
-    public Ok SetComicVine([FromBody] string apiKey)
+    public Ok SetComicVine([FromBody] SetComicVineRecord requestData)
     {
-        Mangette.Settings.SetComicVineApiKey(apiKey == MaskedSecret ? Mangette.Settings.ComicVineApiKey : apiKey);
+        Mangette.Settings.SetComicVineApiKey(requestData.ApiKey == MaskedSecret ? Mangette.Settings.ComicVineApiKey : requestData.ApiKey);
         return TypedResults.Ok();
     }
 

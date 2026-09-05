@@ -118,6 +118,100 @@
         }
       }
     },
+    "/v2/Auth/Status": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Auth/Login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Auth/Logout": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v2/Chapters/Manga/{MangaId}": {
       "post": {
         "tags": [
@@ -616,6 +710,446 @@
               "text/plain; x-version=2.0": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Chapters/{ChapterId}/Releases": {
+      "get": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Interactive search: sites that have this chapter.",
+        "parameters": [
+          {
+            "name": "ChapterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChapterRelease"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Chapters/{ChapterId}/Grab": {
+      "post": {
+        "tags": [
+          "Chapters"
+        ],
+        "summary": "Download this chapter from one site (interactive grab) or the best attached site.",
+        "parameters": [
+          {
+            "name": "ChapterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabChapterRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabChapterRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabChapterRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabChapterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Comic": {
+      "put": {
+        "tags": [
+          "Comic"
+        ],
+        "summary": "Adds a Comic series to watch and queues materialization of its wanted issues.",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddComicRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddComicRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddComicRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AddComicRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Key of the new Comic (Manga row)",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request data, or the library is not Comic-kind",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error during database operation",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/ComicLibraryImport/Scan": {
+      "get": {
+        "tags": [
+          "ComicLibraryImport"
+        ],
+        "parameters": [
+          {
+            "name": "fileLibraryId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComicScanResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/ComicLibraryImport/Match": {
+      "post": {
+        "tags": [
+          "ComicLibraryImport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicMatchRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicMatchRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicMatchRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicMatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComicMatchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/ComicLibraryImport/Import": {
+      "post": {
+        "tags": [
+          "ComicLibraryImport"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicImportRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicImportRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicImportRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ComicImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComicImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/ComicLibraryImport/Unmatched": {
+      "get": {
+        "tags": [
+          "ComicLibraryImport"
+        ],
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/ComicReorganize/Preview": {
+      "get": {
+        "tags": [
+          "ComicReorganize"
+        ],
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComicReorganizeEntry"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Discover": {
+      "get": {
+        "tags": [
+          "Discover"
+        ],
+        "summary": "Trending, popular, new, and recently updated manga from AniList (no API key).\r\nSame idea as Radarr Discover. Cached for 30 minutes.",
+        "parameters": [
+          {
+            "name": "refresh",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverPage"
                 }
               }
             }
@@ -1326,7 +1860,7 @@
         "tags": [
           "Maintenance"
         ],
-        "summary": "Scan library folders for existing .cbz files and mark matching chapters as downloaded.\r\nUse this when recovering an old Tranga/Mangette library so chapters are not re-downloaded.",
+        "summary": "Scan library folders: mark chapters whose archives are on disk, clear holes\r\n(missing or corrupt files), and queue monitored missing chapters for download.",
         "responses": {
           "200": {
             "description": "OK",
@@ -1356,7 +1890,7 @@
         "tags": [
           "Manga"
         ],
-        "summary": "Returns series in the library. Search results are not included until they are added.\r\nUnmonitored series with no downloaded chapters (leftover from the old search-adds-everything behavior) are omitted.",
+        "summary": "Returns series in the library. Search results are not included until they are added.\r\nUnmonitored leftovers with no library folder and no downloaded chapters are omitted.",
         "responses": {
           "200": {
             "description": "API.Controllers.DTOs.LibrarySeries rows for the dashboard",
@@ -1443,6 +1977,81 @@
           }
         }
       },
+      "patch": {
+        "tags": [
+          "Manga"
+        ],
+        "summary": "Rename the series (Sonarr-style). Optionally rename the folder on disk.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameMangaRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameMangaRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameMangaRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameMangaRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Manga"
@@ -1486,6 +2095,47 @@
         }
       }
     },
+    "/v2/Manga/{MangaId}/SearchMissing": {
+      "post": {
+        "tags": [
+          "Manga"
+        ],
+        "summary": "Queue missing chapters for this series only.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Manga/{MangaId}/Monitor": {
       "patch": {
         "tags": [
@@ -1504,7 +2154,22 @@
         ],
         "requestBody": {
           "content": {
-            "application/json": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMonitorRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMonitorRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMonitorRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
               "schema": {
                 "$ref": "#/components/schemas/PatchMonitorRequest"
               }
@@ -1513,7 +2178,7 @@
         },
         "responses": {
           "200": {
-            "description": "",
+            "description": "OK",
             "content": {
               "application/json; x-version=2.0": {
                 "schema": {
@@ -1523,7 +2188,24 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1533,7 +2215,7 @@
         "tags": [
           "Manga"
         ],
-        "summary": "Re-fetch the chapter list from attached sites now. New chapters raise the series total.",
+        "summary": "Re-fetch the chapter list from attached sites now. Ongoing monitored series also do this on Daily/Weekly.\r\nNew chapters raise the series total.",
         "parameters": [
           {
             "name": "MangaId",
@@ -1546,7 +2228,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Number of refresh jobs queued",
+            "description": "OK",
             "content": {
               "application/json; x-version=2.0": {
                 "schema": {
@@ -1557,7 +2239,75 @@
             }
           },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Manga/{MangaId}/FillChapterTitles": {
+      "post": {
+        "tags": [
+          "Manga"
+        ],
+        "summary": "Fill empty chapter titles/volumes from the MangaDex catalog. Does not use MangaDex for downloads.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -1820,6 +2570,91 @@
         }
       }
     },
+    "/v2/Manga/{MangaId}/Sources/{MangaConnectorName}": {
+      "post": {
+        "tags": [
+          "Manga"
+        ],
+        "summary": "Attach another site to this series and use it for downloads. Only sites you turn on here are searched.",
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "MangaConnectorName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachSourceRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachSourceRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachSourceRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/AttachSourceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Manga/{MangaId}/OnMangaConnector/{MangaConnectorName}": {
       "get": {
         "tags": [
@@ -1841,6 +2676,14 @@
             "in": "path",
             "description": "API.MangaConnectors.MangaConnector.Name",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "description": "Title to search. Defaults to the series name already stored in the library.",
             "schema": {
               "type": "string"
             }
@@ -3173,35 +4016,6 @@
         }
       }
     },
-    "/v2/Discover": {
-      "get": {
-        "tags": [
-          "Discover"
-        ],
-        "summary": "Trending, popular, new, and recently updated manga from AniList. Cached for 30 minutes.",
-        "parameters": [
-          {
-            "name": "refresh",
-            "in": "query",
-            "schema": {
-              "type": "boolean"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json; x-version=2.0": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscoverPage"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v2/Search/Lookup": {
       "get": {
         "tags": [
@@ -3908,8 +4722,302 @@
           "Settings"
         ],
         "summary": "Sets the FlareSolverr-URL",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Resets the FlareSolverr-URL (HttpClient does not use FlareSolverr anymore)",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/v2/Settings/FlareSolverr/Test": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Ping FlareSolverr itself (sessions.list). Does not browse a random third-party site.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Settings/Prowlarr": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets the Prowlarr URL and API key used to search indexers for Comics.",
         "requestBody": {
-          "description": "URL of FlareSolverr-Instance",
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetProwlarrRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v2/Settings/Prowlarr/Test": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Checks that Prowlarr is reachable with the configured API key.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Settings/QBittorrent": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets the qBittorrent WebUI connection used as the torrent download client for Comics.",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetQBittorrentRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetQBittorrentRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetQBittorrentRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetQBittorrentRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v2/Settings/QBittorrent/Test": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Logs into qBittorrent with the configured credentials.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Settings/Sabnzbd": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets the SABnzbd connection used as the Usenet download client for Comics.",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSabnzbdRecord"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSabnzbdRecord"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSabnzbdRecord"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSabnzbdRecord"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v2/Settings/Sabnzbd/Test": {
+      "post": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Checks that SABnzbd is reachable with the configured API key.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Settings/ComicProtocolPreference/{preference}": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets which protocol wins when a Comic search finds both a torrent and a Usenet release.",
+        "parameters": [
+          {
+            "name": "preference",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ComicProtocolPreference"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/v2/Settings/ComicVine": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets the ComicVine API key used as the metadata source for Comics.",
+        "requestBody": {
           "content": {
             "application/json-patch+json; x-version=2.0": {
               "schema": {
@@ -3935,28 +5043,17 @@
         },
         "responses": {
           "200": {
-            "description": ""
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Settings"
-        ],
-        "summary": "Resets the FlareSolverr-URL (HttpClient does not use FlareSolverr anymore)",
-        "responses": {
-          "200": {
-            "description": ""
+            "description": "OK"
           }
         }
       }
     },
-    "/v2/Settings/FlareSolverr/Test": {
+    "/v2/Settings/ComicVine/Test": {
       "post": {
         "tags": [
           "Settings"
         ],
-        "summary": "Ping FlareSolverr itself (sessions.list). Does not browse a random third-party site.",
+        "summary": "Checks that the configured ComicVine API key works.",
         "responses": {
           "200": {
             "description": "OK",
@@ -4073,6 +5170,158 @@
         "responses": {
           "200": {
             "description": ""
+          }
+        }
+      }
+    },
+    "/v2/Wanted/Missing": {
+      "get": {
+        "tags": [
+          "Wanted"
+        ],
+        "summary": "Monitored chapters that are not on disk — Sonarr Wanted → Missing.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/WantedMissing"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Wanted/ManualImport": {
+      "get": {
+        "tags": [
+          "Wanted"
+        ],
+        "summary": "Preview archives in a folder and guess series/chapter, like Sonarr Manual Import.",
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualImportPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Wanted"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualImportRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualImportRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualImportRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualImportRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Wanted/MissingChapters/{MangaId}": {
+      "get": {
+        "tags": [
+          "Wanted"
+        ],
+        "parameters": [
+          {
+            "name": "MangaId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WantedChapter"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -4261,6 +5510,23 @@
             "description": "ChapterId if Record is API.Schema.ActionsContext.Actions.Generic.IActionWithMangaRecord",
             "nullable": true
           },
+          "mangaName": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "volumeNumber": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "chapterTitle": {
+            "type": "string",
+            "nullable": true
+          },
           "from": {
             "type": "string",
             "description": "FromPath if Record is API.Schema.ActionsContext.Actions.DataMovedActionRecord",
@@ -4364,40 +5630,52 @@
         },
         "additionalProperties": false
       },
-      "DiscoverHit": {
+      "AddComicRecord": {
+        "required": [
+          "fileLibraryId",
+          "issueStart",
+          "name"
+        ],
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "description": { "type": "string" },
-          "year": { "type": "integer", "format": "int32", "nullable": true },
-          "releaseStatus": { "$ref": "#/components/schemas/MangaReleaseStatus" },
-          "coverUrl": { "type": "string" },
-          "aniListId": { "type": "integer", "format": "int32" },
-          "siteUrl": { "type": "string" },
-          "averageScore": { "type": "integer", "format": "int32", "nullable": true },
-          "popularity": { "type": "integer", "format": "int32" },
-          "kind": { "type": "string" },
-          "genres": { "type": "array", "items": { "type": "string" } },
-          "chapters": { "type": "integer", "format": "int32", "nullable": true },
-          "alreadyInLibrary": { "type": "boolean" },
-          "existingMangaId": { "type": "string", "nullable": true },
-          "connectorName": { "type": "string", "nullable": true },
-          "idOnSite": { "type": "string", "nullable": true }
+          "name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Series title"
+          },
+          "coverUrl": {
+            "type": "string",
+            "description": "Cover image URL, shown as-is (not cached/resized like scraped covers)",
+            "nullable": true
+          },
+          "fileLibraryId": {
+            "minLength": 1,
+            "type": "string",
+            "description": "A Comic-kind FileLibrary to bind this series to"
+          },
+          "issueStart": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer",
+            "description": "First issue number to watch for",
+            "format": "int32"
+          },
+          "issueEnd": {
+            "maximum": 2147483647,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Last issue number to watch for. Omit for an open-ended/ongoing series",
+            "format": "int32",
+            "nullable": true
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
         },
-        "additionalProperties": false
-      },
-      "DiscoverPage": {
-        "type": "object",
-        "properties": {
-          "trending": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
-          "popular": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
-          "newReleases": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
-          "recentlyUpdated": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
-          "popularOnSites": { "type": "array", "items": { "$ref": "#/components/schemas/DiscoverHit" } },
-          "generatedAtUtc": { "type": "string", "format": "date-time" },
-          "source": { "type": "string" }
-        },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Manually adds a Comic series to watch. There is no scraping connector for comics, so issues are\r\ndiscovered by expected issue number instead of a site's chapter list."
       },
       "AddSeriesRequest": {
         "required": [
@@ -4451,6 +5729,32 @@
         },
         "additionalProperties": false,
         "description": "API.Schema.MangaContext.AltTitle DTO"
+      },
+      "AttachSourceRequest": {
+        "type": "object",
+        "properties": {
+          "idOnSite": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuthStatus": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "authenticated": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "Author": {
         "required": [
@@ -4627,6 +5931,225 @@
         },
         "additionalProperties": false
       },
+      "ChapterRelease": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "nullable": true
+          },
+          "connectorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "idOnSite": {
+            "type": "string",
+            "nullable": true
+          },
+          "websiteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "preferred": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "volume": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicImportRequest": {
+        "type": "object",
+        "properties": {
+          "libraryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "comicVineVolumeId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicImportResult": {
+        "type": "object",
+        "properties": {
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "issueCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "archivesOnDisk": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicMatchCandidate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "comicVineVolumeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicMatchRequest": {
+        "type": "object",
+        "properties": {
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "query": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicMatchResult": {
+        "type": "object",
+        "properties": {
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComicMatchCandidate"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicProtocolPreference": {
+        "enum": [
+          "Usenet",
+          "Torrent"
+        ],
+        "type": "string"
+      },
+      "ComicReorganizeEntry": {
+        "type": "object",
+        "properties": {
+          "chapterId": {
+            "type": "string",
+            "nullable": true
+          },
+          "issueNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "currentRelativePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "proposedRelativePath": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicScanFolderRecord": {
+        "type": "object",
+        "properties": {
+          "folderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "archiveCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "otherFileCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "suggestedQuery": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComicScanResult": {
+        "type": "object",
+        "properties": {
+          "libraryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "libraryName": {
+            "type": "string",
+            "nullable": true
+          },
+          "basePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "unmappedFolders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComicScanFolderRecord"
+            },
+            "nullable": true
+          },
+          "mappedFolderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "warning": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CoverSize": {
         "enum": [
           "Original",
@@ -4727,6 +6250,9 @@
             "minLength": 1,
             "type": "string",
             "description": "The Name of the library"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaKind"
           }
         },
         "additionalProperties": false
@@ -4843,6 +6369,138 @@
         },
         "additionalProperties": false
       },
+      "DiscoverHit": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "releaseStatus": {
+            "$ref": "#/components/schemas/MangaReleaseStatus"
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "aniListId": {
+            "type": "integer",
+            "description": "AniList media id. 0 when the row came from a download site, not AniList.",
+            "format": "int32"
+          },
+          "siteUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "averageScore": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "popularity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Manga, Manhwa, Manhua, or One-shot",
+            "nullable": true
+          },
+          "genres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "chapters": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "alreadyInLibrary": {
+            "type": "boolean"
+          },
+          "existingMangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "connectorName": {
+            "type": "string",
+            "description": "Download site when this row is from Popular on sites",
+            "nullable": true
+          },
+          "idOnSite": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DiscoverPage": {
+        "type": "object",
+        "properties": {
+          "trending": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscoverHit"
+            },
+            "description": "Hot on AniList right now",
+            "nullable": true
+          },
+          "popular": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscoverHit"
+            },
+            "description": "All-time popular on AniList",
+            "nullable": true
+          },
+          "newReleases": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscoverHit"
+            },
+            "description": "Recently started series",
+            "nullable": true
+          },
+          "recentlyUpdated": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscoverHit"
+            },
+            "description": "Ongoing series AniList updated lately — often new chapters",
+            "nullable": true
+          },
+          "popularOnSites": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscoverHit"
+            },
+            "description": "Popular titles on an enabled download site (WeebCentral when it is up)",
+            "nullable": true
+          },
+          "generatedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "source": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Radarr-style Discover catalog: trending, popular, new, recently updated."
+      },
       "FileLibrary": {
         "required": [
           "basePath",
@@ -4861,11 +6519,24 @@
             "type": "string",
             "description": "The Name of the library"
           },
+          "kind": {
+            "$ref": "#/components/schemas/MediaKind"
+          },
           "key": {
             "maxLength": 64,
             "minLength": 16,
             "type": "string",
             "description": "Unique Identifier of the DTO"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GrabChapterRequest": {
+        "type": "object",
+        "properties": {
+          "connectorName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5156,6 +6827,20 @@
         "additionalProperties": false,
         "description": "API.Schema.MangaContext.Link DTO"
       },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "Manga": {
         "required": [
           "altTitles",
@@ -5230,9 +6915,9 @@
           },
           "lastNewChapterCheck": {
             "type": "string",
+            "description": "UTC time of the last chapter-list refresh.",
             "format": "date-time",
-            "nullable": true,
-            "description": "UTC time of the last chapter-list refresh."
+            "nullable": true
           },
           "name": {
             "minLength": 1,
@@ -5350,14 +7035,6 @@
         ],
         "type": "string"
       },
-      "NewChapterCheckInterval": {
-        "enum": [
-          "Daily",
-          "Weekly"
-        ],
-        "type": "string",
-        "description": "How often to re-fetch the chapter list when the series is ongoing."
-      },
       "MangetteSettings": {
         "type": "object",
         "properties": {
@@ -5430,6 +7107,60 @@
           "defaultNewChapterCheck": {
             "$ref": "#/components/schemas/NewChapterCheckInterval"
           },
+          "authenticationEnabled": {
+            "type": "boolean",
+            "description": "Sonarr-style login for reverse proxies (Caddy on a phone). Off by default for LAN."
+          },
+          "authUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "authPasswordHash": {
+            "type": "string",
+            "nullable": true
+          },
+          "authPasswordConfigured": {
+            "type": "boolean"
+          },
+          "prowlarrUrl": {
+            "type": "string",
+            "description": "Base URL of a Prowlarr instance used to search Torznab/Newznab indexers for Comics.",
+            "nullable": true
+          },
+          "prowlarrApiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "qBittorrentUrl": {
+            "type": "string",
+            "description": "qBittorrent WebUI, used as the torrent download client for Comics.",
+            "nullable": true
+          },
+          "qBittorrentUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "qBittorrentPassword": {
+            "type": "string",
+            "nullable": true
+          },
+          "sabnzbdUrl": {
+            "type": "string",
+            "description": "SABnzbd, used as the Usenet download client for Comics.",
+            "nullable": true
+          },
+          "sabnzbdApiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "comicProtocolPreference": {
+            "$ref": "#/components/schemas/ComicProtocolPreference"
+          },
+          "comicVineApiKey": {
+            "type": "string",
+            "description": "ComicVine API key, used as the metadata source for Comics.",
+            "nullable": true
+          },
           "defaultLibraryPath": {
             "type": "string",
             "description": "Resolved library default shown in Settings. Prefers the saved Settings path, then DOWNLOAD_LOCATION.",
@@ -5440,9 +7171,157 @@
             "type": "string",
             "nullable": true,
             "readOnly": true
+          },
+          "buildId": {
+            "type": "string",
+            "nullable": true,
+            "readOnly": true
           }
         },
         "additionalProperties": false
+      },
+      "ManualImportFile": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileName": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "mangaName": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterId": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "volume": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ManualImportItem": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ManualImportPreview": {
+        "type": "object",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "nullable": true
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManualImportFile"
+            },
+            "nullable": true
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManualImportSeriesOption"
+            },
+            "nullable": true
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ManualImportRequest": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManualImportItem"
+            },
+            "nullable": true
+          },
+          "deleteSource": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ManualImportResult": {
+        "type": "object",
+        "properties": {
+          "imported": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ManualImportSeriesOption": {
+        "type": "object",
+        "properties": {
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MediaKind": {
+        "enum": [
+          "Manga",
+          "Comic"
+        ],
+        "type": "string",
+        "description": "What kind of content a Manga/FileLibrary holds. Drives which acquisition pipeline applies."
       },
       "MetadataEntry": {
         "type": "object",
@@ -5539,6 +7418,14 @@
         },
         "additionalProperties": false,
         "description": "Shortened Version of API.Controllers.DTOs.Manga"
+      },
+      "NewChapterCheckInterval": {
+        "enum": [
+          "Daily",
+          "Weekly"
+        ],
+        "type": "string",
+        "description": "How often to look up new chapters on an ongoing monitored series."
       },
       "NotificationConnector": {
         "required": [
@@ -5688,6 +7575,18 @@
             "type": "string",
             "nullable": true
           },
+          "authenticationEnabled": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "authUsername": {
+            "type": "string",
+            "nullable": true
+          },
+          "authPassword": {
+            "type": "string",
+            "nullable": true
+          },
           "defaultNewChapterCheck": {
             "$ref": "#/components/schemas/NewChapterCheckInterval"
           }
@@ -5721,6 +7620,19 @@
         },
         "additionalProperties": { }
       },
+      "RenameMangaRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "renameFolder": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "RescanDownloadedChaptersResult": {
         "type": "object",
         "properties": {
@@ -5729,6 +7641,18 @@
             "format": "int32"
           },
           "markedDownloaded": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "missingMonitored": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "corruptMoved": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "queuedDownloads": {
             "type": "integer",
             "format": "int32"
           }
@@ -5786,6 +7710,52 @@
         "additionalProperties": false,
         "description": "Preview of a series from a site. Not in the library until Add is called."
       },
+      "SetProwlarrRecord": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetQBittorrentRecord": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetSabnzbdRecord": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "nullable": true
+          },
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "Stats": {
         "type": "object",
         "properties": {
@@ -5820,6 +7790,79 @@
           "numberTags": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WantedChapter": {
+        "type": "object",
+        "properties": {
+          "chapterId": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "volume": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WantedMissing": {
+        "type": "object",
+        "properties": {
+          "totalMissing": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WantedSeries"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WantedSeries": {
+        "type": "object",
+        "properties": {
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "missingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "downloadedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "chapterCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "chapters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WantedChapter"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -5883,7 +7926,22 @@
       "name": "Actions"
     },
     {
+      "name": "Auth"
+    },
+    {
       "name": "Chapters"
+    },
+    {
+      "name": "Comic"
+    },
+    {
+      "name": "ComicLibraryImport"
+    },
+    {
+      "name": "ComicReorganize"
+    },
+    {
+      "name": "Discover"
     },
     {
       "name": "FileLibrary"
@@ -5917,6 +7975,9 @@
     },
     {
       "name": "Settings"
+    },
+    {
+      "name": "Wanted"
     },
     {
       "name": "Worker"
