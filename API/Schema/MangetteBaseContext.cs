@@ -37,7 +37,11 @@ public abstract class MangetteBaseContext<T> : DbContext where T : DbContext
         catch (Exception e)
         {
             Log.Error($"Syncing {GetType().Name} {trigger?.Name} {reason} failed: {e.Message}", e);
-            return (false, e.Message);
+            // EF wraps the real cause (e.g. a SQLite "UNIQUE constraint failed") in a generic
+            // DbUpdateException whose own Message just says "see the inner exception" -- surface
+            // that inner detail too, since callers show exceptionMessage directly to the user.
+            string message = e.InnerException is { } inner ? $"{e.Message} {inner.Message}" : e.Message;
+            return (false, message);
         }
     }
 

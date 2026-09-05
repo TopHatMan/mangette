@@ -102,6 +102,12 @@ public class ComicController(MangaContext context) : ControllerBase
         if (!string.IsNullOrWhiteSpace(comicVineSiteUrl))
             comic.Links.Add(new Link("ComicVine", comicVineSiteUrl));
 
+        // Manga.Key is derived from Name alone (TokenGen), so two series sharing the exact same
+        // title (a re-add, a double click, a name already used by an existing manga/comic) collide
+        // on the primary key. Catch that here with a clear message instead of a raw EF/SQLite error.
+        if (await context.Mangas.AnyAsync(m => m.Key == comic.Key, HttpContext.RequestAborted))
+            return TypedResults.BadRequest($"A series named \"{comic.Name}\" is already in your library.");
+
         context.Mangas.Add(comic);
         if (await context.Sync(HttpContext.RequestAborted, GetType(), "Add comic") is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
