@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using API.Schema.MangaContext;
 
 namespace API.Controllers.Requests;
 
@@ -11,11 +12,17 @@ public sealed record CreateLibraryRecord
     [Required]
     [Description("The directory Path of the library")]
     public required string BasePath { get; init; }
-    
+
     /// <summary>
     /// The Name of the library
     /// </summary>
     [Required]
     [Description("The Name of the library")]
     public required string LibraryName { get; init; }
+
+    /// <summary>
+    /// Which kind of series may bind to this library. Defaults to Manga.
+    /// </summary>
+    [Description("Which kind of series may bind to this library. Defaults to Manga.")]
+    public MediaKind Kind { get; init; } = MediaKind.Manga;
 }

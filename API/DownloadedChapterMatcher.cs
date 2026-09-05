@@ -24,6 +24,32 @@ public static class DownloadedChapterMatcher
         @"^0*(\d+(?:\.\d+)*)\.(?:cbz|zip|cbr|cb7)$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    private static readonly Regex BracketBlock = new(@"\[[^\]]*\]|\([^)]*\)|\{[^}]*\}", RegexOptions.Compiled);
+    private static readonly Regex TrailingIssueNumber = new(@"#?0*(\d{1,4})(?:\.\d+)?\s*$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Comic filenames put the issue number as a bare token after the series name
+    /// ("Amazing Spider-Man 001 (1963) (Digital) (Shadowcat-Empire).cbz", "New X-Men #119.cbz"),
+    /// not the "Ch.NN"/"Vol.NN" tokens <see cref="TryParseArchiveNumbers"/> expects. Strip the
+    /// parenthetical release-tag/year blocks and the extension, then take the last standalone
+    /// number in what's left.
+    /// </summary>
+    public static bool TryParseComicIssueNumber(string fileName, out string issueNumber)
+    {
+        issueNumber = "";
+        if (string.IsNullOrWhiteSpace(fileName))
+            return false;
+
+        string stem = Path.GetFileNameWithoutExtension(fileName);
+        string stripped = BracketBlock.Replace(stem, " ");
+        Match match = TrailingIssueNumber.Match(stripped.TrimEnd());
+        if (!match.Success)
+            return false;
+
+        issueNumber = NormalizeChapterNumber(match.Groups[1].Value);
+        return issueNumber.Length > 0;
+    }
+
     public static string NormalizeChapterNumber(string chapterNumber)
     {
         if (string.IsNullOrWhiteSpace(chapterNumber))
@@ -169,7 +195,8 @@ public static class DownloadedChapterMatcher
         bool exactNameOnly = false,
         int? volumeNumber = null,
         List<string>? quarantinedFiles = null,
-        bool inspectZip = false)
+        bool inspectZip = false,
+        bool isComic = false)
     {
         if (string.IsNullOrWhiteSpace(seriesDirectory) || !Directory.Exists(seriesDirectory))
             return null;
@@ -217,7 +244,10 @@ public static class DownloadedChapterMatcher
         foreach (string path in archives)
         {
             string name = Path.GetFileName(path);
-            if (!ArchiveCoversChapter(name, chapterNumber, volumeNumber))
+            bool covers = ArchiveCoversChapter(name, chapterNumber, volumeNumber);
+            if (!covers && isComic && TryParseComicIssueNumber(name, out string? comicIssue))
+                covers = comicIssue.Equals(want, StringComparison.Ordinal);
+            if (!covers)
                 continue;
 
             int score = 0;

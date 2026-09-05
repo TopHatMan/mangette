@@ -29,7 +29,7 @@ public class FileLibraryController(MangaContext context) : ControllerBase
         if (await context.FileLibraries.OrderBy(f => f.LibraryName).ToListAsync(HttpContext.RequestAborted) is not { } result)
             return TypedResults.InternalServerError();
 
-        List<FileLibrary> fileLibraries = result.Select(f => new FileLibrary(f.Key, f.BasePath, f.LibraryName)).ToList();
+        List<FileLibrary> fileLibraries = result.Select(f => new FileLibrary(f.Key, f.BasePath, f.LibraryName, f.Kind)).ToList();
 
         return TypedResults.Ok(fileLibraries);
     }
@@ -48,7 +48,7 @@ public class FileLibraryController(MangaContext context) : ControllerBase
         if(await context.FileLibraries.FirstOrDefaultAsync(l => l.Key == FileLibraryId, HttpContext.RequestAborted) is not { } library)
             return TypedResults.NotFound(nameof(FileLibraryId));
         
-        return TypedResults.Ok(new FileLibrary(library.Key, library.BasePath, library.LibraryName));
+        return TypedResults.Ok(new FileLibrary(library.Key, library.BasePath, library.LibraryName, library.Kind));
     }
 
     /// <summary>
@@ -128,7 +128,7 @@ public class FileLibraryController(MangaContext context) : ControllerBase
         {
             return TypedResults.InternalServerError($"Could not create library folder: {ex.Message}");
         }
-        Schema.MangaContext.FileLibrary library = new (fullPath, requestData.LibraryName);
+        Schema.MangaContext.FileLibrary library = new (fullPath, requestData.LibraryName) { Kind = requestData.Kind };
         context.FileLibraries.Add(library);
         
         if(await context.Sync(HttpContext.RequestAborted, GetType(), System.Reflection.MethodBase.GetCurrentMethod()?.Name) is { success: false } result)

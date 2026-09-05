@@ -18,11 +18,23 @@ public class Manga : Identifiable
     public MangaReleaseStatus ReleaseStatus { get; internal set; }
     [StringLength(64)] public string? LibraryId { get; private set; }
     public FileLibrary? Library = null!;
+    /// <summary>What kind of content this series is. Drives which acquisition pipeline applies.</summary>
+    public MediaKind Kind { get; internal set; } = MediaKind.Manga;
+    /// <summary>Comic-only: first issue number to watch for. Null for Manga-kind series.</summary>
+    public int? ComicIssueStart { get; internal set; }
+    /// <summary>Comic-only: last issue number to watch for. Null means open-ended/ongoing.</summary>
+    public int? ComicIssueEnd { get; internal set; }
     public ICollection<Author> Authors { get; internal set; } = null!;
     public ICollection<MangaTag> MangaTags { get; internal set; } = null!;
     public ICollection<Link> Links { get; internal set; } = null!;
     public ICollection<AltTitle> AltTitles { get; internal set; } = null!;
     public float IgnoreChaptersBefore { get; internal set; }
+    /// <summary>When true, missing chapters download and ongoing series are scanned for new chapters.</summary>
+    public bool Monitored { get; internal set; }
+    /// <summary>How often to re-fetch the chapter list for an ongoing monitored series.</summary>
+    public NewChapterCheckInterval NewChapterCheck { get; internal set; } = NewChapterCheckInterval.Daily;
+    /// <summary>UTC time of the last chapter-list refresh. Null means never checked.</summary>
+    public DateTime? LastNewChapterCheck { get; internal set; }
     [StringLength(1024)] [Required] public string DirectoryName { get; private set; }
 
     internal void SetDirectoryName(string directoryName) => DirectoryName = directoryName;
@@ -97,6 +109,8 @@ public class Manga : Identifiable
         this.OriginalLanguage = originalLanguage;
         this.Chapters = [];
         this.MangaConnectorIds = [];
+        this.Monitored = false;
+        this.NewChapterCheck = NewChapterCheckInterval.Daily;
     }
 
     /// <summary>
@@ -116,6 +130,7 @@ public class Manga : Identifiable
         this.IgnoreChaptersBefore = ignoreChaptersBefore;
         this.Year = year;
         this.OriginalLanguage = originalLanguage;
+        this.NewChapterCheck = NewChapterCheckInterval.Daily;
     }
     
     /// <exception cref="DirectoryNotFoundException">Library not loaded</exception>
@@ -172,6 +187,28 @@ public class Manga : Identifiable
     }
 
     public override string ToString() => $"{base.ToString()} {Name}";
+
+    /// <summary>
+    /// Series-level monitor. Unmonitor keeps attached sites so turning it back on resumes the same sources.
+    /// If no site is selected yet, monitoring enables every attached source.
+    /// </summary>
+    internal void SetMonitored(bool monitored)
+    {
+        Monitored = monitored;
+        if (!monitored)
+            return;
+        if (MangaConnectorIds.Any(id => id.UseForDownload))
+            return;
+        foreach (MangaConnectorId<Manga> id in MangaConnectorIds)
+            id.UseForDownload = true;
+        if (Chapters is null)
+            return;
+        foreach (Chapter chapter in Chapters)
+        {
+            foreach (MangaConnectorId<Chapter> chId in chapter.MangaConnectorIds)
+                chId.UseForDownload = true;
+        }
+    }
 }
 
 public enum MangaReleaseStatus
@@ -181,4 +218,11 @@ public enum MangaReleaseStatus
     OnHiatus,
     Cancelled,
     Unreleased
+}
+
+/// <summary>How often to look up new chapters on an ongoing monitored series.</summary>
+public enum NewChapterCheckInterval
+{
+    Daily = 0,
+    Weekly = 1
 }

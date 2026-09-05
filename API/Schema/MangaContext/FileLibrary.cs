@@ -11,5 +11,8 @@ public class FileLibrary(string basePath, string libraryName)
 
     [StringLength(512)] public string LibraryName { get; internal set; } = libraryName;
 
+    /// <summary>Which kind of series may bind to this library. Set at creation.</summary>
+    public MediaKind Kind { get; internal set; } = MediaKind.Manga;
+
     public override string ToString() => $"{base.ToString()} {LibraryName} - {BasePath}";
 }

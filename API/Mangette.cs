@@ -19,7 +19,8 @@ public static class Mangette
     internal static IServiceProvider? ServiceProvider { get; set; }
     
     private static readonly ILog Log = LogManager.GetLogger(typeof(Mangette));
-    internal static readonly MetadataFetcher[] MetadataFetchers = [new AniList(), new MyAnimeList()];
+    internal static readonly MetadataFetcher[] MetadataFetchers = [new AniList(), new MyAnimeList(), new ComicVine()];
+    internal static readonly ComicVine ComicVine = (ComicVine)MetadataFetchers.OfType<ComicVine>().First();
     internal static readonly MangaConnector[] MangaConnectors =
     [
         new Global(),
@@ -42,6 +43,9 @@ public static class Mangette
     internal static readonly RemoveOldNotificationsWorker RemoveOldNotificationsWorker = new();
     internal static readonly UpdateCoversWorker UpdateCoversWorker = new();
     internal static readonly CleanupMangaconnectorIdsWithoutConnector CleanupMangaconnectorIdsWithoutConnector = new();
+    internal static readonly MaterializeWantedComicIssuesWorker MaterializeWantedComicIssuesWorker = new();
+    internal static readonly SearchIndexerForMissingIssuesWorker SearchIndexerForMissingIssuesWorker = new();
+    internal static readonly PollComicDownloadJobsWorker PollComicDownloadJobsWorker = new();
     // ReSharper restore MemberCanBePrivate.Global
 
     internal static readonly RateLimitHandler RateLimitHandler = new();
@@ -68,7 +72,10 @@ public static class Mangette
         AddWorker(StartNewChapterDownloadsWorker);
         AddWorker(RemoveOldNotificationsWorker);
         AddWorker(UpdateCoversWorker);
-        
+        AddWorker(MaterializeWantedComicIssuesWorker);
+        AddWorker(SearchIndexerForMissingIssuesWorker);
+        AddWorker(PollComicDownloadJobsWorker);
+
         if(Constants.UpdateChaptersDownloadedBeforeStarting)
             AddWorker(UpdateChaptersDownloadedWorker);
     }
@@ -283,8 +290,8 @@ public static class Mangette
     {
         if (manga.LibraryId is not null || manga.Library is not null)
             return;
-        FileLibrary? library = context.FileLibraries.Local.OrderBy(l => l.LibraryName).FirstOrDefault()
-            ?? await context.FileLibraries.OrderBy(l => l.LibraryName).FirstOrDefaultAsync(token);
+        FileLibrary? library = context.FileLibraries.Local.Where(l => l.Kind == manga.Kind).OrderBy(l => l.LibraryName).FirstOrDefault()
+            ?? await context.FileLibraries.Where(l => l.Kind == manga.Kind).OrderBy(l => l.LibraryName).FirstOrDefaultAsync(token);
         if (library is null)
             return;
         await context.BindMangaLibrary(manga, library, token);

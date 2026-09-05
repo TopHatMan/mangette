@@ -15,6 +15,7 @@ public class MangaContext(DbContextOptions<MangaContext> options) : MangetteBase
     public DbSet<MangaConnectorId<Manga>> MangaConnectorToManga { get; set; }
     public DbSet<MangaConnectorId<Chapter>> MangaConnectorToChapter { get; set; }
     public DbSet<MetadataEntry> MetadataEntries { get; set; }
+    public DbSet<ComicDownloadJob> ComicDownloadJobs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -104,6 +105,13 @@ public class MangaContext(DbContextOptions<MangaContext> options) : MangetteBase
             .HasOne<Manga>(entry => entry.Manga)
             .WithMany()
             .OnDelete(DeleteBehavior.Cascade);
+
+        //ComicDownloadJob belongs to one Chapter
+        modelBuilder.Entity<ComicDownloadJob>()
+            .HasOne(j => j.Chapter)
+            .WithMany()
+            .HasForeignKey(j => j.ChapterId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 
     public async Task<string?> FindMangaLike(Manga other, CancellationToken ct)
@@ -149,6 +157,9 @@ public class MangaContext(DbContextOptions<MangaContext> options) : MangetteBase
     {
         if (manga.LibraryId == library.Key)
             return;
+        if (library.Kind != manga.Kind)
+            throw new InvalidOperationException(
+                $"Cannot bind a {manga.Kind} series to a {library.Kind} library ({library.LibraryName}).");
 
         FileLibrary tracked = FileLibraries.Local.FirstOrDefault(l => l.Key == library.Key)
             ?? await FileLibraries.FirstOrDefaultAsync(l => l.Key == library.Key, token)

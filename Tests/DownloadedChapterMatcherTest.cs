@@ -35,6 +35,25 @@ public class DownloadedChapterMatcherTest : IDisposable
         Assert.Equal(expected, API.DownloadedChapterMatcher.NormalizeChapterNumber(input));
     }
 
+    [Theory]
+    [InlineData("Amazing Spider-Man 001 (1963) (Digital) (Shadowcat-Empire).cbz", "1")]
+    [InlineData("New X-Men #119.cbz", "119")]
+    [InlineData("Absolute Batman (2024) Volume 01 Issue 001.cbr", "1")]
+    [InlineData("Adventures in the DCU 001 (1997) (Bean525).cbr", "1")]
+    [InlineData("X-Men Legacy 003 (2013) (Adrian Alphona Variant) (Cover ONLY) (ScanDog+ArtNet).cbz", "3")]
+    [InlineData("Amazing Spider-Man -001 (1997) (FB-DCP)(C2C).cbr", "1")]
+    public void TryParseComicIssueNumber_HandlesRealWorldNamingConventions(string fileName, string expected)
+    {
+        Assert.True(API.DownloadedChapterMatcher.TryParseComicIssueNumber(fileName, out string issueNumber));
+        Assert.Equal(expected, issueNumber);
+    }
+
+    [Fact]
+    public void TryParseComicIssueNumber_FailsWithoutAnyNumber()
+    {
+        Assert.False(API.DownloadedChapterMatcher.TryParseComicIssueNumber("Variant Covers Folder Readme.cbz", out _));
+    }
+
     [Fact]
     public void ChapterNumbersEqual_TreatsPaddingAsSameChapter()
     {

@@ -24,6 +24,11 @@ public class Chapter : Identifiable, IComparable<Chapter>
     [StringLength(256)] public string? FileName { get; internal set; }
 
     public bool Downloaded { get; internal set; }
+    /// <summary>
+    /// True when this chapter was added because the series grew (newer than the previous latest),
+    /// not because we first catalogued the title or filled an old hole.
+    /// </summary>
+    public bool NewRelease { get; internal set; }
 
     /// <exception cref="DirectoryNotFoundException">Library for Manga not loaded</exception>
     [NotMapped]
@@ -57,6 +62,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
         this.Title = title;
         this.FileName = fileName;
         this.Downloaded = downloaded;
+        this.NewRelease = false;
     }
 
     /// <summary>Fill volume/title when a catalog has them and this row does not.</summary>
@@ -153,7 +159,8 @@ public class Chapter : Identifiable, IComparable<Chapter>
             exactNameOnly: Constants.DownloadedChaptersCheckMatchExactName,
             volumeNumber: VolumeNumber,
             quarantinedFiles: quarantinedFiles,
-            inspectZip: inspectZip);
+            inspectZip: inspectZip,
+            isComic: ParentManga.Kind == MediaKind.Comic);
 
         if (found is not null)
         {
@@ -183,7 +190,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
     /// Returns the formatted Filename of the Archive for this chapter. Formatting is done according to <see cref="MangetteSettings.ChapterNamingScheme"/>
     /// </summary>
     /// <returns>A filename</returns>
-    private string GetArchiveFileName()
+    internal string GetArchiveFileName(string extension = ".cbz")
     {
         string archiveNamingScheme = Mangette.Settings.ChapterNamingScheme;
         StringBuilder stringBuilder = new();
@@ -235,7 +242,7 @@ public class Chapter : Identifiable, IComparable<Chapter>
             stringBuilder.Append(value);
         }
 
-        stringBuilder.Append(".cbz");
+        stringBuilder.Append(extension);
 
         return stringBuilder.ToString().CleanNameForWindows();
     }
@@ -310,7 +317,61 @@ public class Chapter : Identifiable, IComparable<Chapter>
             j++;
         }
 
+        while (i < ch1Arr.Length)
+        {
+            if (ch1Arr[i] != 0)
+                return 1;
+            i++;
+        }
+        while (j < ch2Arr.Length)
+        {
+            if (ch2Arr[j] != 0)
+                return -1;
+            j++;
+        }
         return 0;
+    }
+
+    /// <summary>
+    /// True when <paramref name="incoming"/> is a newly published chapter: the series already had a
+    /// catalog, this number is not already stored, and it is newer than the previous latest.
+    /// </summary>
+    internal static bool IsNewlyPublished(Chapter incoming, ICollection<Chapter> existing)
+    {
+        if (existing.Count == 0)
+            return false;
+        if (existing.Any(c => c.IsSameLogicalChapter(incoming)))
+            return false;
+        ChapterComparer cmp = new();
+        Chapter? latest = null;
+        foreach (Chapter chapter in existing)
+        {
+            try
+            {
+                if (latest is null || cmp.Compare(chapter, latest) > 0)
+                    latest = chapter;
+            }
+            catch (ArgumentException)
+            {
+                /* skip unsortable numbers */
+            }
+        }
+        if (latest is null)
+            return false;
+        try
+        {
+            return cmp.Compare(incoming, latest) > 0;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    internal static string NotifyText(Manga manga, Chapter chapter)
+    {
+        string title = string.IsNullOrWhiteSpace(chapter.Title) ? "" : $" – {chapter.Title}";
+        return $"{manga.Name} Ch. {chapter.ChapterNumber}{title}";
     }
 
     internal string GetComicInfoXmlString()

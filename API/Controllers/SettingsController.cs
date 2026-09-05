@@ -102,6 +102,9 @@ public class SettingsController(MangaContext context) : ControllerBase
         if (requestData.FlareSolverrUrl is { } flare)
             Mangette.Settings.SetFlareSolverrUrl(flare.Trim());
 
+        if (requestData.DefaultNewChapterCheck is { } check)
+            Mangette.Settings.SetDefaultNewChapterCheck(check);
+
         if (requestData.AuthenticationEnabled is not null ||
             requestData.AuthUsername is not null ||
             requestData.AuthPassword is not null)
@@ -380,6 +383,165 @@ public class SettingsController(MangaContext context) : ControllerBase
     {
         string flat = string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return flat.Length <= 240 ? flat : flat[..240] + "…";
+    }
+
+    private const string MaskedSecret = "********";
+
+    /// <summary>Sets the Prowlarr URL and API key used to search indexers for Comics.</summary>
+    [HttpPatch("Prowlarr")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetProwlarr([FromBody] SetProwlarrRecord requestData)
+    {
+        string apiKey = requestData.ApiKey == MaskedSecret ? Mangette.Settings.ProwlarrApiKey : requestData.ApiKey;
+        Mangette.Settings.SetProwlarr(requestData.Url, apiKey);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>Checks that Prowlarr is reachable with the configured API key.</summary>
+    [HttpPost("Prowlarr/Test")]
+    [ProducesResponseType<string>(Status200OK, "text/plain")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<string>, BadRequest<string>>> TestProwlarr()
+    {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrUrl) || string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrApiKey))
+            return TypedResults.BadRequest("Prowlarr URL and API key are required.");
+
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
+        HttpRequestMessage request = new(HttpMethod.Get, $"{Mangette.Settings.ProwlarrUrl}/api/v1/indexer");
+        request.Headers.TryAddWithoutValidation("X-Api-Key", Mangette.Settings.ProwlarrApiKey);
+        try
+        {
+            HttpResponseMessage response = await client.SendAsync(request, HttpContext.RequestAborted);
+            string body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            if (!response.IsSuccessStatusCode)
+                return TypedResults.BadRequest($"Prowlarr returned {(int)response.StatusCode}. {TrimBody(body)}");
+            return TypedResults.Ok($"Reached Prowlarr at {Mangette.Settings.ProwlarrUrl}.");
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.BadRequest($"Cannot connect to {Mangette.Settings.ProwlarrUrl}: {ex.Message}");
+        }
+    }
+
+    /// <summary>Sets the qBittorrent WebUI connection used as the torrent download client for Comics.</summary>
+    [HttpPatch("QBittorrent")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetQBittorrent([FromBody] SetQBittorrentRecord requestData)
+    {
+        string password = requestData.Password == MaskedSecret ? Mangette.Settings.QBittorrentPassword : requestData.Password;
+        Mangette.Settings.SetQBittorrent(requestData.Url, requestData.Username, password);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>Logs into qBittorrent with the configured credentials.</summary>
+    [HttpPost("QBittorrent/Test")]
+    [ProducesResponseType<string>(Status200OK, "text/plain")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<string>, BadRequest<string>>> TestQBittorrent()
+    {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.QBittorrentUrl))
+            return TypedResults.BadRequest("qBittorrent URL is required.");
+
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
+        Dictionary<string, string> form = new()
+        {
+            ["username"] = Mangette.Settings.QBittorrentUsername,
+            ["password"] = Mangette.Settings.QBittorrentPassword
+        };
+        try
+        {
+            HttpResponseMessage response = await client.PostAsync(
+                $"{Mangette.Settings.QBittorrentUrl}/api/v2/auth/login", new FormUrlEncodedContent(form), HttpContext.RequestAborted);
+            string body = (await response.Content.ReadAsStringAsync(HttpContext.RequestAborted)).Trim();
+            if (!response.IsSuccessStatusCode || !body.Equals("Ok.", StringComparison.OrdinalIgnoreCase))
+                return TypedResults.BadRequest($"qBittorrent login failed ({(int)response.StatusCode}): {TrimBody(body)}");
+            return TypedResults.Ok($"Logged into qBittorrent at {Mangette.Settings.QBittorrentUrl}.");
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.BadRequest($"Cannot connect to {Mangette.Settings.QBittorrentUrl}: {ex.Message}");
+        }
+    }
+
+    /// <summary>Sets the SABnzbd connection used as the Usenet download client for Comics.</summary>
+    [HttpPatch("Sabnzbd")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetSabnzbd([FromBody] SetSabnzbdRecord requestData)
+    {
+        string apiKey = requestData.ApiKey == MaskedSecret ? Mangette.Settings.SabnzbdApiKey : requestData.ApiKey;
+        Mangette.Settings.SetSabnzbd(requestData.Url, apiKey);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>Checks that SABnzbd is reachable with the configured API key.</summary>
+    [HttpPost("Sabnzbd/Test")]
+    [ProducesResponseType<string>(Status200OK, "text/plain")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<string>, BadRequest<string>>> TestSabnzbd()
+    {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.SabnzbdUrl) || string.IsNullOrWhiteSpace(Mangette.Settings.SabnzbdApiKey))
+            return TypedResults.BadRequest("SABnzbd URL and API key are required.");
+
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
+        try
+        {
+            HttpResponseMessage response = await client.GetAsync(
+                $"{Mangette.Settings.SabnzbdUrl}/api?mode=version&apikey={Mangette.Settings.SabnzbdApiKey}&output=json",
+                HttpContext.RequestAborted);
+            string body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            if (!response.IsSuccessStatusCode)
+                return TypedResults.BadRequest($"SABnzbd returned {(int)response.StatusCode}. {TrimBody(body)}");
+            return TypedResults.Ok($"Reached SABnzbd at {Mangette.Settings.SabnzbdUrl}. {TrimBody(body)}");
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.BadRequest($"Cannot connect to {Mangette.Settings.SabnzbdUrl}: {ex.Message}");
+        }
+    }
+
+    /// <summary>Sets which protocol wins when a Comic search finds both a torrent and a Usenet release.</summary>
+    [HttpPatch("ComicProtocolPreference/{preference}")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetComicProtocolPreference(ComicProtocolPreference preference)
+    {
+        Mangette.Settings.SetComicProtocolPreference(preference);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>Sets the ComicVine API key used as the metadata source for Comics.</summary>
+    [HttpPatch("ComicVine")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetComicVine([FromBody] string apiKey)
+    {
+        Mangette.Settings.SetComicVineApiKey(apiKey == MaskedSecret ? Mangette.Settings.ComicVineApiKey : apiKey);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>Checks that the configured ComicVine API key works.</summary>
+    [HttpPost("ComicVine/Test")]
+    [ProducesResponseType<string>(Status200OK, "text/plain")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<string>, BadRequest<string>>> TestComicVine()
+    {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.ComicVineApiKey))
+            return TypedResults.BadRequest("ComicVine API key is required.");
+
+        using HttpClient client = new() { Timeout = TimeSpan.FromSeconds(20) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mangette/1.0");
+        string url = $"https://comicvine.gamespot.com/api/search/?api_key={Mangette.Settings.ComicVineApiKey}" +
+                     "&format=json&resources=volume&query=test&limit=1";
+        try
+        {
+            HttpResponseMessage response = await client.GetAsync(url, HttpContext.RequestAborted);
+            string body = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            if (!response.IsSuccessStatusCode)
+                return TypedResults.BadRequest($"ComicVine returned {(int)response.StatusCode}. {TrimBody(body)}");
+            return TypedResults.Ok("ComicVine API key works.");
+        }
+        catch (Exception ex)
+        {
+            return TypedResults.BadRequest($"Cannot reach ComicVine: {ex.Message}");
+        }
     }
 
     /// <summary>Load a page with the built-in Chromium Cloudflare bypass (no Docker).</summary>

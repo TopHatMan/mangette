@@ -1,4 +1,5 @@
 using API.MangaDownloadClients;
+using API.Schema.MangaContext;
 using API.Workers;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
@@ -71,11 +72,35 @@ public class MangetteSettings
 
     public int RefreshLibraryWhileDownloadingEveryMinutes { get; set; } = 10;
 
+    /// <summary>Default scan cadence for new monitored series. Per-series override lives on the manga.</summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public NewChapterCheckInterval DefaultNewChapterCheck { get; set; } = NewChapterCheckInterval.Daily;
+
     /// <summary>Sonarr-style login for reverse proxies (Caddy on a phone). Off by default for LAN.</summary>
     public bool AuthenticationEnabled { get; set; }
     public string AuthUsername { get; set; } = "admin";
     public string? AuthPasswordHash { get; set; }
     public bool AuthPasswordConfigured { get; set; }
+
+    /// <summary>Base URL of a Prowlarr instance used to search Torznab/Newznab indexers for Comics.</summary>
+    public string ProwlarrUrl { get; set; } = "";
+    public string ProwlarrApiKey { get; set; } = "";
+
+    /// <summary>qBittorrent WebUI, used as the torrent download client for Comics.</summary>
+    public string QBittorrentUrl { get; set; } = "";
+    public string QBittorrentUsername { get; set; } = "";
+    public string QBittorrentPassword { get; set; } = "";
+
+    /// <summary>SABnzbd, used as the Usenet download client for Comics.</summary>
+    public string SabnzbdUrl { get; set; } = "";
+    public string SabnzbdApiKey { get; set; } = "";
+
+    /// <summary>Which protocol wins when a Comic search finds both a torrent and a Usenet release.</summary>
+    [JsonConverter(typeof(StringEnumConverter))]
+    public ComicProtocolPreference ComicProtocolPreference { get; set; } = ComicProtocolPreference.Usenet;
+
+    /// <summary>ComicVine API key, used as the metadata source for Comics.</summary>
+    public string ComicVineApiKey { get; set; } = "";
 
     /// <summary>Resolved library default shown in Settings. Prefers the saved Settings path, then DOWNLOAD_LOCATION.</summary>
     [JsonProperty] public string DefaultLibraryPath =>
@@ -186,6 +211,10 @@ public class MangetteSettings
         MangetteSettings copy = JsonConvert.DeserializeObject<MangetteSettings>(json, new StringEnumConverter()) ?? new MangetteSettings();
         copy.AuthPasswordHash = null;
         copy.AuthPasswordConfigured = !string.IsNullOrEmpty(AuthPasswordHash);
+        copy.ProwlarrApiKey = string.IsNullOrEmpty(ProwlarrApiKey) ? "" : "********";
+        copy.QBittorrentPassword = string.IsNullOrEmpty(QBittorrentPassword) ? "" : "********";
+        copy.SabnzbdApiKey = string.IsNullOrEmpty(SabnzbdApiKey) ? "" : "********";
+        copy.ComicVineApiKey = string.IsNullOrEmpty(ComicVineApiKey) ? "" : "********";
         return copy;
     }
 
@@ -289,4 +318,50 @@ public class MangetteSettings
         this.RefreshLibraryWhileDownloadingEveryMinutes = value;
         Save();
     }
+
+    public void SetDefaultNewChapterCheck(NewChapterCheckInterval interval)
+    {
+        DefaultNewChapterCheck = interval;
+        Save();
+    }
+
+    public void SetProwlarr(string url, string apiKey)
+    {
+        ProwlarrUrl = url.Trim().TrimEnd('/');
+        ProwlarrApiKey = apiKey.Trim();
+        Save();
+    }
+
+    public void SetQBittorrent(string url, string username, string password)
+    {
+        QBittorrentUrl = url.Trim().TrimEnd('/');
+        QBittorrentUsername = username.Trim();
+        QBittorrentPassword = password;
+        Save();
+    }
+
+    public void SetSabnzbd(string url, string apiKey)
+    {
+        SabnzbdUrl = url.Trim().TrimEnd('/');
+        SabnzbdApiKey = apiKey.Trim();
+        Save();
+    }
+
+    public void SetComicProtocolPreference(ComicProtocolPreference preference)
+    {
+        ComicProtocolPreference = preference;
+        Save();
+    }
+
+    public void SetComicVineApiKey(string apiKey)
+    {
+        ComicVineApiKey = apiKey.Trim();
+        Save();
+    }
+}
+
+public enum ComicProtocolPreference
+{
+    Usenet,
+    Torrent
 }

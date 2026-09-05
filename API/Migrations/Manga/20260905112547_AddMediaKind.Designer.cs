@@ -3,6 +3,7 @@ using System;
 using API.Schema.MangaContext;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace API.Migrations.Manga
 {
     [DbContext(typeof(MangaContext))]
-    partial class MangaContextModelSnapshot : ModelSnapshot
+    [Migration("20260905112547_AddMediaKind")]
+    partial class AddMediaKind
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
@@ -106,66 +109,6 @@ namespace API.Migrations.Manga
                     b.ToTable("Chapters");
                 });
 
-            modelBuilder.Entity("API.Schema.MangaContext.ComicDownloadJob", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ChapterId")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("ClientName")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DownloadUrl")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(1024)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ExternalId")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("IndexerName")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("LastCheckedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("OutputPath")
-                        .HasMaxLength(1024)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Protocol")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("ReleaseTitle")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("ChapterId");
-
-                    b.ToTable("ComicDownloadJobs");
-                });
-
             modelBuilder.Entity("API.Schema.MangaContext.FileLibrary", b =>
                 {
                     b.Property<string>("Key")
@@ -195,12 +138,6 @@ namespace API.Migrations.Manga
                     b.Property<string>("Key")
                         .HasMaxLength(64)
                         .HasColumnType("TEXT");
-
-                    b.Property<int?>("ComicIssueEnd")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("ComicIssueStart")
-                        .HasColumnType("INTEGER");
 
                     b.Property<string>("CoverFileNameInCache")
                         .HasMaxLength(512)
@@ -482,17 +419,6 @@ namespace API.Migrations.Manga
                         .IsRequired();
 
                     b.Navigation("ParentManga");
-                });
-
-            modelBuilder.Entity("API.Schema.MangaContext.ComicDownloadJob", b =>
-                {
-                    b.HasOne("API.Schema.MangaContext.Chapter", "Chapter")
-                        .WithMany()
-                        .HasForeignKey("ChapterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Chapter");
                 });
 
             modelBuilder.Entity("API.Schema.MangaContext.Manga", b =>
