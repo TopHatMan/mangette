@@ -35,16 +35,23 @@
                     {{ scanResult.mappedFolderCount }} already in library.
                 </p>
             </div>
+            <UInput
+                v-if="rows.length > 10"
+                v-model="filterText"
+                icon="i-lucide-filter"
+                placeholder="Filter by folder or title..."
+                class="w-full mb-3" />
             <p v-if="message" class="text-sm mb-3" :class="error ? 'text-error' : 'text-muted'">{{ message }}</p>
             <UAlert v-if="scanResult?.warning" color="warning" :title="scanResult.warning" icon="i-lucide-triangle-alert" class="mb-3" />
             <UAlert
                 v-if="!scanning && scanResult && rows.length === 0 && !scanResult.warning"
                 title="Nothing new to import"
-                description="Every top-level folder is already in Mangette, or the library path is empty."
+                description="Every folder with comics in it is already in Mangette, or the library path is empty."
                 icon="i-lucide-circle-check" />
+            <p v-else-if="rows.length && !visibleRows.length" class="text-muted text-sm">No folders match "{{ filterText }}".</p>
             <div class="flex flex-col gap-2">
                 <div
-                    v-for="row in rows"
+                    v-for="row in visibleRows"
                     :key="row.folderName"
                     class="flex max-lg:flex-col flex-row gap-3 items-stretch lg:items-center bg-elevated rounded-lg p-3">
                     <div class="lg:w-1/4 min-w-0">
@@ -142,6 +149,12 @@ const scanResult = ref<{
     warning?: string | null;
 } | null>(null);
 const rows = ref<Row[]>([]);
+const filterText = ref('');
+const visibleRows = computed(() => {
+    const needle = filterText.value.trim().toLowerCase();
+    if (!needle) return rows.value;
+    return rows.value.filter((r) => r.folderName.toLowerCase().includes(needle) || r.suggestedQuery.toLowerCase().includes(needle));
+});
 
 const candidateFromKey = (row: Row): Candidate | undefined => row.matches.find((m) => m.comicVineVolumeId === row.selected);
 const importable = computed(() => rows.value.filter((r) => !r.imported && candidateFromKey(r) && (candidateFromKey(r)?.score ?? 0) >= 90));
@@ -209,8 +222,13 @@ const matchOne = async (row: Row, autoImportExact = false) => {
 
 const matchAll = async () => {
     matching.value = true;
+    // A comic library can surface hundreds of candidates (one per run/volume, not one per series),
+    // so pace requests to stay well under ComicVine's ~1 req/sec guidance.
     for (const row of rows.value) {
-        if (!row.imported && !row.matches.length) await matchOne(row, true);
+        if (!row.imported && !row.matches.length) {
+            await matchOne(row, true);
+            await new Promise((resolve) => setTimeout(resolve, 400));
+        }
     }
     matching.value = false;
     const imported = rows.value.filter((r) => r.imported).length;

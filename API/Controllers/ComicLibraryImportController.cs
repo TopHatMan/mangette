@@ -14,11 +14,12 @@ namespace API.Controllers;
 
 /// <summary>
 /// Brings an existing on-disk Comic library into Mangette: scan a Comic-kind <see cref="FileLibrary"/>
-/// for series folders, match each against ComicVine, and import (adopt the folder in place, no file
-/// moves -- same as <see cref="LibraryImportController"/> does for manga). Real comic libraries are
-/// 2-4 folders deep per series (Volumes/Annuals/Extras/Variants under one series folder), unlike the
-/// flat one-folder-per-series manga layout, so Scan works at the top-level-folder granularity and
-/// counts archives recursively underneath.
+/// for series/run folders at any depth, match each against ComicVine, and import (adopt the folder in
+/// place, no file moves -- same as <see cref="LibraryImportController"/> does for manga). Unlike the
+/// flat one-folder-per-series manga layout, a comic library is often a character/franchise hub folder
+/// (e.g. "Batman", "Batman TPBs") holding many unrelated runs several levels deep (v1, v2, Annuals,
+/// Mini-Series/SomeOtherSeries, ...) -- so Scan treats every directory that directly contains an
+/// archive as its own importable candidate, wherever it sits in the tree.
 /// </summary>
 [ApiVersion(2)]
 [ApiController]
@@ -53,40 +54,32 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
             .Select(m => m.DirectoryName)
             .ToListAsync(HttpContext.RequestAborted);
         HashSet<string> mapped = mappedDirectoryNames
-            .Select(NormalizeFolderKey)
+            .Select(ComicLibraryImportMatcher.NormalizeFolderKey)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        List<string> topLevelDirs;
+        // Real comic libraries are not one-folder-per-series like manga: a top-level folder is often
+        // a character/franchise hub (e.g. "Batman", "Batman TPBs") holding many unrelated runs several
+        // levels deep (v1, v2, Annuals, Mini-Series/SomeOtherSeries, ...). So instead of assuming
+        // top-level = series, walk the whole tree and treat every directory that directly contains an
+        // archive as its own importable candidate, at whatever depth it lives.
+        List<ComicScanCandidate> unmapped;
+        int mappedCount;
         try
         {
-            topLevelDirs = Directory.EnumerateDirectories(root).ToList();
+            (unmapped, mappedCount) = ComicLibraryImportMatcher.FindCandidates(root, mapped);
         }
         catch (Exception ex)
         {
             return TypedResults.BadRequest($"Cannot read {root}: {ex.Message}");
         }
 
-        List<ComicScanFolderRecord> unmapped = [];
-        int mappedCount = 0;
-        foreach (string dir in topLevelDirs)
-        {
-            string name = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (LibraryImportMatcher.IsSkippableFolder(name))
-                continue;
-            if (mapped.Contains(NormalizeFolderKey(name)))
-            {
-                mappedCount++;
-                continue;
-            }
-
-            (int archives, int other) = CountFiles(dir);
-            unmapped.Add(new ComicScanFolderRecord(name, archives, other, ComicLibraryImportMatcher.CleanSeriesName(name)));
-        }
-
-        unmapped = unmapped.OrderBy(f => f.FolderName, StringComparer.OrdinalIgnoreCase).ToList();
+        List<ComicScanFolderRecord> records = unmapped
+            .OrderBy(f => f.RelativePath, StringComparer.OrdinalIgnoreCase)
+            .Select(f => new ComicScanFolderRecord(f.RelativePath, f.ArchiveCount, f.OtherFileCount, f.SuggestedQuery))
+            .ToList();
         string? warning = LibraryImportMatcher.LibraryPathWarning(root);
-        Log.InfoFormat("Comic scan {0}: {1} unmapped, {2} already in library.", root, unmapped.Count, mappedCount);
-        return TypedResults.Ok(new ComicScanResult(library.Key, library.LibraryName, root, unmapped, mappedCount, warning));
+        Log.InfoFormat("Comic scan {0}: {1} unmapped, {2} already in library.", root, records.Count, mappedCount);
+        return TypedResults.Ok(new ComicScanResult(library.Key, library.LibraryName, root, records, mappedCount, warning));
     }
 
     [HttpPost("Match")]
@@ -97,8 +90,10 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
         if (string.IsNullOrWhiteSpace(request.FolderName))
             return Task.FromResult<Results<Ok<ComicMatchResult>, BadRequest<string>>>(TypedResults.BadRequest("FolderName is required."));
 
+        // FolderName is a relative path that may be several levels deep; fall back to just the leaf
+        // folder's own name (the actual series/run title lives there, not in the parent hub folders).
         string query = string.IsNullOrWhiteSpace(request.Query)
-            ? ComicLibraryImportMatcher.CleanSeriesName(request.FolderName)
+            ? ComicLibraryImportMatcher.CleanSeriesName(Path.GetFileName(request.FolderName.Replace('/', Path.DirectorySeparatorChar)))
             : request.Query.Trim();
         if (query.Length == 0)
             return Task.FromResult<Results<Ok<ComicMatchResult>, BadRequest<string>>>(TypedResults.BadRequest("Could not build a search query from that folder name."));
@@ -106,7 +101,7 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
         try
         {
             List<ComicMatchCandidate> candidates = Mangette.ComicVine.SearchMetadataEntry(query)
-                .Select(r => new ComicMatchCandidate(r.Name, r.Identifier, r.Url, r.CoverUrl, LibraryImportMatcher.ScoreTitle(request.FolderName, r.Name)))
+                .Select(r => new ComicMatchCandidate(r.Name, r.Identifier, r.Url, r.CoverUrl, LibraryImportMatcher.ScoreTitle(query, r.Name)))
                 .OrderByDescending(c => c.Score)
                 .Take(8)
                 .ToList();
@@ -165,7 +160,7 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
         Mangette.AddWorker(Mangette.UpdateChaptersDownloadedWorker);
 
         string seriesDir = Path.Combine(library.BasePath, request.FolderName);
-        (int archives, _) = Directory.Exists(seriesDir) ? CountFiles(seriesDir) : (0, 0);
+        (int archives, _) = Directory.Exists(seriesDir) ? ComicLibraryImportMatcher.CountFiles(seriesDir) : (0, 0);
         Log.InfoFormat("Imported \"{0}\" as {1} from ComicVine ({2} issues listed, {3} archives on disk).",
             request.FolderName, comic.Name, issueCount, archives);
         return TypedResults.Ok(new ComicImportResult(comic.Key, comic.Name, issueCount, archives));
@@ -216,28 +211,6 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
         return await context.FileLibraries.Where(l => l.Kind == MediaKind.Comic).OrderBy(l => l.LibraryName).FirstOrDefaultAsync(HttpContext.RequestAborted);
     }
 
-    private static string NormalizeFolderKey(string name) =>
-        name.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
-
-    private static (int archives, int other) CountFiles(string directory)
-    {
-        try
-        {
-            int archives = 0, other = 0;
-            foreach (string path in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
-            {
-                if (DownloadedChapterMatcher.IsArchive(path))
-                    archives++;
-                else
-                    other++;
-            }
-            return (archives, other);
-        }
-        catch
-        {
-            return (0, 0);
-        }
-    }
 }
 
 public sealed record ComicScanFolderRecord(string FolderName, int ArchiveCount, int OtherFileCount, string SuggestedQuery);
