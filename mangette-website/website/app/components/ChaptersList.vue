@@ -73,7 +73,25 @@
                     {{ searchChapter ? `Ch. ${searchChapter.chapterNumber}` : '' }}
                     {{ searchChapter?.title ? ` — ${searchChapter.title}` : '' }}
                 </p>
-                <p v-if="searchBusy" class="text-muted text-sm">Looking up sites…</p>
+                <p v-if="searchBusy" class="text-muted text-sm">{{ isComic ? 'Searching Prowlarr…' : 'Looking up sites…' }}</p>
+                <template v-else-if="isComic">
+                    <p v-if="!comicReleases.length" class="text-muted text-sm">
+                        No Prowlarr releases found. Check the search query, or your indexers.
+                    </p>
+                    <div v-else class="flex flex-col gap-2 max-h-96 overflow-y-auto">
+                        <div v-for="rel in comicReleases" :key="rel.downloadUrl" class="flex items-center gap-2 bg-elevated rounded-lg p-2">
+                            <div class="grow min-w-0">
+                                <p class="font-medium text-sm truncate">{{ rel.title }}</p>
+                                <p class="text-muted text-xs">
+                                    {{ rel.indexerName }} · {{ rel.protocol }}
+                                    <span v-if="rel.seeders != null"> · {{ rel.seeders }} seeders</span>
+                                    · {{ formatBytes(rel.size) }}
+                                </p>
+                            </div>
+                            <UButton size="xs" :loading="grabbingComic" @click="grabComic(rel)">Download</UButton>
+                        </div>
+                    </div>
+                </template>
                 <p v-else-if="!releases.length" class="text-muted text-sm">
                     No sites attached for this chapter. Add a site on the series first.
                 </p>
@@ -110,13 +128,30 @@ type Release = {
     preferred: boolean;
     title?: string | null;
 };
+type ComicRelease = {
+    title: string;
+    downloadUrl: string;
+    infoUrl?: string | null;
+    protocol: 'Torrent' | 'Usenet';
+    indexerName: string;
+    size: number;
+    publishDate: string;
+    seeders?: number | null;
+};
 
 const filter = ref<{ name?: string; downloaded?: boolean }>({});
 const dlFilter = ref<'all' | 'missing' | 'have'>('all');
 const pagination = ref({ pageIndex: 0, pageSize: 50 });
 
-const props = defineProps<{ mangaId: string }>();
+const props = defineProps<{ mangaId: string; kind?: 'Manga' | 'Comic' }>();
+const isComic = computed(() => props.kind === 'Comic');
 const { $api } = useNuxtApp();
+
+const formatBytes = (bytes: number) => {
+    if (!bytes) return '0 MB';
+    const mb = bytes / 1024 / 1024;
+    return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
+};
 
 const { data, refresh } = useAsyncData(
     FetchKeys.Chapters.Manga(props.mangaId),
@@ -149,17 +184,25 @@ const searchOpen = ref(false);
 const searchBusy = ref(false);
 const searchChapter = ref<Chapter | null>(null);
 const releases = ref<Release[]>([]);
+const comicReleases = ref<ComicRelease[]>([]);
 const grabbing = ref('');
+const grabbingComic = ref(false);
 
 const openInteractive = async (ch: Chapter) => {
     searchChapter.value = ch;
     searchOpen.value = true;
     searchBusy.value = true;
     releases.value = [];
+    comicReleases.value = [];
     try {
-        releases.value = (await $fetch<Release[]>(`/v2/Chapters/${encodeURIComponent(ch.key)}/Releases`)) ?? [];
+        if (isComic.value) {
+            comicReleases.value = (await $fetch<ComicRelease[]>(`/v2/Comic/Chapters/${encodeURIComponent(ch.key)}/Releases`)) ?? [];
+        } else {
+            releases.value = (await $fetch<Release[]>(`/v2/Chapters/${encodeURIComponent(ch.key)}/Releases`)) ?? [];
+        }
     } catch {
         releases.value = [];
+        comicReleases.value = [];
     } finally {
         searchBusy.value = false;
     }
@@ -181,7 +224,30 @@ const grab = async (connectorName?: string) => {
     }
 };
 
+const grabComic = async (release: ComicRelease) => {
+    const id = searchChapter.value?.key;
+    if (!id) return;
+    grabbingComic.value = true;
+    try {
+        await $fetch(`/v2/Comic/Chapters/${encodeURIComponent(id)}/Grab`, {
+            method: 'POST',
+            body: { release },
+        });
+        searchOpen.value = false;
+        await refresh();
+    } finally {
+        grabbingComic.value = false;
+    }
+};
+
+// Comics have no "preferred site" concept to auto-pick from (unlike manga's UseForDownload flag),
+// so the plain search icon opens the same release picker as "Interactive search" instead of
+// silently grabbing something on the user's behalf.
 const automaticSearch = async (ch: Chapter) => {
+    if (isComic.value) {
+        await openInteractive(ch);
+        return;
+    }
     grabbing.value = ch.key;
     try {
         await $fetch(`/v2/Chapters/${encodeURIComponent(ch.key)}/Grab`, { method: 'POST', body: {} });

@@ -197,6 +197,6 @@ public class SearchController(MangaContext context) : ControllerBase
             new DTOs.MangaConnectorId<DTOs.Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
         int chapters = manga.Chapters?.Count ?? 0;
         int downloaded = manga.Chapters?.Count(c => c.Downloaded) ?? 0;
-        return new LibrarySeries(manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Year, manga.Monitored, manga.NewChapterCheck, chapters, downloaded);
+        return new LibrarySeries(manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Kind, manga.Year, manga.Monitored, manga.NewChapterCheck, chapters, downloaded);
     }
 }

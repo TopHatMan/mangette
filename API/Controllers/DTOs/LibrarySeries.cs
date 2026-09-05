@@ -10,12 +10,13 @@ public sealed record LibrarySeries(
     string Description,
     MangaReleaseStatus ReleaseStatus,
     IEnumerable<MangaConnectorId<Manga>> MangaConnectorIds,
+    MediaKind Kind,
     uint? Year,
     bool Monitored,
     NewChapterCheckInterval NewChapterCheck,
     int ChapterCount,
     int DownloadedCount)
-    : MinimalManga(Key, Name, Description, ReleaseStatus, MangaConnectorIds)
+    : MinimalManga(Key, Name, Description, ReleaseStatus, MangaConnectorIds, Kind)
 {
     public uint? Year { get; init; } = Year;
 

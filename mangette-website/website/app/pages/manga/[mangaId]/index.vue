@@ -1,7 +1,7 @@
 <template>
     <MangaDetailPage :manga="manga">
         <div class="grid gap-3 max-xl:grid-flow-row-dense min-2xl:grid-cols-[70%_auto] min-xl:grid-cols-[60%_auto] relative min-xl:h-full">
-            <ChaptersList :manga-id="mangaId" class="min-xl:h-full min-xl:overflow-y-scroll" />
+            <ChaptersList :manga-id="mangaId" :kind="manga?.kind" class="min-xl:h-full min-xl:overflow-y-scroll" />
             <div class="flex flex-col gap-2">
                 <UCard :class="[flashDownloading ? 'animate-[flash_0.75s_ease_0.5s]' : '']">
                     <template #header>
@@ -23,31 +23,39 @@
                             @update:model-value="setCheckInterval" />
                     </UFormField>
                     <p v-if="manga?.monitored && lastCheckLabel" class="text-muted text-xs mb-3">Last scan {{ lastCheckLabel }}</p>
-                    <UButton
-                        class="mb-2 w-full"
-                        icon="i-lucide-list-plus"
-                        size="sm"
-                        :loading="refreshingChapters"
-                        :disabled="!manga?.fileLibraryId"
-                        @click="refreshChapters">
-                        Refresh chapter list
-                    </UButton>
-                    <UButton
-                        class="mb-3 w-full"
-                        icon="i-lucide-search"
-                        size="sm"
-                        variant="outline"
-                        :loading="searchingMissing"
-                        :disabled="!manga?.fileLibraryId || !manga?.monitored"
-                        @click="searchMissing">
-                        Search missing
-                    </UButton>
+                    <template v-if="manga?.kind === 'Comic'">
+                        <p class="text-muted text-xs mb-3">
+                            Comics are searched on Prowlarr automatically every few minutes, or per-issue from the list
+                            on the left ("Interactive search"). There's no site to attach here.
+                        </p>
+                    </template>
+                    <template v-else>
+                        <UButton
+                            class="mb-2 w-full"
+                            icon="i-lucide-list-plus"
+                            size="sm"
+                            :loading="refreshingChapters"
+                            :disabled="!manga?.fileLibraryId"
+                            @click="refreshChapters">
+                            Refresh chapter list
+                        </UButton>
+                        <UButton
+                            class="mb-3 w-full"
+                            icon="i-lucide-search"
+                            size="sm"
+                            variant="outline"
+                            :loading="searchingMissing"
+                            :disabled="!manga?.fileLibraryId || !manga?.monitored"
+                            @click="searchMissing">
+                            Search missing
+                        </UButton>
+                    </template>
                     <LibrarySelect
                         :manga-id="mangaId"
                         :library-id="manga?.fileLibraryId"
                         class="w-full"
                         @library-changed="refreshNuxtData(FetchKeys.Manga.Id(mangaId))" />
-                    <div v-if="manga" class="flex flex-col gap-2 mt-3">
+                    <div v-if="manga && manga.kind !== 'Comic'" class="flex flex-col gap-2 mt-3">
                         <div
                             v-for="site in availableSites"
                             :key="site.name"

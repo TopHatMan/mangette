@@ -933,6 +933,143 @@
         }
       }
     },
+    "/v2/Comic/Chapters/{ChapterId}/Releases": {
+      "get": {
+        "tags": [
+          "Comic"
+        ],
+        "summary": "Interactive search for one Comic issue: live Prowlarr search (comics have no scraping\r\nconnector/cataloged release list to look up like manga's chapter Releases does).",
+        "parameters": [
+          {
+            "name": "ChapterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IndexerRelease"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Not a comic issue, or the indexer search failed",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ChapterId",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Comic/Chapters/{ChapterId}/Grab": {
+      "post": {
+        "tags": [
+          "Comic"
+        ],
+        "summary": "Sends one release the user picked from ChapterReleases to qBittorrent or SABnzbd.",
+        "parameters": [
+          {
+            "name": "ChapterId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabComicReleaseRequest"
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabComicReleaseRequest"
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabComicReleaseRequest"
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "$ref": "#/components/schemas/GrabComicReleaseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "description": "Not a comic issue, already downloaded, already has an in-progress download, or the client rejected the release",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ChapterId",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error during database operation",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/ComicLibraryImport/Scan": {
       "get": {
         "tags": [
@@ -6627,6 +6764,54 @@
         },
         "additionalProperties": false
       },
+      "GrabComicReleaseRequest": {
+        "type": "object",
+        "properties": {
+          "release": {
+            "$ref": "#/components/schemas/IndexerRelease"
+          }
+        },
+        "additionalProperties": false
+      },
+      "IndexerRelease": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "downloadUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "infoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ReleaseProtocol"
+          },
+          "indexerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "publishDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "seeders": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "One release returned by an API.IndexerConnectors.IIndexerConnector search."
+      },
       "LibraryConnector": {
         "required": [
           "baseUrl",
@@ -6822,6 +7007,7 @@
         "required": [
           "description",
           "key",
+          "kind",
           "mangaConnectorIds",
           "name",
           "releaseStatus"
@@ -6867,6 +7053,9 @@
               "$ref": "#/components/schemas/MangaMangaConnectorId"
             },
             "description": "Ids of the Manga on MangaConnectors"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaKind"
           },
           "key": {
             "maxLength": 64,
@@ -6935,6 +7124,7 @@
           "fileLibraryId",
           "ignoreChaptersBefore",
           "key",
+          "kind",
           "links",
           "mangaConnectorIds",
           "name",
@@ -7024,6 +7214,9 @@
               "$ref": "#/components/schemas/MangaMangaConnectorId"
             },
             "description": "Ids of the Manga on MangaConnectors"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaKind"
           },
           "key": {
             "maxLength": 64,
@@ -7479,6 +7672,7 @@
         "required": [
           "description",
           "key",
+          "kind",
           "mangaConnectorIds",
           "name",
           "releaseStatus"
@@ -7504,6 +7698,9 @@
               "$ref": "#/components/schemas/MangaMangaConnectorId"
             },
             "description": "Ids of the Manga on MangaConnectors"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/MediaKind"
           },
           "key": {
             "maxLength": 64,
@@ -7715,6 +7912,13 @@
           }
         },
         "additionalProperties": { }
+      },
+      "ReleaseProtocol": {
+        "enum": [
+          "Torrent",
+          "Usenet"
+        ],
+        "type": "string"
       },
       "RenameMangaRequest": {
         "type": "object",

@@ -8,6 +8,11 @@
             <div class="flex flex-wrap gap-2 items-center">
                 <UInput v-model="filter" icon="i-lucide-filter" placeholder="Filter" class="w-52" />
                 <UButtonGroup>
+                    <UButton :variant="kindFilter === 'manga' ? 'solid' : 'outline'" @click="kindFilter = 'manga'">Manga</UButton>
+                    <UButton :variant="kindFilter === 'comic' ? 'solid' : 'outline'" @click="kindFilter = 'comic'">Comics</UButton>
+                    <UButton :variant="kindFilter === 'all' ? 'solid' : 'outline'" @click="kindFilter = 'all'">All</UButton>
+                </UButtonGroup>
+                <UButtonGroup>
                     <UButton :variant="monitorFilter === 'all' ? 'solid' : 'outline'" @click="monitorFilter = 'all'">All</UButton>
                     <UButton :variant="monitorFilter === 'monitored' ? 'solid' : 'outline'" @click="monitorFilter = 'monitored'">
                         Monitored
@@ -24,22 +29,36 @@
                     <UButton icon="i-lucide-list" :variant="view === 'table' ? 'solid' : 'outline'" @click="view = 'table'" />
                 </UButtonGroup>
                 <UButton icon="i-lucide-circle-alert" variant="outline" to="/wanted">Wanted</UButton>
-                <UButton icon="i-lucide-folder-input" variant="outline" to="/import">Library Import</UButton>
-                <UButton icon="i-lucide-plus" to="/search">Add New</UButton>
+                <template v-if="kindFilter === 'comic'">
+                    <UButton icon="i-lucide-plus" to="/comics/import">Comics</UButton>
+                </template>
+                <template v-else>
+                    <UButton icon="i-lucide-folder-input" variant="outline" to="/import">Library Import</UButton>
+                    <UButton icon="i-lucide-plus" to="/search">Add New</UButton>
+                </template>
             </div>
         </div>
 
         <LoadingPage :loading="listPending">
             <div v-if="!series.length" class="flex flex-col items-center gap-3 py-20 text-center">
-                <p class="text-lg font-medium">No series in this library yet</p>
-                <p class="text-muted max-w-lg">
-                    Search for a title and add only the series you want. Searching no longer dumps every match onto this page.
-                    Existing folders can still be imported.
-                </p>
-                <div class="flex gap-2">
-                    <UButton icon="i-lucide-plus" to="/search">Add New</UButton>
-                    <UButton icon="i-lucide-folder-input" variant="outline" to="/import">Import Existing Library</UButton>
-                </div>
+                <template v-if="kindFilter === 'comic'">
+                    <p class="text-lg font-medium">No comics yet</p>
+                    <p class="text-muted max-w-lg">
+                        Search ComicVine and watch a series by issue range, or scan an existing Comic-kind library folder.
+                    </p>
+                    <UButton icon="i-lucide-plus" to="/comics/import">Comics</UButton>
+                </template>
+                <template v-else>
+                    <p class="text-lg font-medium">No series in this library yet</p>
+                    <p class="text-muted max-w-lg">
+                        Search for a title and add only the series you want. Searching no longer dumps every match onto this page.
+                        Existing folders can still be imported.
+                    </p>
+                    <div class="flex gap-2">
+                        <UButton icon="i-lucide-plus" to="/search">Add New</UButton>
+                        <UButton icon="i-lucide-folder-input" variant="outline" to="/import">Import Existing Library</UButton>
+                    </div>
+                </template>
             </div>
 
             <div v-else-if="view === 'posters'" class="arr-poster-grid">
@@ -121,10 +140,15 @@ type LibrarySeries = {
     chapterCount: number;
     downloadedCount: number;
     mangaConnectorIds?: { mangaConnectorName: string }[];
+    kind: 'Manga' | 'Comic';
 };
 
 const view = useState<'posters' | 'table'>('library-view', () => 'posters');
 const monitorFilter = useState<'all' | 'monitored' | 'unmonitored'>('library-monitor-filter', () => 'all');
+// Comics and manga are both "Manga" rows under the hood (only Kind differs), but they're acquired
+// and organized completely differently, so this Library page defaults to Manga-only -- Comics get
+// their own view here via the toggle, or the dedicated /comics/import page for adding/importing them.
+const kindFilter = useState<'manga' | 'comic' | 'all'>('library-kind-filter', () => 'manga');
 const filter = ref('');
 const { data: manga, status } = await useApi('/v2/Manga', { key: FetchKeys.Manga.All, lazy: true, server: false });
 
@@ -133,6 +157,8 @@ const series = computed(() => (manga.value ?? []) as unknown as LibrarySeries[])
 const filtered = computed(() => {
     const q = filter.value.trim().toLowerCase();
     return series.value.filter((m) => {
+        if (kindFilter.value === 'manga' && m.kind !== 'Manga') return false;
+        if (kindFilter.value === 'comic' && m.kind !== 'Comic') return false;
         if (monitorFilter.value === 'monitored' && !m.monitored) return false;
         if (monitorFilter.value === 'unmonitored' && m.monitored) return false;
         if (q && !m.name.toLowerCase().includes(q)) return false;

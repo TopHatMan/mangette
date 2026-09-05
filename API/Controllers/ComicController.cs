@@ -1,4 +1,5 @@
 using API.Controllers.Requests;
+using API.IndexerConnectors;
 using API.Schema.MangaContext;
 using API.Schema.MangaContext.MetadataFetchers;
 using API.Workers.PeriodicWorkers;
@@ -118,4 +119,79 @@ public class ComicController(MangaContext context) : ControllerBase
 
         return TypedResults.Created(string.Empty, comic.Key);
     }
+
+    /// <summary>
+    /// Interactive search for one Comic issue: live Prowlarr search (comics have no scraping
+    /// connector/cataloged release list to look up like manga's chapter Releases does).
+    /// </summary>
+    /// <response code="200"></response>
+    /// <response code="400">Not a comic issue, or the indexer search failed</response>
+    /// <response code="404">Unknown ChapterId</response>
+    [HttpGet("Chapters/{ChapterId}/Releases")]
+    [ProducesResponseType<List<IndexerRelease>>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<Ok<List<IndexerRelease>>, BadRequest<string>, NotFound<string>>> ChapterReleases(
+        string ChapterId, [FromQuery] string? query = null)
+    {
+        if (await context.Chapters.Include(c => c.ParentManga).FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted)
+            is not { } chapter)
+            return TypedResults.NotFound(nameof(ChapterId));
+        if (chapter.ParentManga.Kind != MediaKind.Comic)
+            return TypedResults.BadRequest("This chapter belongs to a Manga series, not a Comic. Use Chapters/{ChapterId}/Releases instead.");
+
+        string q = string.IsNullOrWhiteSpace(query) ? ComicAcquisition.BuildQuery(chapter.ParentManga, chapter) : query.Trim();
+        try
+        {
+            IndexerRelease[] releases = await ComicAcquisition.Indexer.Search(q, HttpContext.RequestAborted);
+            return TypedResults.Ok(releases.ToList());
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Interactive indexer search failed for \"{q}\": {ex.Message}", ex);
+            return TypedResults.BadRequest($"Indexer search failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>Sends one release the user picked from ChapterReleases to qBittorrent or SABnzbd.</summary>
+    /// <response code="200"></response>
+    /// <response code="400">Not a comic issue, already downloaded, already has an in-progress download, or the client rejected the release</response>
+    /// <response code="404">Unknown ChapterId</response>
+    /// <response code="500">Error during database operation</response>
+    [HttpPost("Chapters/{ChapterId}/Grab")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    [ProducesResponseType<string>(Status500InternalServerError, "text/plain")]
+    public async Task<Results<Ok, BadRequest<string>, NotFound<string>, InternalServerError<string>>> GrabChapterRelease(
+        string ChapterId, [FromBody] GrabComicReleaseRequest requestData)
+    {
+        if (await context.Chapters.Include(c => c.ParentManga).FirstOrDefaultAsync(c => c.Key == ChapterId, HttpContext.RequestAborted)
+            is not { } chapter)
+            return TypedResults.NotFound(nameof(ChapterId));
+        if (chapter.ParentManga.Kind != MediaKind.Comic)
+            return TypedResults.BadRequest("This chapter belongs to a Manga series, not a Comic.");
+        if (chapter.Downloaded)
+            return TypedResults.BadRequest("This issue is already downloaded.");
+        if (await context.ComicDownloadJobs.AnyAsync(
+                j => j.ChapterId == chapter.Key && j.Status != ComicDownloadJobStatus.Failed, HttpContext.RequestAborted))
+            return TypedResults.BadRequest("This issue already has an in-progress download.");
+
+        (ComicDownloadJob? job, string? error) = await ComicAcquisition.Grab(chapter, requestData.Release, HttpContext.RequestAborted);
+        if (job is null)
+        {
+            Log.Error(error);
+            return TypedResults.BadRequest(error ?? "Could not start the download.");
+        }
+
+        context.ComicDownloadJobs.Add(job);
+        if (await context.Sync(HttpContext.RequestAborted, GetType(), "Interactive comic grab") is { success: false } result)
+            return TypedResults.InternalServerError(result.exceptionMessage);
+
+        Log.InfoFormat("Interactively grabbed \"{0}\" from {1} ({2}) for {3} #{4}.",
+            requestData.Release.Title, requestData.Release.IndexerName, job.ClientName, chapter.ParentManga.Name, chapter.ChapterNumber);
+        return TypedResults.Ok();
+    }
+
+    public sealed record GrabComicReleaseRequest(IndexerRelease Release);
 }

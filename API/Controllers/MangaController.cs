@@ -66,6 +66,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
                 m.Name,
                 m.Description,
                 m.ReleaseStatus,
+                m.Kind,
                 m.Year,
                 m.Monitored,
                 m.NewChapterCheck,
@@ -89,6 +90,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
             m.ReleaseStatus,
             m.Ids.Select(id => new DTOs.MangaConnectorId<Manga>(
                 id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload)),
+            m.Kind,
             m.Year,
             m.Monitored,
             m.NewChapterCheck,
@@ -116,7 +118,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         return TypedResults.Ok(result.Select(m =>
         {
             IEnumerable<DTOs.MangaConnectorId<Manga>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
-            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids);
+            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.Kind);
         }).ToList());
     }
 
@@ -139,7 +141,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         IEnumerable<string> tags = manga.MangaTags.Select(t => t.Tag);
         IEnumerable<Link> links = manga.Links.Select(l => new Link(l.Key, l.LinkProvider, l.LinkUrl));
         IEnumerable<AltTitle> altTitles = manga.AltTitles.Select(a => new AltTitle(a.Language, a.Title));
-        Manga result = new (manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.IgnoreChaptersBefore, manga.Year, manga.OriginalLanguage, authors, tags, links, altTitles, manga.LibraryId, manga.Monitored, manga.NewChapterCheck, manga.LastNewChapterCheck);
+        Manga result = new (manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Kind, manga.IgnoreChaptersBefore, manga.Year, manga.OriginalLanguage, authors, tags, links, altTitles, manga.LibraryId, manga.Monitored, manga.NewChapterCheck, manga.LastNewChapterCheck);
         
         return TypedResults.Ok(result);
     }
@@ -220,8 +222,16 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
 
         if (turnedOn)
         {
-            QueueChapterRefresh(manga, DateTime.UtcNow);
-            await StartNewChapterDownloadsWorker.EnqueueAvailableDownloads(context, HttpContext.RequestAborted, manga.Key);
+            if (manga.Kind == MediaKind.Comic)
+            {
+                Mangette.AddWorker(new MaterializeWantedComicIssuesWorker(mangaId: manga.Key));
+                Mangette.AddWorker(Mangette.SearchIndexerForMissingIssuesWorker);
+            }
+            else
+            {
+                QueueChapterRefresh(manga, DateTime.UtcNow);
+                await StartNewChapterDownloadsWorker.EnqueueAvailableDownloads(context, HttpContext.RequestAborted, manga.Key);
+            }
         }
 
         int chapters = manga.Chapters.Count;
@@ -229,7 +239,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         IEnumerable<DTOs.MangaConnectorId<Manga>> ids = manga.MangaConnectorIds.Select(id =>
             new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
         return TypedResults.Ok(new LibrarySeries(
-            manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Year,
+            manga.Key, manga.Name, manga.Description, manga.ReleaseStatus, ids, manga.Kind, manga.Year,
             manga.Monitored, manga.NewChapterCheck, chapters, downloaded));
     }
 
@@ -626,7 +636,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
             IEnumerable<string> tags = m.MangaTags.Select(t => t.Tag);
             IEnumerable<Link> links = m.Links.Select(l => new Link(l.Key, l.LinkProvider, l.LinkUrl));
             IEnumerable<AltTitle> altTitles = m.AltTitles.Select(a => new AltTitle(a.Language, a.Title));
-            return new Manga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.IgnoreChaptersBefore, m.Year, m.OriginalLanguage, authors, tags, links, altTitles, m.LibraryId, m.Monitored, m.NewChapterCheck, m.LastNewChapterCheck);
+            return new Manga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.Kind, m.IgnoreChaptersBefore, m.Year, m.OriginalLanguage, authors, tags, links, altTitles, m.LibraryId, m.Monitored, m.NewChapterCheck, m.LastNewChapterCheck);
         }).ToList());
     }
     
@@ -654,7 +664,7 @@ public class MangaController(MangaContext context, ActionsContext actionsContext
         return TypedResults.Ok(result.Select(m =>
         {
             IEnumerable<DTOs.MangaConnectorId<Manga>> ids = m.MangaConnectorIds.Select(id => new DTOs.MangaConnectorId<Manga>(id.Key, id.MangaConnectorName, id.ObjId, id.WebsiteUrl, id.UseForDownload));
-            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids);
+            return new MinimalManga(m.Key, m.Name, m.Description, m.ReleaseStatus, ids, m.Kind);
         }).ToList());
     }
 
