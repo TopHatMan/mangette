@@ -55,6 +55,10 @@
                         :library-id="manga?.fileLibraryId"
                         class="w-full"
                         @library-changed="refreshNuxtData(FetchKeys.Manga.Id(mangaId))" />
+                    <div v-if="manga?.kind === 'Comic'" class="mt-3">
+                        <h2 class="text-sm font-medium mb-2">Active downloads</h2>
+                        <ComicQueueTable :manga-id="mangaId" :poll-interval-ms="10000" />
+                    </div>
                     <div v-if="manga && manga.kind !== 'Comic'" class="flex flex-col gap-2 mt-3">
                         <div
                             v-for="site in availableSites"

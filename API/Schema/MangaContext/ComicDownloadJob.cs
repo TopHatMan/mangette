@@ -35,6 +35,8 @@ public class ComicDownloadJob : Identifiable
     public DownloadClientKind ClientName { get; internal set; }
     [StringLength(256)] public string? ExternalId { get; internal set; }
     public ComicDownloadJobStatus Status { get; internal set; }
+    /// <summary>0..1 as last reported by the download client. Only meaningful while Status == Downloading.</summary>
+    public double Progress { get; internal set; }
     [StringLength(1024)] public string? OutputPath { get; internal set; }
     [StringLength(1024)] public string? ErrorMessage { get; internal set; }
     public DateTime CreatedAt { get; internal set; }
@@ -81,6 +83,12 @@ public class ComicDownloadJob : Identifiable
     {
         ExternalId = externalId;
         Status = ComicDownloadJobStatus.Downloading;
+        LastCheckedAt = DateTime.UtcNow;
+    }
+
+    internal void SetProgress(double progress)
+    {
+        Progress = Math.Clamp(progress, 0, 1);
         LastCheckedAt = DateTime.UtcNow;
     }
 

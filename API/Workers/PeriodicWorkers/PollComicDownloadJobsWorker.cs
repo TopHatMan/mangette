@@ -80,9 +80,10 @@ public class PollComicDownloadJobsWorker(TimeSpan? interval = null, IEnumerable<
             }
             if (!status.Done)
             {
-                job.LastCheckedAt = DateTime.UtcNow;
+                job.SetProgress(status.Progress);
                 continue;
             }
+            job.SetProgress(1);
             if (status.OutputPath is not { } outputPath)
             {
                 job.MarkFailed($"{job.ClientName} reported completion but gave no output path.");

@@ -1070,6 +1070,71 @@
         }
       }
     },
+    "/v2/Comic/Queue": {
+      "get": {
+        "tags": [
+          "Comic"
+        ],
+        "summary": "Every active ComicDownloadJob (queued/downloading/importing), plus the most recent finished\r\nones, Sonarr Activity/Queue-style. Optionally scoped to one series so the same endpoint backs\r\nboth the library-wide Queue tab and a series' own \"Active downloads\" panel.",
+        "parameters": [
+          {
+            "name": "mangaId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComicQueueEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Comic/Queue/{jobId}": {
+      "delete": {
+        "tags": [
+          "Comic"
+        ],
+        "summary": "Removes a job from the queue. This does not reach into qBittorrent/SABnzbd to cancel or\r\ndelete the download itself -- it just un-blocks the issue so the next automatic sweep or a\r\nmanual Interactive Search can try again.",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "404": {
+            "description": "Unknown jobId",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/ComicLibraryImport/Scan": {
       "get": {
         "tags": [
@@ -6300,6 +6365,16 @@
         },
         "additionalProperties": false
       },
+      "ComicDownloadJobStatus": {
+        "enum": [
+          "Queued",
+          "Downloading",
+          "Importing",
+          "Imported",
+          "Failed"
+        ],
+        "type": "string"
+      },
       "ComicImportRequest": {
         "type": "object",
         "properties": {
@@ -6403,6 +6478,61 @@
           "Torrent"
         ],
         "type": "string"
+      },
+      "ComicQueueEntry": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterId": {
+            "type": "string",
+            "nullable": true
+          },
+          "mangaId": {
+            "type": "string",
+            "nullable": true
+          },
+          "mangaName": {
+            "type": "string",
+            "nullable": true
+          },
+          "chapterNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "releaseTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "indexerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ReleaseProtocol"
+          },
+          "clientName": {
+            "$ref": "#/components/schemas/DownloadClientKind"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ComicDownloadJobStatus"
+          },
+          "progress": {
+            "type": "number",
+            "format": "double"
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
       },
       "ComicReorganizeEntry": {
         "type": "object",
@@ -6871,6 +7001,13 @@
         },
         "additionalProperties": false,
         "description": "Radarr-style Discover catalog: trending, popular, new, recently updated."
+      },
+      "DownloadClientKind": {
+        "enum": [
+          "QBittorrent",
+          "Sabnzbd"
+        ],
+        "type": "string"
       },
       "FileLibrary": {
         "required": [

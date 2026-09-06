@@ -78,18 +78,45 @@
                     <p v-if="!comicReleases.length" class="text-muted text-sm">
                         No Prowlarr releases found. Check the search query, or your indexers.
                     </p>
-                    <div v-else class="flex flex-col gap-2 max-h-96 overflow-y-auto">
-                        <div v-for="rel in comicReleases" :key="rel.downloadUrl" class="flex items-center gap-2 bg-elevated rounded-lg p-2">
-                            <div class="grow min-w-0">
-                                <p class="font-medium text-sm truncate">{{ rel.title }}</p>
-                                <p class="text-muted text-xs">
-                                    {{ rel.indexerName }} · {{ rel.protocol }}
-                                    <span v-if="rel.seeders != null"> · {{ rel.seeders }} seeders</span>
-                                    · {{ formatBytes(rel.size) }}
-                                </p>
-                            </div>
-                            <UButton size="xs" :loading="grabbingComic" @click="grabComic(rel)">Download</UButton>
-                        </div>
+                    <div v-else class="overflow-x-auto max-h-96 overflow-y-auto">
+                        <table class="arr-table">
+                            <thead>
+                                <tr>
+                                    <th class="cursor-pointer select-none" @click="toggleSort('title')">Release{{ sortArrow('title') }}</th>
+                                    <th class="cursor-pointer select-none" @click="toggleSort('indexerName')">
+                                        Indexer{{ sortArrow('indexerName') }}
+                                    </th>
+                                    <th class="cursor-pointer select-none" @click="toggleSort('protocol')">
+                                        Protocol{{ sortArrow('protocol') }}
+                                    </th>
+                                    <th class="cursor-pointer select-none" @click="toggleSort('size')">Size{{ sortArrow('size') }}</th>
+                                    <th class="cursor-pointer select-none" @click="toggleSort('seeders')">
+                                        Seeders{{ sortArrow('seeders') }}
+                                    </th>
+                                    <th class="cursor-pointer select-none" @click="toggleSort('publishDate')">
+                                        Age{{ sortArrow('publishDate') }}
+                                    </th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="rel in sortedComicReleases" :key="rel.downloadUrl">
+                                    <td class="max-w-64 truncate font-medium text-sm" :title="rel.title">{{ rel.title }}</td>
+                                    <td class="text-muted text-xs">{{ rel.indexerName }}</td>
+                                    <td class="text-xs">
+                                        <UBadge size="sm" variant="subtle" :color="rel.protocol === 'Usenet' ? 'secondary' : 'primary'">
+                                            {{ rel.protocol }}
+                                        </UBadge>
+                                    </td>
+                                    <td class="tabular-nums text-xs whitespace-nowrap">{{ formatBytes(rel.size) }}</td>
+                                    <td class="tabular-nums text-xs">{{ rel.seeders ?? '—' }}</td>
+                                    <td class="text-xs whitespace-nowrap">{{ formatAge(rel.publishDate) }}</td>
+                                    <td>
+                                        <UButton size="xs" :loading="grabbingComic" @click="grabComic(rel)">Download</UButton>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </template>
                 <p v-else-if="!releases.length" class="text-muted text-sm">
@@ -154,6 +181,27 @@ const formatBytes = (bytes: number) => {
     return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
 };
 
+const formatAge = (iso: string) => {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+    if (days <= 0) return 'today';
+    if (days < 31) return `${days}d`;
+    if (days < 365) return `${Math.floor(days / 30)}mo`;
+    return `${Math.floor(days / 365)}y`;
+};
+
+type ComicSortKey = 'title' | 'indexerName' | 'protocol' | 'size' | 'seeders' | 'publishDate';
+const sortKey = ref<ComicSortKey | null>(null);
+const sortDir = ref<'asc' | 'desc'>('desc');
+const toggleSort = (key: ComicSortKey) => {
+    if (sortKey.value === key) {
+        sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortKey.value = key;
+        sortDir.value = key === 'title' || key === 'indexerName' || key === 'protocol' ? 'asc' : 'desc';
+    }
+};
+const sortArrow = (key: ComicSortKey) => (sortKey.value === key ? (sortDir.value === 'asc' ? ' ▲' : ' ▼') : '');
+
 const { data, refresh } = useAsyncData(
     FetchKeys.Chapters.Manga(props.mangaId),
     () =>
@@ -189,12 +237,32 @@ const comicReleases = ref<ComicRelease[]>([]);
 const grabbing = ref('');
 const grabbingComic = ref(false);
 
+const sortedComicReleases = computed(() => {
+    if (!sortKey.value) return comicReleases.value;
+    const key = sortKey.value;
+    const dir = sortDir.value === 'asc' ? 1 : -1;
+    return [...comicReleases.value].sort((a, b) => {
+        let av: string | number = a[key] ?? '';
+        let bv: string | number = b[key] ?? '';
+        if (key === 'publishDate') {
+            av = new Date(a.publishDate).getTime();
+            bv = new Date(b.publishDate).getTime();
+        } else if (key === 'seeders') {
+            av = a.seeders ?? -1;
+            bv = b.seeders ?? -1;
+        }
+        if (typeof av === 'string' && typeof bv === 'string') return av.localeCompare(bv) * dir;
+        return ((av as number) - (bv as number)) * dir;
+    });
+});
+
 const openInteractive = async (ch: Chapter) => {
     searchChapter.value = ch;
     searchOpen.value = true;
     searchBusy.value = true;
     releases.value = [];
     comicReleases.value = [];
+    sortKey.value = null;
     try {
         if (isComic.value) {
             comicReleases.value = (await $fetch<ComicRelease[]>(`/v2/Comic/Chapters/${encodeURIComponent(ch.key)}/Releases`)) ?? [];

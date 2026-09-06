@@ -2,10 +2,17 @@
     <UPage>
         <UPageHeader title="Comics" description="Add a comic to watch by issue range, or scan an existing Comic-kind library folder and match it against ComicVine.">
             <template #headline>
+                <UButtonGroup>
+                    <UButton :variant="tab === 'import' ? 'solid' : 'outline'" @click="tab = 'import'">Add &amp; Import</UButton>
+                    <UButton :variant="tab === 'queue' ? 'solid' : 'outline'" @click="tab = 'queue'">Queue</UButton>
+                </UButtonGroup>
                 <UButton icon="i-lucide-plus" class="w-fit" @click="addComicModal.open()">Add Comic</UButton>
             </template>
         </UPageHeader>
-        <UPageBody>
+        <UPageBody v-if="tab === 'queue'">
+            <ComicQueueTable />
+        </UPageBody>
+        <UPageBody v-else>
             <UAlert
                 v-if="!scanning && noComicLibrary"
                 color="warning"
@@ -127,6 +134,8 @@ const apiError = (e: unknown): string => {
     }
     return '';
 };
+
+const tab = ref<'import' | 'queue'>('import');
 
 const overlay = useOverlay();
 const addComicModal = overlay.create(LazyAddComicModal);

@@ -218,10 +218,68 @@ public class ComicController(MangaContext context) : ControllerBase
             return TypedResults.InternalServerError(result.exceptionMessage);
 
         Log.InfoFormat("Interactively grabbed \"{0}\" from {1} ({2}) for {3} #{4}.",
-            requestData.Release.Title, requestData.Release.IndexerName, job.ClientName, chapter.ParentManga.Name, chapter.ChapterNumber);
+            release.Title, release.IndexerName, job.ClientName, chapter.ParentManga.Name, chapter.ChapterNumber);
+        return TypedResults.Ok();
+    }
+
+    /// <summary>
+    /// Every active ComicDownloadJob (queued/downloading/importing), plus the most recent finished
+    /// ones, Sonarr Activity/Queue-style. Optionally scoped to one series so the same endpoint backs
+    /// both the library-wide Queue tab and a series' own "Active downloads" panel.
+    /// </summary>
+    /// <response code="200"></response>
+    [HttpGet("Queue")]
+    [ProducesResponseType<List<ComicQueueEntry>>(Status200OK, "application/json")]
+    public async Task<Ok<List<ComicQueueEntry>>> Queue([FromQuery] string? mangaId = null)
+    {
+        const int recentFinishedLimit = 20;
+
+        IQueryable<ComicDownloadJob> jobs = context.ComicDownloadJobs
+            .Include(j => j.Chapter)
+            .ThenInclude(c => c.ParentManga);
+        if (!string.IsNullOrWhiteSpace(mangaId))
+            jobs = jobs.Where(j => j.Chapter.ParentMangaId == mangaId);
+
+        List<ComicDownloadJob> active = await jobs
+            .Where(j => j.Status != ComicDownloadJobStatus.Imported)
+            .OrderBy(j => j.CreatedAt)
+            .ToListAsync(HttpContext.RequestAborted);
+        List<ComicDownloadJob> recentFinished = await jobs
+            .Where(j => j.Status == ComicDownloadJobStatus.Imported)
+            .OrderByDescending(j => j.LastCheckedAt)
+            .Take(recentFinishedLimit)
+            .ToListAsync(HttpContext.RequestAborted);
+
+        List<ComicQueueEntry> entries = active.Concat(recentFinished)
+            .Select(j => new ComicQueueEntry(
+                j.Key, j.ChapterId, j.Chapter.ParentMangaId, j.Chapter.ParentManga.Name, j.Chapter.ChapterNumber,
+                j.ReleaseTitle, j.IndexerName, j.Protocol, j.ClientName, j.Status, j.Progress, j.ErrorMessage, j.CreatedAt))
+            .ToList();
+        return TypedResults.Ok(entries);
+    }
+
+    /// <summary>
+    /// Removes a job from the queue. This does not reach into qBittorrent/SABnzbd to cancel or
+    /// delete the download itself -- it just un-blocks the issue so the next automatic sweep or a
+    /// manual Interactive Search can try again.
+    /// </summary>
+    /// <response code="200"></response>
+    /// <response code="404">Unknown jobId</response>
+    [HttpDelete("Queue/{jobId}")]
+    [ProducesResponseType(Status200OK)]
+    [ProducesResponseType<string>(Status404NotFound, "text/plain")]
+    public async Task<Results<Ok, NotFound<string>>> RemoveFromQueue(string jobId)
+    {
+        if (await context.ComicDownloadJobs.Where(j => j.Key == jobId).ExecuteDeleteAsync(HttpContext.RequestAborted) < 1)
+            return TypedResults.NotFound(nameof(jobId));
         return TypedResults.Ok();
     }
 
     /// <summary>Release is optional -- omit it (or send null) for "auto-search and grab the best match".</summary>
     public sealed record GrabComicReleaseRequest(IndexerRelease? Release);
 }
+
+public sealed record ComicQueueEntry(
+    string JobId, string ChapterId, string MangaId, string MangaName, string ChapterNumber,
+    string ReleaseTitle, string IndexerName, ReleaseProtocol Protocol, DownloadClientKind ClientName,
+    ComicDownloadJobStatus Status, double Progress, string? ErrorMessage, DateTime CreatedAt);
