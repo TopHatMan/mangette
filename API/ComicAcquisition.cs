@@ -8,7 +8,7 @@ namespace API;
 /// Shared indexer-search-and-grab logic for Comics, used by both the automatic sweep
 /// (<see cref="Workers.PeriodicWorkers.SearchIndexerForMissingIssuesWorker"/>) and the interactive
 /// per-issue search (<see cref="Controllers.ComicController"/>) so there's one place that knows how
-/// to build a query, pick a client, and hand a release off.
+/// to build a query, match a release to an issue, pick a client, and hand a release off.
 /// </summary>
 public static class ComicAcquisition
 {
@@ -16,12 +16,35 @@ public static class ComicAcquisition
     private static readonly IExternalDownloadClient QBittorrent = new QBittorrentDownloadClient();
     private static readonly IExternalDownloadClient Sabnzbd = new SabnzbdDownloadClient();
 
-    public static string BuildQuery(Manga comic, Chapter chapter) => $"{comic.Name} {chapter.ChapterNumber}";
+    /// <summary>
+    /// Search by series title alone, not "title + issue number". Comic indexers rarely have a
+    /// standardized query grammar for issue numbers the way TV indexers do for SxxExx, so appending
+    /// the issue number to the query text just narrows a full-text search and loses real hits (a
+    /// release titled "Absolute Superman 001 (2024)" doesn't reliably match a query ending in "1").
+    /// One series-wide search also covers every missing issue at once instead of one Prowlarr
+    /// request per issue.
+    /// </summary>
+    public static string BuildQuery(Manga comic) => comic.Name;
+
+    /// <summary>Does this release's title look like it's the issue the chapter wants?</summary>
+    public static bool MatchesIssue(IndexerRelease release, Chapter chapter) =>
+        DownloadedChapterMatcher.TryParseComicIssueNumber(release.Title, out string issueNumber) &&
+        DownloadedChapterMatcher.ChapterNumbersEqual(issueNumber, chapter.ChapterNumber);
 
     public static (IExternalDownloadClient Client, DownloadClientKind Kind) PickClient(ReleaseProtocol protocol) =>
         protocol == ReleaseProtocol.Torrent
             ? (QBittorrent, DownloadClientKind.QBittorrent)
             : (Sabnzbd, DownloadClientKind.Sabnzbd);
+
+    /// <summary>Picks the release matching this chapter's issue number the caller's protocol preference likes best.</summary>
+    public static IndexerRelease? PickBestForIssue(IEnumerable<IndexerRelease> releases, Chapter chapter, ReleaseProtocol preferred)
+    {
+        List<IndexerRelease> candidates = releases.Where(r => MatchesIssue(r, chapter)).ToList();
+        if (candidates.Count == 0)
+            return null;
+        return candidates.FirstOrDefault(r => r.Protocol == preferred)
+               ?? candidates.OrderByDescending(r => r.Seeders ?? 0).First();
+    }
 
     /// <summary>Hands one chosen release to the right client and builds the job row that tracks it. Does not save.</summary>
     public static async Task<(ComicDownloadJob? Job, string? Error)> Grab(Chapter chapter, IndexerRelease release, CancellationToken cancellationToken)

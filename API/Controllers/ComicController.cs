@@ -140,11 +140,16 @@ public class ComicController(MangaContext context) : ControllerBase
         if (chapter.ParentManga.Kind != MediaKind.Comic)
             return TypedResults.BadRequest("This chapter belongs to a Manga series, not a Comic. Use Chapters/{ChapterId}/Releases instead.");
 
-        string q = string.IsNullOrWhiteSpace(query) ? ComicAcquisition.BuildQuery(chapter.ParentManga, chapter) : query.Trim();
+        string q = string.IsNullOrWhiteSpace(query) ? ComicAcquisition.BuildQuery(chapter.ParentManga) : query.Trim();
         try
         {
             IndexerRelease[] releases = await ComicAcquisition.Indexer.Search(q, HttpContext.RequestAborted);
-            return TypedResults.Ok(releases.ToList());
+            // Releases whose title parses to this exact issue number surface first; everything else
+            // (omnibuses, whole-run packs, wrong issue) still shows below for the user to eyeball.
+            List<IndexerRelease> sorted = releases
+                .OrderByDescending(r => ComicAcquisition.MatchesIssue(r, chapter))
+                .ToList();
+            return TypedResults.Ok(sorted);
         }
         catch (Exception ex)
         {
@@ -177,7 +182,31 @@ public class ComicController(MangaContext context) : ControllerBase
                 j => j.ChapterId == chapter.Key && j.Status != ComicDownloadJobStatus.Failed, HttpContext.RequestAborted))
             return TypedResults.BadRequest("This issue already has an in-progress download.");
 
-        (ComicDownloadJob? job, string? error) = await ComicAcquisition.Grab(chapter, requestData.Release, HttpContext.RequestAborted);
+        IndexerRelease? release = requestData.Release;
+        if (release is null)
+        {
+            // No release specified = auto-search-and-grab, same idea as manga's plain "Grab" button
+            // picking the best attached site instead of asking the user to choose one.
+            string query = ComicAcquisition.BuildQuery(chapter.ParentManga);
+            IndexerRelease[] releases;
+            try
+            {
+                releases = await ComicAcquisition.Indexer.Search(query, HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Auto-search failed for \"{query}\": {ex.Message}", ex);
+                return TypedResults.BadRequest($"Indexer search failed: {ex.Message}");
+            }
+            ReleaseProtocol preferred = Mangette.Settings.ComicProtocolPreference == ComicProtocolPreference.Usenet
+                ? ReleaseProtocol.Usenet
+                : ReleaseProtocol.Torrent;
+            release = ComicAcquisition.PickBestForIssue(releases, chapter, preferred);
+            if (release is null)
+                return TypedResults.BadRequest($"No Prowlarr release matches issue {chapter.ChapterNumber} of \"{chapter.ParentManga.Name}\".");
+        }
+
+        (ComicDownloadJob? job, string? error) = await ComicAcquisition.Grab(chapter, release, HttpContext.RequestAborted);
         if (job is null)
         {
             Log.Error(error);
@@ -193,5 +222,6 @@ public class ComicController(MangaContext context) : ControllerBase
         return TypedResults.Ok();
     }
 
-    public sealed record GrabComicReleaseRequest(IndexerRelease Release);
+    /// <summary>Release is optional -- omit it (or send null) for "auto-search and grab the best match".</summary>
+    public sealed record GrabComicReleaseRequest(IndexerRelease? Release);
 }

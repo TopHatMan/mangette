@@ -146,6 +146,7 @@ const pagination = ref({ pageIndex: 0, pageSize: 50 });
 const props = defineProps<{ mangaId: string; kind?: 'Manga' | 'Comic' }>();
 const isComic = computed(() => props.kind === 'Comic');
 const { $api } = useNuxtApp();
+const toast = useToast();
 
 const formatBytes = (bytes: number) => {
     if (!bytes) return '0 MB';
@@ -240,18 +241,23 @@ const grabComic = async (release: ComicRelease) => {
     }
 };
 
-// Comics have no "preferred site" concept to auto-pick from (unlike manga's UseForDownload flag),
-// so the plain search icon opens the same release picker as "Interactive search" instead of
-// silently grabbing something on the user's behalf.
+// "Search this chapter" auto-picks the best matching release and grabs it immediately -- for
+// comics that means a fresh Prowlarr search filtered to a release whose title parses to this
+// issue number, same idea as manga auto-picking its preferred attached site.
 const automaticSearch = async (ch: Chapter) => {
-    if (isComic.value) {
-        await openInteractive(ch);
-        return;
-    }
     grabbing.value = ch.key;
     try {
-        await $fetch(`/v2/Chapters/${encodeURIComponent(ch.key)}/Grab`, { method: 'POST', body: {} });
+        if (isComic.value) {
+            await $fetch(`/v2/Comic/Chapters/${encodeURIComponent(ch.key)}/Grab`, { method: 'POST', body: { release: null } });
+        } else {
+            await $fetch(`/v2/Chapters/${encodeURIComponent(ch.key)}/Grab`, { method: 'POST', body: {} });
+        }
         await refresh();
+    } catch (e: unknown) {
+        if (isComic.value) {
+            const body = typeof e === 'object' && e && 'data' in e ? String((e as { data?: unknown }).data ?? '') : '';
+            toast.add({ title: body || 'Could not auto-grab a release for this issue.', color: 'error' });
+        }
     } finally {
         grabbing.value = '';
     }

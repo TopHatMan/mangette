@@ -8,10 +8,12 @@ using Microsoft.EntityFrameworkCore;
 namespace API.Workers.PeriodicWorkers;
 
 /// <summary>
-/// For every wanted Comic issue (a Chapter placeholder created by <see cref="MaterializeWantedComicIssuesWorker"/>
-/// with no in-flight <see cref="ComicDownloadJob"/>), searches Prowlarr and hands the winning release to
-/// qBittorrent or SABnzbd depending on <see cref="MangetteSettings.ComicProtocolPreference"/>. This is the
-/// automatic sweep; <see cref="Controllers.ComicController"/> exposes the same search-and-grab interactively
+/// For every Comic series with a wanted issue (a Chapter placeholder created by
+/// <see cref="MaterializeWantedComicIssuesWorker"/> with no in-flight <see cref="ComicDownloadJob"/>),
+/// searches Prowlarr once for the whole series and distributes matching releases across every wanted
+/// issue that search turned up -- one Prowlarr request can and usually does satisfy many issues at
+/// once, since indexers return every release for the series, not just one. This is the automatic
+/// sweep; <see cref="Controllers.ComicController"/> exposes the same search-and-grab interactively
 /// for one issue at a time via <see cref="ComicAcquisition"/>.
 /// </summary>
 public class SearchIndexerForMissingIssuesWorker(TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
@@ -21,7 +23,7 @@ public class SearchIndexerForMissingIssuesWorker(TimeSpan? interval = null, IEnu
     public TimeSpan Interval { get; set; } = interval ?? TimeSpan.FromMinutes(5);
     private static readonly ILog QueueLog = LogManager.GetLogger(typeof(SearchIndexerForMissingIssuesWorker));
 
-    /// <summary>Avoids hammering Prowlarr every tick for an issue no indexer has yet. Not persisted; resets on restart.</summary>
+    /// <summary>Avoids hammering Prowlarr every tick for a series with no new releases yet. Not persisted; resets on restart.</summary>
     private static readonly ConcurrentDictionary<string, DateTime> LastAttempt = new();
     private static readonly TimeSpan Cooldown = TimeSpan.FromMinutes(30);
 
@@ -46,16 +48,23 @@ public class SearchIndexerForMissingIssuesWorker(TimeSpan? interval = null, IEnu
             .Where(c => !c.Downloaded && c.ParentManga.Kind == MediaKind.Comic && c.ParentManga.Monitored)
             .ToListAsync(CancellationToken);
 
-        int grabbed = 0;
-        foreach (Chapter chapter in wanted)
-        {
-            if (inFlight.Contains(chapter.Key))
-                continue;
-            if (LastAttempt.TryGetValue(chapter.Key, out DateTime last) && DateTime.UtcNow - last < Cooldown)
-                continue;
-            LastAttempt[chapter.Key] = DateTime.UtcNow;
+        ReleaseProtocol preferred = Mangette.Settings.ComicProtocolPreference == ComicProtocolPreference.Usenet
+            ? ReleaseProtocol.Usenet
+            : ReleaseProtocol.Torrent;
 
-            string query = ComicAcquisition.BuildQuery(chapter.ParentManga, chapter);
+        int grabbed = 0;
+        foreach (IGrouping<string, Chapter> series in wanted.GroupBy(c => c.ParentMangaId))
+        {
+            List<Chapter> pending = series.Where(c => !inFlight.Contains(c.Key)).ToList();
+            if (pending.Count == 0)
+                continue;
+
+            Manga comic = pending[0].ParentManga;
+            if (LastAttempt.TryGetValue(comic.Key, out DateTime last) && DateTime.UtcNow - last < Cooldown)
+                continue;
+            LastAttempt[comic.Key] = DateTime.UtcNow;
+
+            string query = ComicAcquisition.BuildQuery(comic);
             IndexerRelease[] releases;
             try
             {
@@ -69,22 +78,24 @@ public class SearchIndexerForMissingIssuesWorker(TimeSpan? interval = null, IEnu
             if (releases.Length == 0)
                 continue;
 
-            ReleaseProtocol preferred = Mangette.Settings.ComicProtocolPreference == ComicProtocolPreference.Usenet
-                ? ReleaseProtocol.Usenet
-                : ReleaseProtocol.Torrent;
-            IndexerRelease chosen = releases.FirstOrDefault(r => r.Protocol == preferred) ?? releases[0];
-
-            (ComicDownloadJob? job, string? error) = await ComicAcquisition.Grab(chapter, chosen, CancellationToken);
-            if (job is null)
+            foreach (Chapter chapter in pending)
             {
-                QueueLog.Warn(error);
-                continue;
-            }
+                IndexerRelease? chosen = ComicAcquisition.PickBestForIssue(releases, chapter, preferred);
+                if (chosen is null)
+                    continue;
 
-            MangaContext.ComicDownloadJobs.Add(job);
-            grabbed++;
-            QueueLog.InfoFormat("Grabbed \"{0}\" from {1} ({2}) for {3} #{4}.",
-                chosen.Title, chosen.IndexerName, job.ClientName, chapter.ParentManga.Name, chapter.ChapterNumber);
+                (ComicDownloadJob? job, string? error) = await ComicAcquisition.Grab(chapter, chosen, CancellationToken);
+                if (job is null)
+                {
+                    QueueLog.Warn(error);
+                    continue;
+                }
+
+                MangaContext.ComicDownloadJobs.Add(job);
+                grabbed++;
+                QueueLog.InfoFormat("Grabbed \"{0}\" from {1} ({2}) for {3} #{4}.",
+                    chosen.Title, chosen.IndexerName, job.ClientName, comic.Name, chapter.ChapterNumber);
+            }
         }
 
         if (grabbed > 0 && await MangaContext.Sync(CancellationToken, GetType(), "Grab comic releases") is { success: false } result)
