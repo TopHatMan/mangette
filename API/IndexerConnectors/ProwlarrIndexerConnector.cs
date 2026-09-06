@@ -113,6 +113,11 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         foreach (int id in Mangette.Settings.ComicEnabledIndexerIds)
             requestUrl += $"&indexerIds={id}";
 
+        // Logged at Info (not Debug) on purpose: this is the single most useful line for diagnosing
+        // "Prowlarr finds it manually but Mangette doesn't" -- it shows exactly what was sent, with
+        // no need to reproduce with a debugger. The API key never appears in requestUrl (it's a header).
+        Log.InfoFormat("Prowlarr search request: {0}", requestUrl);
+
         HttpRequestMessage request = new(HttpMethod.Get, requestUrl);
         request.Headers.TryAddWithoutValidation("X-Api-Key", Mangette.Settings.ProwlarrApiKey);
 
@@ -134,30 +139,36 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         }
         if (!response.IsSuccessStatusCode)
         {
-            Log.Error($"Prowlarr search for \"{query}\" returned {(int)response.StatusCode} {response.StatusCode}.");
+            string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            Log.Error($"Prowlarr search for \"{query}\" returned {(int)response.StatusCode} {response.StatusCode}: {errorBody}");
             return [];
         }
 
+        string body = await response.Content.ReadAsStringAsync(cancellationToken);
         JArray results;
         try
         {
-            string body = await response.Content.ReadAsStringAsync(cancellationToken);
             results = JArray.Parse(body);
         }
         catch (Exception ex)
         {
-            Log.Error($"Could not parse Prowlarr response for \"{query}\": {ex.Message}", ex);
+            Log.Error($"Could not parse Prowlarr response for \"{query}\": {ex.Message}. Body: {body}", ex);
             return [];
         }
 
         List<IndexerRelease> releases = [];
+        int skipped = 0;
         foreach (JToken item in results)
         {
             if (ParseRelease(item) is { } release)
                 releases.Add(release);
+            else
+                skipped++;
         }
+        if (skipped > 0)
+            Log.WarnFormat("Prowlarr search \"{0}\": {1} of {2} raw result(s) were missing a title/downloadUrl/protocol and were skipped.", query, skipped, results.Count);
 
-        Log.InfoFormat("Prowlarr search \"{0}\" returned {1} release(s).", query, releases.Count);
+        Log.InfoFormat("Prowlarr search \"{0}\" returned {1} release(s) (raw: {2}).", query, releases.Count, results.Count);
         return releases.ToArray();
     }
 

@@ -178,6 +178,21 @@
                             <UButton variant="outline" :loading="savingCategories" @click="saveCategories">Save</UButton>
                         </div>
                     </UFormField>
+                    <UFormField
+                        label="Test search"
+                        class="sm:col-span-2"
+                        hint="Runs the exact same Prowlarr search Comics uses, with your current categories/indexer settings above, so you can see directly whether it's reaching Prowlarr and which indexers/releases come back -- no need to dig through server logs.">
+                        <div class="flex gap-2 mb-2">
+                            <UInput v-model="testSearchQuery" class="w-full" placeholder="e.g. Absolute Superman" @keydown.enter.prevent="testSearch" />
+                            <UButton variant="outline" :loading="testingSearch" @click="testSearch">Search</UButton>
+                        </div>
+                        <p v-if="testSearchResult" class="text-sm mb-1" :class="testSearchOk ? 'text-success' : 'text-error'">
+                            {{ testSearchMessage }}
+                        </p>
+                        <div v-if="testSearchResult?.sampleTitles?.length" class="flex flex-col gap-1">
+                            <p v-for="(t, i) in testSearchResult.sampleTitles" :key="i" class="text-muted text-xs truncate">{{ t }}</p>
+                        </div>
+                    </UFormField>
                     <UFormField label="qBittorrent URL" class="sm:col-span-2">
                         <UInput v-model="comic.qBittorrentUrl" class="w-full" placeholder="http://192.168.1.50:8080" />
                     </UFormField>
@@ -422,6 +437,13 @@ const indexersOk = ref(false);
 
 const comicCategoriesText = ref('');
 const savingCategories = ref(false);
+
+type ProwlarrTestSearchResult = { resultCount: number; categoriesUsed: number[]; indexerIdsUsed: number[]; sampleTitles: string[] };
+const testSearchQuery = ref('');
+const testingSearch = ref(false);
+const testSearchResult = ref<ProwlarrTestSearchResult | null>(null);
+const testSearchOk = ref(false);
+const testSearchMessage = ref('');
 
 const applySetupFromSettings = () => {
     const value = settings.value;
@@ -686,6 +708,26 @@ const saveIndexers = async () => {
         indexersMessage.value = apiErrorText(e) || 'Could not save indexer selection.';
     } finally {
         savingIndexers.value = false;
+    }
+};
+
+const testSearch = async () => {
+    const q = testSearchQuery.value.trim();
+    if (!q) return;
+    testingSearch.value = true;
+    testSearchResult.value = null;
+    try {
+        const result = await $fetch<ProwlarrTestSearchResult>('/v2/Settings/Prowlarr/TestSearch', { query: { query: q } });
+        testSearchResult.value = result;
+        testSearchOk.value = true;
+        const cats = result.categoriesUsed.length ? result.categoriesUsed.join(', ') : 'none (unrestricted)';
+        const idx = result.indexerIdsUsed.length ? `${result.indexerIdsUsed.length} selected indexer(s)` : 'every indexer';
+        testSearchMessage.value = `Found ${result.resultCount} release(s) searching ${idx}, categories: ${cats}.`;
+    } catch (e: unknown) {
+        testSearchOk.value = false;
+        testSearchMessage.value = apiErrorText(e) || 'Search failed.';
+    } finally {
+        testingSearch.value = false;
     }
 };
 

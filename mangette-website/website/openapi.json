@@ -5187,7 +5187,7 @@
         "tags": [
           "Settings"
         ],
-        "summary": "Sets the Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about\r\ntagging comics as 7030 specifically vs. the generic Books categories -- widen this if searches\r\ncome back empty even though Prowlarr's own search page finds results. Empty resets to the default\r\n(the whole Books tree: 7000, 7010, 7020, 7030, 7040, 7060).",
+        "summary": "Sets the Newznab/Torznab category ids Comics restricts its Prowlarr searches to. Indexers are\r\ninconsistent about tagging comics as 7030 specifically vs. the generic Books categories, and\r\nsome don't declare Books/Comics support in their capabilities at all even though results get\r\ntagged into it -- clear this (empty) if searches come back empty even though Prowlarr's own\r\nsearch page finds results. Empty means no category restriction at all.",
         "requestBody": {
           "content": {
             "application/json-patch+json; x-version=2.0": {
@@ -5239,6 +5239,45 @@
                     "type": "integer",
                     "format": "int32"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/Settings/Prowlarr/TestSearch": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Runs the exact same Prowlarr search Comics uses (same categories/indexer-selection settings),\r\nso you can see -- without digging through server logs -- whether Mangette actually talks to\r\nProwlarr and which indexers/releases come back, before trusting an \"added a comic\" search to work.",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProwlarrTestSearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Prowlarr is not configured, unreachable, or rejected the request.",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -8240,6 +8279,39 @@
         },
         "additionalProperties": false,
         "description": "One indexer configured in Prowlarr, for the \"which indexers should Comics search\" picker."
+      },
+      "ProwlarrTestSearchResult": {
+        "type": "object",
+        "properties": {
+          "resultCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "categoriesUsed": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "indexerIdsUsed": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "sampleTitles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "ReleaseProtocol": {
         "enum": [

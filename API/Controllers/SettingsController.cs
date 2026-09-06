@@ -462,10 +462,11 @@ public class SettingsController(MangaContext context) : ControllerBase
     }
 
     /// <summary>
-    /// Sets the Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about
-    /// tagging comics as 7030 specifically vs. the generic Books categories -- widen this if searches
-    /// come back empty even though Prowlarr's own search page finds results. Empty resets to the default
-    /// (the whole Books tree: 7000, 7010, 7020, 7030, 7040, 7060).
+    /// Sets the Newznab/Torznab category ids Comics restricts its Prowlarr searches to. Indexers are
+    /// inconsistent about tagging comics as 7030 specifically vs. the generic Books categories, and
+    /// some don't declare Books/Comics support in their capabilities at all even though results get
+    /// tagged into it -- clear this (empty) if searches come back empty even though Prowlarr's own
+    /// search page finds results. Empty means no category restriction at all.
     /// </summary>
     [HttpPatch("Prowlarr/Categories")]
     [ProducesResponseType<List<int>>(Status200OK, "application/json")]
@@ -474,6 +475,34 @@ public class SettingsController(MangaContext context) : ControllerBase
         Mangette.Settings.SetComicSearchCategories(categories);
         return TypedResults.Ok(Mangette.Settings.ComicSearchCategories);
     }
+
+    /// <summary>
+    /// Runs the exact same Prowlarr search Comics uses (same categories/indexer-selection settings),
+    /// so you can see -- without digging through server logs -- whether Mangette actually talks to
+    /// Prowlarr and which indexers/releases come back, before trusting an "added a comic" search to work.
+    /// </summary>
+    /// <response code="200"></response>
+    /// <response code="400">Prowlarr is not configured, unreachable, or rejected the request.</response>
+    [HttpGet("Prowlarr/TestSearch")]
+    [ProducesResponseType<ProwlarrTestSearchResult>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<ProwlarrTestSearchResult>, BadRequest<string>>> TestProwlarrSearch([FromQuery] string query)
+    {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrUrl) || string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrApiKey))
+            return TypedResults.BadRequest("Prowlarr URL and API key are required.");
+        if (string.IsNullOrWhiteSpace(query))
+            return TypedResults.BadRequest("Query is required.");
+
+        ProwlarrIndexerConnector connector = new();
+        IndexerRelease[] releases = await connector.Search(query.Trim(), HttpContext.RequestAborted);
+        return TypedResults.Ok(new ProwlarrTestSearchResult(
+            releases.Length,
+            Mangette.Settings.ComicSearchCategories,
+            Mangette.Settings.ComicEnabledIndexerIds,
+            releases.Take(10).Select(r => $"{r.Title} ({r.IndexerName}, {r.Protocol})").ToList()));
+    }
+
+    public sealed record ProwlarrTestSearchResult(int ResultCount, List<int> CategoriesUsed, List<int> IndexerIdsUsed, List<string> SampleTitles);
 
     /// <summary>Sets the qBittorrent WebUI connection used as the torrent download client for Comics.</summary>
     [HttpPatch("QBittorrent")]
