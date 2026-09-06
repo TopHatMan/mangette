@@ -5117,6 +5117,70 @@
         }
       }
     },
+    "/v2/Settings/Prowlarr/Categories": {
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets the Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about\r\ntagging comics as 7030 specifically vs. the generic Books categories -- widen this if searches\r\ncome back empty even though Prowlarr's own search page finds results. Empty resets to the default\r\n(the whole Books tree: 7000, 7010, 7020, 7030, 7040, 7060).",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/Settings/QBittorrent": {
       "patch": {
         "tags": [
@@ -7501,6 +7565,15 @@
               "format": "int32"
             },
             "description": "Prowlarr indexer ids Comics is allowed to search (Settings -> Indexers), same idea as picking\r\nindexers per app in Readarr/Sonarr/Radarr. Empty means \"search every indexer Prowlarr has\".",
+            "nullable": true
+          },
+          "comicSearchCategories": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about tagging\r\ncomics as category 7030 specifically vs. the generic Books categories, so this defaults to\r\nthe whole Books tree rather than 7030 alone. Empty falls back to\r\nAPI.IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories.",
             "nullable": true
           },
           "qBittorrentUrl": {

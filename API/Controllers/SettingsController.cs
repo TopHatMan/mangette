@@ -461,6 +461,20 @@ public class SettingsController(MangaContext context) : ControllerBase
         return TypedResults.Ok();
     }
 
+    /// <summary>
+    /// Sets the Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about
+    /// tagging comics as 7030 specifically vs. the generic Books categories -- widen this if searches
+    /// come back empty even though Prowlarr's own search page finds results. Empty resets to the default
+    /// (the whole Books tree: 7000, 7010, 7020, 7030, 7040, 7060).
+    /// </summary>
+    [HttpPatch("Prowlarr/Categories")]
+    [ProducesResponseType<List<int>>(Status200OK, "application/json")]
+    public Ok<List<int>> SetComicCategories([FromBody] List<int> categories)
+    {
+        Mangette.Settings.SetComicSearchCategories(categories);
+        return TypedResults.Ok(Mangette.Settings.ComicSearchCategories);
+    }
+
     /// <summary>Sets the qBittorrent WebUI connection used as the torrent download client for Comics.</summary>
     [HttpPatch("QBittorrent")]
     [ProducesResponseType(Status200OK)]

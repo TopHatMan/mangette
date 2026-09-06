@@ -91,6 +91,17 @@ public class MangetteSettings
     /// </summary>
     public List<int> ComicEnabledIndexerIds { get; set; } = [];
 
+    /// <summary>
+    /// Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about tagging
+    /// comics as category 7030 specifically vs. the generic Books categories, so this defaults to
+    /// the whole Books tree rather than 7030 alone. Empty falls back to
+    /// <see cref="IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories"/>.
+    /// ObjectCreationHandling.Replace: without it, Newtonsoft reuses this non-empty default list and
+    /// *appends* the saved values onto it instead of replacing them, doubling the list on every load.
+    /// </summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public List<int> ComicSearchCategories { get; set; } = IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories.ToList();
+
     /// <summary>qBittorrent WebUI, used as the torrent download client for Comics.</summary>
     public string QBittorrentUrl { get; set; } = "";
     public string QBittorrentUsername { get; set; } = "";
@@ -379,6 +390,13 @@ public class MangetteSettings
     public void SetComicEnabledIndexerIds(IEnumerable<int> indexerIds)
     {
         ComicEnabledIndexerIds = indexerIds.Distinct().ToList();
+        Save();
+    }
+
+    public void SetComicSearchCategories(IEnumerable<int> categories)
+    {
+        List<int> distinct = categories.Distinct().ToList();
+        ComicSearchCategories = distinct.Count > 0 ? distinct : IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories.ToList();
         Save();
     }
 }

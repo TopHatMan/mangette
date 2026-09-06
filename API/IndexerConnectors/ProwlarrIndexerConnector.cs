@@ -18,8 +18,15 @@ public sealed record ProwlarrIndexerInfo(int Id, string Name, ReleaseProtocol Pr
 /// </summary>
 public class ProwlarrIndexerConnector : IIndexerConnector
 {
-    /// <summary>Newznab/Torznab category for Books/Comics.</summary>
-    private const int ComicsCategory = 7030;
+    /// <summary>
+    /// Newznab/Torznab category 7030 is nominally "Books/Comics", but indexers are wildly
+    /// inconsistent about actually tagging comic releases with it -- plenty file them under the
+    /// generic "Books" categories instead. Default to the whole Books tree (7000 and its usual
+    /// children) rather than 7030 alone, since narrowing to just 7030 was silently filtering out
+    /// real results a manual Prowlarr search found under "Books". Configurable in Settings for
+    /// whatever a given indexer actually uses.
+    /// </summary>
+    public static readonly int[] DefaultCategories = [7000, 7010, 7020, 7030, 7040, 7060];
 
     private static readonly HttpClient Client = new()
     {
@@ -92,10 +99,13 @@ public class ProwlarrIndexerConnector : IIndexerConnector
             return [];
         }
 
+        List<int> categories = Mangette.Settings.ComicSearchCategories is { Count: > 0 } configured
+            ? configured
+            : DefaultCategories.ToList();
         string requestUrl =
             $"{Mangette.Settings.ProwlarrUrl}/api/v1/search" +
             $"?query={HttpUtility.UrlEncode(query)}" +
-            $"&categories={ComicsCategory}" +
+            $"&categories={string.Join(',', categories)}" +
             $"&type=search";
         // Empty selection = search every indexer Prowlarr has (matches Prowlarr's own default).
         foreach (int id in Mangette.Settings.ComicEnabledIndexerIds)

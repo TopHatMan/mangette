@@ -169,6 +169,15 @@
                             </label>
                         </div>
                     </div>
+                    <UFormField
+                        label="Search categories"
+                        class="sm:col-span-2"
+                        hint="Newznab/Torznab category ids. Indexers are inconsistent about tagging comics as 7030 specifically vs. the generic Books categories -- if Prowlarr's own search page finds results but Mangette doesn't, widen this. Default covers the whole Books tree.">
+                        <div class="flex gap-2">
+                            <UInput v-model="comicCategoriesText" class="w-full" placeholder="7000,7010,7020,7030,7040,7060" />
+                            <UButton variant="outline" :loading="savingCategories" @click="saveCategories">Save</UButton>
+                        </div>
+                    </UFormField>
                     <UFormField label="qBittorrent URL" class="sm:col-span-2">
                         <UInput v-model="comic.qBittorrentUrl" class="w-full" placeholder="http://192.168.1.50:8080" />
                     </UFormField>
@@ -411,6 +420,9 @@ const savingIndexers = ref(false);
 const indexersMessage = ref('');
 const indexersOk = ref(false);
 
+const comicCategoriesText = ref('');
+const savingCategories = ref(false);
+
 const applySetupFromSettings = () => {
     const value = settings.value;
     if (!value) return;
@@ -430,6 +442,7 @@ const applySetupFromSettings = () => {
 
     comic.prowlarrUrl = value.prowlarrUrl ?? '';
     comic.prowlarrApiKey = value.prowlarrApiKey ?? '';
+    comicCategoriesText.value = (value.comicSearchCategories ?? []).join(',');
     comic.qBittorrentUrl = value.qBittorrentUrl ?? '';
     comic.qBittorrentUsername = value.qBittorrentUsername ?? '';
     comic.qBittorrentPassword = value.qBittorrentPassword ?? '';
@@ -673,6 +686,26 @@ const saveIndexers = async () => {
         indexersMessage.value = apiErrorText(e) || 'Could not save indexer selection.';
     } finally {
         savingIndexers.value = false;
+    }
+};
+
+const saveCategories = async () => {
+    savingCategories.value = true;
+    indexersMessage.value = '';
+    try {
+        const categories = comicCategoriesText.value
+            .split(',')
+            .map((s) => Number.parseInt(s.trim(), 10))
+            .filter((n) => Number.isFinite(n));
+        const saved = await $fetch<number[]>('/v2/Settings/Prowlarr/Categories', { method: 'PATCH', body: categories });
+        comicCategoriesText.value = (saved ?? []).join(',');
+        indexersOk.value = true;
+        indexersMessage.value = `Saved. Comics searches category ${saved?.length === 1 ? '' : 'ids'} ${(saved ?? []).join(', ')}.`;
+    } catch (e: unknown) {
+        indexersOk.value = false;
+        indexersMessage.value = apiErrorText(e) || 'Could not save search categories.';
+    } finally {
+        savingCategories.value = false;
     }
 };
 
