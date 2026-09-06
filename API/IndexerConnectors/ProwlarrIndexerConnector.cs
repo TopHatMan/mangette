@@ -19,12 +19,14 @@ public sealed record ProwlarrIndexerInfo(int Id, string Name, ReleaseProtocol Pr
 public class ProwlarrIndexerConnector : IIndexerConnector
 {
     /// <summary>
-    /// Newznab/Torznab category 7030 is nominally "Books/Comics", but indexers are wildly
-    /// inconsistent about actually tagging comic releases with it -- plenty file them under the
-    /// generic "Books" categories instead. Default to the whole Books tree (7000 and its usual
-    /// children) rather than 7030 alone, since narrowing to just 7030 was silently filtering out
-    /// real results a manual Prowlarr search found under "Books". Configurable in Settings for
-    /// whatever a given indexer actually uses.
+    /// A reasonable starting point if a user wants to narrow searches by category in Settings --
+    /// covers the whole Newznab/Torznab Books tree (7030 "Books/Comics" plus its usual siblings),
+    /// since indexers are wildly inconsistent about which of these they actually tag comics with.
+    /// Not applied automatically: <see cref="Search"/> sends no category filter unless
+    /// <see cref="MangetteSettings.ComicSearchCategories"/> is explicitly set, because even this
+    /// whole tree was observed silently filtering out real results a plain, unfiltered manual
+    /// Prowlarr search found -- some indexers don't declare Books/Comics support in their Torznab
+    /// capabilities even though they return results that get tagged as such.
     /// </summary>
     public static readonly int[] DefaultCategories = [7000, 7010, 7020, 7030, 7040, 7060];
 
@@ -99,14 +101,14 @@ public class ProwlarrIndexerConnector : IIndexerConnector
             return [];
         }
 
-        List<int> categories = Mangette.Settings.ComicSearchCategories is { Count: > 0 } configured
-            ? configured
-            : DefaultCategories.ToList();
+        // No category filter by default -- matches a plain Prowlarr manual search (blank Categories
+        // field), which regularly finds results this used to filter out (see DefaultCategories doc).
         string requestUrl =
             $"{Mangette.Settings.ProwlarrUrl}/api/v1/search" +
             $"?query={HttpUtility.UrlEncode(query)}" +
-            $"&categories={string.Join(',', categories)}" +
             $"&type=search";
+        if (Mangette.Settings.ComicSearchCategories is { Count: > 0 } categories)
+            requestUrl += $"&categories={string.Join(',', categories)}";
         // Empty selection = search every indexer Prowlarr has (matches Prowlarr's own default).
         foreach (int id in Mangette.Settings.ComicEnabledIndexerIds)
             requestUrl += $"&indexerIds={id}";

@@ -7711,7 +7711,7 @@
               "type": "integer",
               "format": "int32"
             },
-            "description": "Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about tagging\r\ncomics as category 7030 specifically vs. the generic Books categories, so this defaults to\r\nthe whole Books tree rather than 7030 alone. Empty falls back to\r\nAPI.IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories.\r\nObjectCreationHandling.Replace: without it, Newtonsoft reuses this non-empty default list and\r\n*appends* the saved values onto it instead of replacing them, doubling the list on every load.",
+            "description": "Newznab/Torznab category ids Comics restricts its Prowlarr search to. Empty (the default)\r\nsends no category filter at all -- indexers are wildly inconsistent about which category id\r\nthey actually tag comics with (some don't declare 7030 \"Books/Comics\" support in their\r\nTorznab capabilities even though results end up parsed into that category), so restricting\r\nby category silently dropped indexers that a plain, unfiltered Prowlarr search found results\r\non. Only set this if you specifically need to narrow results.\r\nObjectCreationHandling.Replace: without it, Newtonsoft reuses the previous non-null list and\r\n*appends* the saved values onto it instead of replacing them, doubling the list on every load.",
             "nullable": true
           },
           "qBittorrentUrl": {

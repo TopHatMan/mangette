@@ -172,9 +172,9 @@
                     <UFormField
                         label="Search categories"
                         class="sm:col-span-2"
-                        hint="Newznab/Torznab category ids. Indexers are inconsistent about tagging comics as 7030 specifically vs. the generic Books categories -- if Prowlarr's own search page finds results but Mangette doesn't, widen this. Default covers the whole Books tree.">
+                        hint="Newznab/Torznab category ids to restrict searches to. Leave blank (the default) to search every category, same as a plain Prowlarr search -- indexers are inconsistent about tagging comics as 7030 vs. the generic Books categories, so restricting here can hide real results.">
                         <div class="flex gap-2">
-                            <UInput v-model="comicCategoriesText" class="w-full" placeholder="7000,7010,7020,7030,7040,7060" />
+                            <UInput v-model="comicCategoriesText" class="w-full" placeholder="Blank = no restriction, e.g. 7000,7010,7020,7030,7040,7060" />
                             <UButton variant="outline" :loading="savingCategories" @click="saveCategories">Save</UButton>
                         </div>
                     </UFormField>
@@ -700,7 +700,9 @@ const saveCategories = async () => {
         const saved = await $fetch<number[]>('/v2/Settings/Prowlarr/Categories', { method: 'PATCH', body: categories });
         comicCategoriesText.value = (saved ?? []).join(',');
         indexersOk.value = true;
-        indexersMessage.value = `Saved. Comics searches category ${saved?.length === 1 ? '' : 'ids'} ${(saved ?? []).join(', ')}.`;
+        indexersMessage.value = saved?.length
+            ? `Saved. Comics restricts searches to category ${saved.length === 1 ? 'id' : 'ids'} ${saved.join(', ')}.`
+            : 'Saved. Comics searches every category (no restriction).';
     } catch (e: unknown) {
         indexersOk.value = false;
         indexersMessage.value = apiErrorText(e) || 'Could not save search categories.';

@@ -92,15 +92,17 @@ public class MangetteSettings
     public List<int> ComicEnabledIndexerIds { get; set; } = [];
 
     /// <summary>
-    /// Newznab/Torznab category ids Comics searches with. Indexers are inconsistent about tagging
-    /// comics as category 7030 specifically vs. the generic Books categories, so this defaults to
-    /// the whole Books tree rather than 7030 alone. Empty falls back to
-    /// <see cref="IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories"/>.
-    /// ObjectCreationHandling.Replace: without it, Newtonsoft reuses this non-empty default list and
+    /// Newznab/Torznab category ids Comics restricts its Prowlarr search to. Empty (the default)
+    /// sends no category filter at all -- indexers are wildly inconsistent about which category id
+    /// they actually tag comics with (some don't declare 7030 "Books/Comics" support in their
+    /// Torznab capabilities even though results end up parsed into that category), so restricting
+    /// by category silently dropped indexers that a plain, unfiltered Prowlarr search found results
+    /// on. Only set this if you specifically need to narrow results.
+    /// ObjectCreationHandling.Replace: without it, Newtonsoft reuses the previous non-null list and
     /// *appends* the saved values onto it instead of replacing them, doubling the list on every load.
     /// </summary>
     [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
-    public List<int> ComicSearchCategories { get; set; } = IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories.ToList();
+    public List<int> ComicSearchCategories { get; set; } = [];
 
     /// <summary>qBittorrent WebUI, used as the torrent download client for Comics.</summary>
     public string QBittorrentUrl { get; set; } = "";
@@ -395,8 +397,7 @@ public class MangetteSettings
 
     public void SetComicSearchCategories(IEnumerable<int> categories)
     {
-        List<int> distinct = categories.Distinct().ToList();
-        ComicSearchCategories = distinct.Count > 0 ? distinct : IndexerConnectors.ProwlarrIndexerConnector.DefaultCategories.ToList();
+        ComicSearchCategories = categories.Distinct().ToList();
         Save();
     }
 }
