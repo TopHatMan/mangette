@@ -132,6 +132,43 @@
                     <div class="flex items-end">
                         <UButton variant="outline" :loading="testingProwlarr" @click="testProwlarr">Test Prowlarr</UButton>
                     </div>
+                    <div class="sm:col-span-2">
+                        <div class="flex items-center gap-2 mb-2">
+                            <p class="text-sm font-medium">Indexers</p>
+                            <UButton size="xs" variant="outline" :loading="loadingIndexers" @click="loadIndexers">
+                                {{ indexers.length ? 'Reload' : 'Load indexers' }}
+                            </UButton>
+                            <UButton
+                                v-if="indexers.length"
+                                size="xs"
+                                :loading="savingIndexers"
+                                class="ml-auto"
+                                @click="saveIndexers">
+                                Save indexer selection
+                            </UButton>
+                        </div>
+                        <p v-if="indexersMessage" class="text-sm mb-2" :class="indexersOk ? 'text-success' : 'text-error'">
+                            {{ indexersMessage }}
+                        </p>
+                        <p v-if="!indexers.length && !loadingIndexers" class="text-muted text-xs">
+                            Load indexers to pick which ones Comics searches. None selected = search every indexer Prowlarr has.
+                        </p>
+                        <div v-else class="flex flex-col gap-1 max-h-64 overflow-y-auto">
+                            <label
+                                v-for="ix in indexers"
+                                :key="ix.id"
+                                class="flex items-center gap-2 bg-elevated rounded-lg px-2 py-1.5 cursor-pointer">
+                                <UCheckbox v-model="ix.selectedForComics" />
+                                <span class="grow text-sm">{{ ix.name }}</span>
+                                <UBadge size="sm" variant="subtle" :color="ix.protocol === 'Usenet' ? 'secondary' : 'primary'">
+                                    {{ ix.protocol }}
+                                </UBadge>
+                                <UBadge v-if="!ix.enabledInProwlarr" size="sm" variant="outline" color="warning">
+                                    Disabled in Prowlarr
+                                </UBadge>
+                            </label>
+                        </div>
+                    </div>
                     <UFormField label="qBittorrent URL" class="sm:col-span-2">
                         <UInput v-model="comic.qBittorrentUrl" class="w-full" placeholder="http://192.168.1.50:8080" />
                     </UFormField>
@@ -367,6 +404,13 @@ const testingQBittorrent = ref(false);
 const testingSabnzbd = ref(false);
 const testingComicVine = ref(false);
 
+type ProwlarrIndexer = { id: number; name: string; protocol: 'Torrent' | 'Usenet'; enabledInProwlarr: boolean; selectedForComics: boolean };
+const indexers = ref<ProwlarrIndexer[]>([]);
+const loadingIndexers = ref(false);
+const savingIndexers = ref(false);
+const indexersMessage = ref('');
+const indexersOk = ref(false);
+
 const applySetupFromSettings = () => {
     const value = settings.value;
     if (!value) return;
@@ -596,6 +640,39 @@ const testProwlarr = async () => {
     } finally {
         testingProwlarr.value = false;
         await refreshNuxtData(FetchKeys.Settings.All);
+    }
+};
+
+const loadIndexers = async () => {
+    loadingIndexers.value = true;
+    indexersMessage.value = '';
+    try {
+        await saveProwlarr();
+        indexers.value = await $fetch<ProwlarrIndexer[]>('/v2/Settings/Prowlarr/Indexers');
+        if (!indexers.value.length) indexersMessage.value = 'Prowlarr has no indexers configured.';
+    } catch (e: unknown) {
+        indexersOk.value = false;
+        indexersMessage.value = apiErrorText(e) || 'Could not load Prowlarr indexers.';
+    } finally {
+        loadingIndexers.value = false;
+    }
+};
+
+const saveIndexers = async () => {
+    savingIndexers.value = true;
+    indexersMessage.value = '';
+    try {
+        const selected = indexers.value.filter((ix) => ix.selectedForComics).map((ix) => ix.id);
+        await $fetch('/v2/Settings/Prowlarr/Indexers', { method: 'PATCH', body: selected });
+        indexersOk.value = true;
+        indexersMessage.value = selected.length
+            ? `Saved. Comics will search ${selected.length} indexer${selected.length === 1 ? '' : 's'}.`
+            : 'Saved. Comics will search every indexer Prowlarr has.';
+    } catch (e: unknown) {
+        indexersOk.value = false;
+        indexersMessage.value = apiErrorText(e) || 'Could not save indexer selection.';
+    } finally {
+        savingIndexers.value = false;
     }
 };
 

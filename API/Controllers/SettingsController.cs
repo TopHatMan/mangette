@@ -1,4 +1,5 @@
 ﻿using API.Controllers.Requests;
+using API.IndexerConnectors;
 using API.MangaDownloadClients;
 using API.Schema.MangaContext;
 using Asp.Versioning;
@@ -426,6 +427,38 @@ public class SettingsController(MangaContext context) : ControllerBase
         {
             return TypedResults.BadRequest($"Cannot connect to {Mangette.Settings.ProwlarrUrl}: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Every indexer Prowlarr knows about, flagged with whether Comics currently searches it -- pick which
+    /// ones to use here, same as picking indexers per app in Readarr/Sonarr/Radarr.
+    /// </summary>
+    /// <response code="200"></response>
+    /// <response code="400">Prowlarr is not configured</response>
+    [HttpGet("Prowlarr/Indexers")]
+    [ProducesResponseType<List<ProwlarrIndexerInfo>>(Status200OK, "application/json")]
+    [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
+    public async Task<Results<Ok<List<ProwlarrIndexerInfo>>, BadRequest<string>>> GetProwlarrIndexers()
+    {
+        try
+        {
+            ProwlarrIndexerConnector connector = new();
+            ProwlarrIndexerInfo[] indexers = await connector.GetIndexers(HttpContext.RequestAborted);
+            return TypedResults.Ok(indexers.ToList());
+        }
+        catch (InvalidOperationException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
+    }
+
+    /// <summary>Sets which Prowlarr indexers Comics is allowed to search. Empty list = search all of them.</summary>
+    [HttpPatch("Prowlarr/Indexers")]
+    [ProducesResponseType(Status200OK)]
+    public Ok SetComicIndexers([FromBody] List<int> indexerIds)
+    {
+        Mangette.Settings.SetComicEnabledIndexerIds(indexerIds);
+        return TypedResults.Ok();
     }
 
     /// <summary>Sets the qBittorrent WebUI connection used as the torrent download client for Comics.</summary>

@@ -85,6 +85,11 @@ public class MangetteSettings
     /// <summary>Base URL of a Prowlarr instance used to search Torznab/Newznab indexers for Comics.</summary>
     public string ProwlarrUrl { get; set; } = "";
     public string ProwlarrApiKey { get; set; } = "";
+    /// <summary>
+    /// Prowlarr indexer ids Comics is allowed to search (Settings -> Indexers), same idea as picking
+    /// indexers per app in Readarr/Sonarr/Radarr. Empty means "search every indexer Prowlarr has".
+    /// </summary>
+    public List<int> ComicEnabledIndexerIds { get; set; } = [];
 
     /// <summary>qBittorrent WebUI, used as the torrent download client for Comics.</summary>
     public string QBittorrentUrl { get; set; } = "";
@@ -368,6 +373,12 @@ public class MangetteSettings
     public void SetComicVineApiKey(string apiKey)
     {
         ComicVineApiKey = apiKey.Trim();
+        Save();
+    }
+
+    public void SetComicEnabledIndexerIds(IEnumerable<int> indexerIds)
+    {
+        ComicEnabledIndexerIds = indexerIds.Distinct().ToList();
         Save();
     }
 }

@@ -5033,6 +5033,90 @@
         }
       }
     },
+    "/v2/Settings/Prowlarr/Indexers": {
+      "get": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Every indexer Prowlarr knows about, flagged with whether Comics currently searches it -- pick which\r\nones to use here, same as picking indexers per app in Readarr/Sonarr/Radarr.",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json; x-version=2.0": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProwlarrIndexerInfo"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Prowlarr is not configured",
+            "content": {
+              "text/plain; x-version=2.0": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Settings"
+        ],
+        "summary": "Sets which Prowlarr indexers Comics is allowed to search. Empty list = search all of them.",
+        "requestBody": {
+          "content": {
+            "application/json-patch+json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "text/json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            },
+            "application/*+json; x-version=2.0": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/v2/Settings/QBittorrent": {
       "patch": {
         "tags": [
@@ -7410,6 +7494,15 @@
             "type": "string",
             "nullable": true
           },
+          "comicEnabledIndexerIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Prowlarr indexer ids Comics is allowed to search (Settings -> Indexers), same idea as picking\r\nindexers per app in Readarr/Sonarr/Radarr. Empty means \"search every indexer Prowlarr has\".",
+            "nullable": true
+          },
           "qBittorrentUrl": {
             "type": "string",
             "description": "qBittorrent WebUI, used as the torrent download client for Comics.",
@@ -7912,6 +8005,30 @@
           }
         },
         "additionalProperties": { }
+      },
+      "ProwlarrIndexerInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/ReleaseProtocol"
+          },
+          "enabledInProwlarr": {
+            "type": "boolean"
+          },
+          "selectedForComics": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false,
+        "description": "One indexer configured in Prowlarr, for the \"which indexers should Comics search\" picker."
       },
       "ReleaseProtocol": {
         "enum": [
