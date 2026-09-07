@@ -45,14 +45,53 @@ public class ComicLibraryScanTest : IDisposable
         Assert.Equal(0, mappedCount);
         Assert.Equal(3, unmapped.Count);
         Assert.Contains(unmapped, c => c.SuggestedQuery == "Batman v1" && c.RelativePath.Contains("01-Batman v1"));
-        // "Volume 01 (2017)" is the leaf's own name -- it carries no title on its own (the real title,
-        // "Batman White Knight", lives on its parent folder). This is the expected, by-design gap:
-        // the suggested query is a starting guess, and the human retypes it before Match when a leaf
-        // folder name alone isn't a real title (same as this project's manga import already works).
-        Assert.Contains(unmapped, c => c.SuggestedQuery == "Volume 01" && c.RelativePath.EndsWith("Volume 01 (2017)"));
+        // "Volume 01 (2017)" is the leaf's own name and carries no title on its own -- the real
+        // title, "Batman White Knight", lives on its parent folder, and the suggested query now
+        // pulls it from there instead of asking the human to retype it every time.
+        Assert.Contains(unmapped, c => c.SuggestedQuery == "Batman White Knight" && c.RelativePath.EndsWith("Volume 01 (2017)"));
+        // "Batman Annuals 01-28" already carries its own real title text (not a bare "Annuals"), so
+        // it's used as-is rather than combined with an ancestor.
         Assert.Contains(unmapped, c => c.SuggestedQuery == "Batman Annuals 01-28");
         // The generic "Batman" hub itself never becomes a candidate: it has no archives directly in it.
         Assert.DoesNotContain(unmapped, c => c.RelativePath == "Batman");
+    }
+
+    /// <summary>
+    /// A hub folder ("Batman") holding loose issues directly in it, alongside per-run subfolders
+    /// that are each their own separate candidate -- confirmed live against a real library. Two
+    /// things must hold: the hub's own archive count must not double-count its subfolders' files,
+    /// and a bare "Annuals"/"Extras" leaf must inherit the series name from its parent run folder.
+    /// </summary>
+    [Fact]
+    public void FindCandidates_HubWithLooseFilesAndAnnualsExtrasSubfolders()
+    {
+        Archive("Batman", "Batman - Ch.17.cbz");
+        Archive("Batman", "Batman - Ch.30.cbz");
+        Archive("Batman", "Volume 01 (1940)", "Batman 001.cbz");
+        Archive("Batman", "Volume 01 (1940)", "Batman 002.cbz");
+        Archive("Batman", "Volume 01 (1940)", "Annuals", "Batman Annual 001.cbz");
+        Archive("Batman", "Volume 01 (1940)", "Extras", "Batman Giant-Size 001.cbz");
+        Archive("Batman", "Volume 01 (1987)", "Batman v2 001.cbz");
+
+        (List<API.ComicScanCandidate> unmapped, _) = API.ComicLibraryImportMatcher.FindCandidates(_root, new HashSet<string>());
+
+        Assert.Equal(5, unmapped.Count);
+
+        API.ComicScanCandidate hub = Assert.Single(unmapped, c => c.RelativePath == "Batman");
+        Assert.Equal(2, hub.ArchiveCount); // only its own 2 loose files, not the 5 more belonging to subfolders
+
+        API.ComicScanCandidate v1940 = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Volume 01 (1940)"));
+        Assert.Equal(2, v1940.ArchiveCount); // its own 2 issues, not the annual/extra nested under it
+        Assert.Equal("Batman", v1940.SuggestedQuery);
+
+        API.ComicScanCandidate v1987 = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Volume 01 (1987)"));
+        Assert.Equal("Batman", v1987.SuggestedQuery); // same base series as 1940 -- year disambiguation happens via Match, not the query text
+
+        API.ComicScanCandidate annuals = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Annuals"));
+        Assert.Equal("Batman Annual", annuals.SuggestedQuery);
+
+        API.ComicScanCandidate extras = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Extras"));
+        Assert.Equal("Batman Extra", extras.SuggestedQuery);
     }
 
     [Fact]

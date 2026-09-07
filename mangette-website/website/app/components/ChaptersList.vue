@@ -67,7 +67,7 @@
             </table>
         </div>
 
-        <UModal v-model:open="searchOpen" title="Interactive Search">
+        <UModal v-model:open="searchOpen" title="Interactive Search" :ui="{ content: 'max-w-5xl' }">
             <template #body>
                 <p class="text-muted text-sm mb-3">
                     {{ searchChapter ? `Ch. ${searchChapter.chapterNumber}` : '' }}
@@ -78,7 +78,7 @@
                     <p v-if="!comicReleases.length" class="text-muted text-sm">
                         No Prowlarr releases found. Check the search query, or your indexers.
                     </p>
-                    <div v-else class="overflow-x-auto max-h-96 overflow-y-auto">
+                    <div v-else class="overflow-x-auto max-h-[32rem] overflow-y-auto">
                         <table class="arr-table">
                             <thead>
                                 <tr>
