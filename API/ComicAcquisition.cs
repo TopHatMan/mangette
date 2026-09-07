@@ -26,10 +26,27 @@ public static class ComicAcquisition
     /// </summary>
     public static string BuildQuery(Manga comic) => comic.Name;
 
-    /// <summary>Does this release's title look like it's the issue the chapter wants?</summary>
-    public static bool MatchesIssue(IndexerRelease release, Chapter chapter) =>
-        DownloadedChapterMatcher.TryParseComicIssueNumber(release.Title, out string issueNumber) &&
-        DownloadedChapterMatcher.ChapterNumbersEqual(issueNumber, chapter.ChapterNumber);
+    /// <summary>
+    /// Does this release's title look like it's the issue the chapter wants? Series get
+    /// relaunched/renumbered often enough (New 52, Rebirth, etc.) that the same series name and
+    /// issue number can legitimately belong to a completely different run -- a broad title-only
+    /// Prowlarr search can't tell those apart, so if the tracked comic has a known start year
+    /// (from ComicVine) and the release title has a parseable year earlier than that, reject it:
+    /// a run can't have published an issue before it started.
+    /// </summary>
+    public static bool MatchesIssue(IndexerRelease release, Chapter chapter)
+    {
+        if (!DownloadedChapterMatcher.TryParseComicIssueNumber(release.Title, out string issueNumber) ||
+            !DownloadedChapterMatcher.ChapterNumbersEqual(issueNumber, chapter.ChapterNumber))
+            return false;
+
+        if (chapter.ParentManga.Year is { } startYear &&
+            DownloadedChapterMatcher.TryParseReleaseYear(release.Title, out int releaseYear) &&
+            releaseYear < (int)startYear)
+            return false;
+
+        return true;
+    }
 
     public static (IExternalDownloadClient Client, DownloadClientKind Kind) PickClient(ReleaseProtocol protocol) =>
         protocol == ReleaseProtocol.Torrent

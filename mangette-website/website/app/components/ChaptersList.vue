@@ -112,7 +112,7 @@
                                     <td class="tabular-nums text-xs">{{ rel.seeders ?? '—' }}</td>
                                     <td class="text-xs whitespace-nowrap">{{ formatAge(rel.publishDate) }}</td>
                                     <td>
-                                        <UButton size="xs" :loading="grabbingComic" @click="grabComic(rel)">Download</UButton>
+                                        <UButton size="xs" :loading="grabbingComic === rel.downloadUrl" @click="grabComic(rel)">Download</UButton>
                                     </td>
                                 </tr>
                             </tbody>
@@ -235,7 +235,7 @@ const searchChapter = ref<Chapter | null>(null);
 const releases = ref<Release[]>([]);
 const comicReleases = ref<ComicRelease[]>([]);
 const grabbing = ref('');
-const grabbingComic = ref(false);
+const grabbingComic = ref('');
 
 const sortedComicReleases = computed(() => {
     if (!sortKey.value) return comicReleases.value;
@@ -296,7 +296,7 @@ const grab = async (connectorName?: string) => {
 const grabComic = async (release: ComicRelease) => {
     const id = searchChapter.value?.key;
     if (!id) return;
-    grabbingComic.value = true;
+    grabbingComic.value = release.downloadUrl;
     try {
         await $fetch(`/v2/Comic/Chapters/${encodeURIComponent(id)}/Grab`, {
             method: 'POST',
@@ -305,7 +305,7 @@ const grabComic = async (release: ComicRelease) => {
         searchOpen.value = false;
         await refresh();
     } finally {
-        grabbingComic.value = false;
+        grabbingComic.value = '';
     }
 };
 

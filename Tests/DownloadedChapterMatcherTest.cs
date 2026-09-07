@@ -54,6 +54,22 @@ public class DownloadedChapterMatcherTest : IDisposable
         Assert.False(API.DownloadedChapterMatcher.TryParseComicIssueNumber("Variant Covers Folder Readme.cbz", out _));
     }
 
+    [Theory]
+    [InlineData("Batman 016 (2026) (Digital).cbz", 2026)]
+    [InlineData("Amazing Spider-Man 001 (1963) (Digital) (Shadowcat-Empire).cbz", 1963)]
+    [InlineData("Absolute Superman T01 - 2025 [CBZ] [FR]", 2025)]
+    public void TryParseReleaseYear_FindsFourDigitYear(string title, int expected)
+    {
+        Assert.True(API.DownloadedChapterMatcher.TryParseReleaseYear(title, out int year));
+        Assert.Equal(expected, year);
+    }
+
+    [Fact]
+    public void TryParseReleaseYear_FailsWithoutAFourDigitYear()
+    {
+        Assert.False(API.DownloadedChapterMatcher.TryParseReleaseYear("Batman 016 (Digital).cbz", out _));
+    }
+
     [Fact]
     public void ChapterNumbersEqual_TreatsPaddingAsSameChapter()
     {

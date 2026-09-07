@@ -6,8 +6,8 @@ namespace Tests;
 
 public class ComicAcquisitionTest
 {
-    private static Manga NewComic(string name) =>
-        new(name, "", "", MangaReleaseStatus.Continuing, [], [], [], []) { Kind = MediaKind.Comic };
+    private static Manga NewComic(string name, uint? year = null) =>
+        new(name, "", "", MangaReleaseStatus.Continuing, [], [], [], [], year: year) { Kind = MediaKind.Comic };
 
     private static IndexerRelease Release(string title, ReleaseProtocol protocol = ReleaseProtocol.Usenet, int? seeders = null) =>
         new(title, "https://example.com/download", null, protocol, "TestIndexer", 1024, DateTime.UtcNow, seeders);
@@ -28,6 +28,29 @@ public class ComicAcquisitionTest
         Manga comic = NewComic("Absolute Superman");
         Chapter chapter = new(comic, chapterNumber, null);
         Assert.Equal(expected, ComicAcquisition.MatchesIssue(Release(title), chapter));
+    }
+
+    [Fact]
+    public void MatchesIssue_RejectsReleaseFromBeforeTheTrackedRunStarted()
+    {
+        // A relaunched/renumbered "Batman" run starting 2016 shouldn't accept a same-numbered
+        // issue whose title carries a year that predates the run -- almost certainly a different
+        // volume Prowlarr's broad title search also turned up.
+        Manga comic = NewComic("Batman", year: 2016);
+        Chapter chapter = new(comic, "16", null);
+
+        Assert.False(ComicAcquisition.MatchesIssue(Release("Batman 016 (2011) (Digital).cbz"), chapter));
+        Assert.True(ComicAcquisition.MatchesIssue(Release("Batman 016 (2026) (Digital).cbz"), chapter));
+    }
+
+    [Fact]
+    public void MatchesIssue_NoYearInReleaseOrComic_StillMatchesOnIssueAlone()
+    {
+        // Most releases/older ComicVine entries won't have a year at all -- the sanity check must
+        // not regress the common case where there's nothing to compare.
+        Manga comic = NewComic("Batman");
+        Chapter chapter = new(comic, "16", null);
+        Assert.True(ComicAcquisition.MatchesIssue(Release("Batman 016.cbz"), chapter));
     }
 
     [Fact]

@@ -135,6 +135,11 @@ public class PollComicDownloadJobsWorker(TimeSpan? interval = null, IEnumerable<
         chapter.Downloaded = true;
         chapter.FileName = new FileInfo(destinationFile).Name;
 
+        // DataMoved records the raw source -> destination paths (same record type manga's own file
+        // moves use); ChapterDownloaded is what the Activity page's default "Downloads" filter shows.
+        // Together they give a full audit trail of exactly what got moved where -- useful for
+        // catching a wrong-series import after the fact, not just trusting the match was right.
+        await ActionsContext.Actions.AddAsync(new DataMovedActionRecord(sourceFile, destinationFile));
         await ActionsContext.Actions.AddAsync(new ChapterDownloadedActionRecord(chapter.ParentManga, chapter));
         if (await ActionsContext.Sync(CancellationToken, GetType(), "Comic issue imported") is { success: false } actionsResult)
             QueueLog.Error($"Failed to save action record: {actionsResult.exceptionMessage}");

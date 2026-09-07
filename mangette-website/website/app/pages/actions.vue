@@ -33,7 +33,7 @@
                         <th>Event</th>
                         <th>Series</th>
                         <th>Chapter</th>
-                        <th>File</th>
+                        <th>File / Moved</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -59,7 +59,10 @@
                             </NuxtLink>
                             <span v-else class="text-muted">{{ chapterLabel(row) || '—' }}</span>
                         </td>
-                        <td class="text-muted text-sm max-w-xs truncate" :title="row.filename || ''">{{ row.filename || '—' }}</td>
+                        <td v-if="row.action === 'DataMoved'" class="text-muted text-sm max-w-md truncate" :title="`${row.from} → ${row.to}`">
+                            <span class="truncate">{{ shortPath(row.from) }}</span> → <span class="truncate">{{ shortPath(row.to) }}</span>
+                        </td>
+                        <td v-else class="text-muted text-sm max-w-xs truncate" :title="row.filename || ''">{{ row.filename || '—' }}</td>
                     </tr>
                 </tbody>
             </table>
@@ -148,13 +151,21 @@ const eventLabel = (action: string) => {
     if (action === 'ChapterDownloaded') return 'Downloaded';
     if (action === 'ChaptersRetrieved') return 'Updated';
     if (action === 'CoverDownloaded') return 'Cover';
+    if (action === 'DataMoved') return 'Moved';
     return action.replace(/([A-Z])/g, ' $1').trim();
 };
 
 const eventColor = (action: string) => {
     if (action === 'NewChapter') return 'warning';
     if (action === 'ChapterDownloaded') return 'success';
+    if (action === 'DataMoved') return 'primary';
     return 'neutral';
+};
+
+const shortPath = (path?: string | null) => {
+    if (!path) return '—';
+    const parts = path.split(/[\\/]/).filter(Boolean);
+    return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : path;
 };
 
 const coverSrc = (mangaId: string) => `/v2/Manga/${mangaId}/Cover/Small`;

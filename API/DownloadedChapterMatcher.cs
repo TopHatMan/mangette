@@ -26,6 +26,7 @@ public static class DownloadedChapterMatcher
 
     private static readonly Regex BracketBlock = new(@"\[[^\]]*\]|\([^)]*\)|\{[^}]*\}", RegexOptions.Compiled);
     private static readonly Regex TrailingIssueNumber = new(@"#?0*(\d{1,4})(?:\.\d+)?\s*$", RegexOptions.Compiled);
+    private static readonly Regex FourDigitYear = new(@"(19|20)\d{2}", RegexOptions.Compiled);
 
     /// <summary>
     /// Comic filenames put the issue number as a bare token after the series name
@@ -48,6 +49,27 @@ public static class DownloadedChapterMatcher
 
         issueNumber = NormalizeChapterNumber(match.Groups[1].Value);
         return issueNumber.Length > 0;
+    }
+
+    /// <summary>
+    /// Pulls a plausible publication year (1900-2099) out of a release title, e.g. "Batman 016
+    /// (2026) (Digital)" -&gt; 2026. Comics get relaunched/renumbered often enough (New 52, Rebirth,
+    /// etc.) that the same series name and issue number can legitimately belong to entirely
+    /// different runs -- this lets a caller sanity-check a release's year against a tracked
+    /// series' known start year instead of trusting title text + issue number alone.
+    /// </summary>
+    public static bool TryParseReleaseYear(string title, out int year)
+    {
+        year = 0;
+        if (string.IsNullOrWhiteSpace(title))
+            return false;
+
+        Match match = FourDigitYear.Match(title);
+        if (!match.Success)
+            return false;
+
+        year = int.Parse(match.Value);
+        return true;
     }
 
     public static string NormalizeChapterNumber(string chapterNumber)
