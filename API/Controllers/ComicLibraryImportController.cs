@@ -160,6 +160,11 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
         int issueCount = volume.Value<int?>("count_of_issues") ?? 0;
         uint? year = uint.TryParse(volume.Value<string>("start_year"), out uint y) ? y : null;
 
+        (string resolvedName, string? nameError) = await ComicAcquisition.ResolveNonCollidingName(context, name, year, HttpContext.RequestAborted);
+        if (nameError is not null)
+            return TypedResults.BadRequest(nameError);
+        name = resolvedName;
+
         Manga comic = new(name, description, coverUrl, MangaReleaseStatus.Continuing, [], [], [], [], library, year: year)
         {
             Kind = MediaKind.Comic,

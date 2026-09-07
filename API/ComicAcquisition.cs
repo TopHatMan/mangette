@@ -1,6 +1,7 @@
 using API.ExternalDownloadClients;
 using API.IndexerConnectors;
 using API.Schema.MangaContext;
+using Microsoft.EntityFrameworkCore;
 
 namespace API;
 
@@ -25,6 +26,38 @@ public static class ComicAcquisition
     /// request per issue.
     /// </summary>
     public static string BuildQuery(Manga comic) => comic.Name;
+
+    /// <summary>
+    /// Comics very often share a bare ComicVine volume name with a completely different real-world
+    /// run -- the classic 1940 "Batman" run and later relaunches are frequently just named "Batman"
+    /// in ComicVine's own data, distinguished only by volume id/year, not by anything in the name
+    /// text. Manga.Key derives from Name alone, so adding a second series under an identical name
+    /// collides on the primary key -- confirmed live, this previously surfaced as a raw
+    /// "SQLite Error 19: UNIQUE constraint failed" instead of anything actionable. If the plain name
+    /// collides and a year is known (from ComicVine), retry with "{name} ({year})" appended before
+    /// giving up -- the same disambiguator ComicVine's own search UI already shows the user, so this
+    /// resolves the overwhelming majority of real collisions automatically instead of forcing a
+    /// manual rename.
+    /// </summary>
+    public static async Task<(string Name, string? Error)> ResolveNonCollidingName(
+        MangaContext context, string name, uint? year, CancellationToken cancellationToken)
+    {
+        async Task<bool> Exists(string candidate) =>
+            await context.Mangas.AnyAsync(m => m.Key == TokenGen.CreateToken(typeof(Manga), candidate), cancellationToken);
+
+        if (!await Exists(name))
+            return (name, null);
+
+        if (year is { } y)
+        {
+            string withYear = $"{name} ({y})";
+            if (!await Exists(withYear))
+                return (withYear, null);
+            return (name, $"A series named \"{name}\" (and \"{withYear}\") is already in your library. Rename the folder/title to something more distinguishing and try again.");
+        }
+
+        return (name, $"A series named \"{name}\" is already in your library. Rename the folder/title to something more distinguishing and try again.");
+    }
 
     /// <summary>
     /// Does this release's title look like it's the issue the chapter wants? Two separate ways a
