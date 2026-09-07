@@ -120,7 +120,7 @@ public class ProwlarrIndexerConnector : IIndexerConnector
     /// results Mangette failed to parse".
     /// </summary>
     public sealed record SearchDiagnostics(
-        string RequestUrl, int? HttpStatus, string? Error, int RawResultCount, IndexerRelease[] Releases);
+        string RequestUrl, int? HttpStatus, string? Error, int RawResultCount, IndexerRelease[] Releases, string? FirstSkippedRaw = null);
 
     public async Task<IndexerRelease[]> Search(string query, CancellationToken cancellationToken) =>
         (await SearchWithDiagnostics(query, cancellationToken)).Releases;
@@ -180,42 +180,74 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         }
 
         List<IndexerRelease> releases = [];
+        string? firstSkippedRaw = null;
         int skipped = 0;
         foreach (JToken item in results)
         {
             if (ParseRelease(item) is { } release)
+            {
                 releases.Add(release);
+            }
             else
+            {
                 skipped++;
+                firstSkippedRaw ??= item.ToString(Newtonsoft.Json.Formatting.None);
+            }
         }
         if (skipped > 0)
+        {
             Log.WarnFormat("Prowlarr search \"{0}\": {1} of {2} raw result(s) were missing a title/downloadUrl/protocol and were skipped.", query, skipped, results.Count);
+            Log.WarnFormat("First skipped raw result (field names Mangette expected didn't match): {0}", firstSkippedRaw);
+        }
 
         Log.InfoFormat("Prowlarr search \"{0}\" returned {1} release(s) (raw: {2}).", query, releases.Count, results.Count);
-        return new SearchDiagnostics(requestUrl, (int)response.StatusCode, null, results.Count, releases.ToArray());
+        return new SearchDiagnostics(requestUrl, (int)response.StatusCode, null, results.Count, releases.ToArray(), firstSkippedRaw);
     }
 
-    private static IndexerRelease? ParseRelease(JToken item)
+    /// <summary>
+    /// Case-insensitive, multi-name-aliased lookup -- Prowlarr's actual field casing/naming has
+    /// proven inconsistent enough across releases (e.g. a magnet-only torrent release has no
+    /// "downloadUrl" but does have "guid" or "magnetUrl") that a single exact key lookup silently
+    /// dropped every result for some indexers even though Prowlarr returned them correctly.
+    /// </summary>
+    internal static string? GetString(JObject obj, params string[] names)
     {
-        string? title = item.Value<string>("title");
-        string? downloadUrl = item.Value<string>("downloadUrl");
-        string? protocolRaw = item.Value<string>("protocol");
-        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(downloadUrl) ||
-            string.IsNullOrWhiteSpace(protocolRaw))
+        foreach (string name in names)
+        {
+            if (obj.Property(name, StringComparison.OrdinalIgnoreCase)?.Value is { Type: not JTokenType.Null } value &&
+                value.Value<string>() is { Length: > 0 } s)
+                return s;
+        }
+        return null;
+    }
+
+    internal static IndexerRelease? ParseRelease(JToken item)
+    {
+        if (item is not JObject obj)
+            return null;
+
+        string? title = GetString(obj, "title");
+        string? downloadUrl = GetString(obj, "downloadUrl", "magnetUrl", "link", "guid");
+        string? protocolRaw = GetString(obj, "protocol");
+        if (title is null || downloadUrl is null || protocolRaw is null)
             return null;
 
         ReleaseProtocol protocol = protocolRaw.Equals("usenet", StringComparison.OrdinalIgnoreCase)
             ? ReleaseProtocol.Usenet
             : ReleaseProtocol.Torrent;
 
+        string? sizeRaw = GetString(obj, "size");
+        string? publishDateRaw = GetString(obj, "publishDate");
+        string? seedersRaw = GetString(obj, "seeders");
+
         return new IndexerRelease(
             title,
             downloadUrl,
-            item.Value<string?>("infoUrl"),
+            GetString(obj, "infoUrl"),
             protocol,
-            item.Value<string?>("indexer") ?? "Prowlarr",
-            item.Value<long?>("size") ?? 0,
-            item.Value<DateTime?>("publishDate") ?? DateTime.UtcNow,
-            item.Value<int?>("seeders"));
+            GetString(obj, "indexer") ?? "Prowlarr",
+            long.TryParse(sizeRaw, out long size) ? size : 0,
+            DateTime.TryParse(publishDateRaw, out DateTime publishDate) ? publishDate : DateTime.UtcNow,
+            int.TryParse(seedersRaw, out int seeders) ? seeders : null);
     }
 }

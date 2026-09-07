@@ -197,6 +197,10 @@
                             <span v-if="testSearchResult.httpStatus">HTTP {{ testSearchResult.httpStatus }}.</span>
                             <span v-if="testSearchResult.error" class="text-error"> {{ testSearchResult.error }}</span>
                         </p>
+                        <p v-if="testSearchResult?.firstSkippedRaw" class="text-muted text-xs mb-1">
+                            Raw result Mangette couldn't parse (share this if it's still 0 parsed):
+                            <code class="break-all block bg-elevated rounded p-1.5 mt-1">{{ testSearchResult.firstSkippedRaw }}</code>
+                        </p>
                         <p v-if="testSearchResult?.requestUrl" class="text-muted text-xs">
                             Request sent: <code class="break-all">{{ testSearchResult.requestUrl }}</code>
                             <br />If this shows 0 raw results but Prowlarr's own Search page finds some, paste this URL (with
@@ -457,6 +461,7 @@ type ProwlarrTestSearchResult = {
     requestUrl: string;
     httpStatus?: number | null;
     error?: string | null;
+    firstSkippedRaw?: string | null;
 };
 const testSearchQuery = ref('');
 const testingSearch = ref(false);

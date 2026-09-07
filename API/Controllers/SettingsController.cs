@@ -503,13 +503,14 @@ public class SettingsController(MangaContext context) : ControllerBase
             diag.Releases.Take(10).Select(r => $"{r.Title} ({r.IndexerName}, {r.Protocol})").ToList(),
             diag.RequestUrl,
             diag.HttpStatus,
-            diag.Error));
+            diag.Error,
+            diag.FirstSkippedRaw));
     }
 
     /// <summary>RequestUrl never includes the API key (it travels as a header) -- safe to display/copy.</summary>
     public sealed record ProwlarrTestSearchResult(
         int ResultCount, int RawResultCount, List<int> CategoriesUsed, List<int> IndexerIdsUsed,
-        List<string> SampleTitles, string RequestUrl, int? HttpStatus, string? Error);
+        List<string> SampleTitles, string RequestUrl, int? HttpStatus, string? Error, string? FirstSkippedRaw);
 
     /// <summary>Sets the qBittorrent WebUI connection used as the torrent download client for Comics.</summary>
     [HttpPatch("QBittorrent")]

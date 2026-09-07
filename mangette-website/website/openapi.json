@@ -8326,6 +8326,10 @@
           "error": {
             "type": "string",
             "nullable": true
+          },
+          "firstSkippedRaw": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false,
