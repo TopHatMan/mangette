@@ -70,6 +70,17 @@ public class DownloadedChapterMatcherTest : IDisposable
         Assert.False(API.DownloadedChapterMatcher.TryParseReleaseYear("Batman 016 (Digital).cbz", out _));
     }
 
+    [Theory]
+    [InlineData("Absolute Superman 023 (2026) (Digital)", "Absolute Superman", true)]
+    [InlineData("Superman 2 (2026) (Digital)", "Absolute Superman", false)]
+    [InlineData("Superman 023 (2026) (Digital)", "Absolute Superman", false)]
+    [InlineData("Spider-Man 001.cbz", "Spider Man", true)]
+    [InlineData("Batman 016.cbz", "Batman", true)]
+    public void TitleStartsWithSeries_RequiresSeriesNameAsPrefix(string releaseTitle, string seriesName, bool expected)
+    {
+        Assert.Equal(expected, API.DownloadedChapterMatcher.TitleStartsWithSeries(releaseTitle, seriesName));
+    }
+
     [Fact]
     public void ChapterNumbersEqual_TreatsPaddingAsSameChapter()
     {

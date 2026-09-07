@@ -82,13 +82,30 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
         return TypedResults.Ok(new ComicScanResult(library.Key, library.LibraryName, root, records, mappedCount, warning));
     }
 
+    /// <summary>
+    /// A "Batman" or "Spider-Man" folder is one of many same-named ComicVine volumes spanning
+    /// decades of relaunches -- title text alone can't tell "Batman (1940) - 713 issues" apart
+    /// from "Batman (2016) - 85 issues". When the scanned folder's real archive count is known,
+    /// nudge candidates whose ComicVine issue count is close to it: a folder holding 79 archives
+    /// is much more likely to be the ~79-issue volume than a same-named one with 12 or 700 issues.
+    /// A small bonus (not a replacement for title score) so this only breaks ties/near-ties
+    /// between same-named volumes, never overrides a genuinely better title match.
+    /// </summary>
+    internal static double IssueCountBonus(int? archiveCount, int candidateIssueCount)
+    {
+        if (archiveCount is not { } count || count <= 0 || candidateIssueCount <= 0)
+            return 0;
+        double diff = Math.Abs(candidateIssueCount - count) / (double)Math.Max(candidateIssueCount, count);
+        return (1 - diff) * 5;
+    }
+
     [HttpPost("Match")]
     [ProducesResponseType<ComicMatchResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
-    public Task<Results<Ok<ComicMatchResult>, BadRequest<string>>> Match([FromBody] ComicMatchRequest request)
+    public async Task<Results<Ok<ComicMatchResult>, BadRequest<string>>> Match([FromBody] ComicMatchRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.FolderName))
-            return Task.FromResult<Results<Ok<ComicMatchResult>, BadRequest<string>>>(TypedResults.BadRequest("FolderName is required."));
+            return TypedResults.BadRequest("FolderName is required.");
 
         // FolderName is a relative path that may be several levels deep; fall back to just the leaf
         // folder's own name (the actual series/run title lives there, not in the parent hub folders).
@@ -96,22 +113,26 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
             ? ComicLibraryImportMatcher.CleanSeriesName(Path.GetFileName(request.FolderName.Replace('/', Path.DirectorySeparatorChar)))
             : request.Query.Trim();
         if (query.Length == 0)
-            return Task.FromResult<Results<Ok<ComicMatchResult>, BadRequest<string>>>(TypedResults.BadRequest("Could not build a search query from that folder name."));
+            return TypedResults.BadRequest("Could not build a search query from that folder name.");
 
         try
         {
-            List<ComicMatchCandidate> candidates = Mangette.ComicVine.SearchMetadataEntry(query)
-                .Select(r => new ComicMatchCandidate(r.Name, r.Identifier, r.Url, r.CoverUrl, LibraryImportMatcher.ScoreTitle(query, r.Name)))
+            ComicVineVolumeSummary[] results = await Mangette.ComicVine.SearchVolumes(query, HttpContext.RequestAborted);
+            List<ComicMatchCandidate> candidates = results
+                .Select(r => new ComicMatchCandidate(
+                    r.Name, r.ComicVineVolumeId, r.Url, r.CoverUrl,
+                    Math.Min(100, LibraryImportMatcher.ScoreTitle(query, r.Name) + IssueCountBonus(request.ArchiveCount, r.IssueCount)),
+                    r.Year, r.IssueCount))
                 .OrderByDescending(c => c.Score)
                 .Take(8)
                 .ToList();
             Log.InfoFormat("Comic match \"{0}\" query \"{1}\": {2} hits.", request.FolderName, query, candidates.Count);
-            return Task.FromResult<Results<Ok<ComicMatchResult>, BadRequest<string>>>(TypedResults.Ok(new ComicMatchResult(request.FolderName, candidates)));
+            return TypedResults.Ok(new ComicMatchResult(request.FolderName, candidates));
         }
         catch (Exception ex)
         {
             Log.Error($"Comic match failed for \"{request.FolderName}\" query \"{query}\": {ex.Message}", ex);
-            return Task.FromResult<Results<Ok<ComicMatchResult>, BadRequest<string>>>(TypedResults.BadRequest($"Match failed: {ex.Message}"));
+            return TypedResults.BadRequest($"Match failed: {ex.Message}");
         }
     }
 
@@ -215,8 +236,8 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
 
 public sealed record ComicScanFolderRecord(string FolderName, int ArchiveCount, int OtherFileCount, string SuggestedQuery);
 public sealed record ComicScanResult(string LibraryId, string LibraryName, string BasePath, List<ComicScanFolderRecord> UnmappedFolders, int MappedFolderCount, string? Warning);
-public sealed record ComicMatchRequest(string FolderName, string? Query);
-public sealed record ComicMatchCandidate(string Name, string ComicVineVolumeId, string? Url, string? CoverUrl, double Score);
+public sealed record ComicMatchRequest(string FolderName, string? Query, int? ArchiveCount = null);
+public sealed record ComicMatchCandidate(string Name, string ComicVineVolumeId, string? Url, string? CoverUrl, double Score, int? Year, int IssueCount);
 public sealed record ComicMatchResult(string FolderName, List<ComicMatchCandidate> Matches);
 public sealed record ComicImportRequest(string LibraryId, string FolderName, string ComicVineVolumeId);
 public sealed record ComicImportResult(string MangaId, string Name, int IssueCount, int ArchivesOnDisk);

@@ -44,6 +44,19 @@ public class ComicAcquisitionTest
     }
 
     [Fact]
+    public void MatchesIssue_RejectsReleaseMissingTheSeriesNamePrefix()
+    {
+        // A Prowlarr search for "Absolute Superman" can surface a completely unrelated
+        // "Superman 2" hit that only shares the word "Superman" -- must not be treated as a
+        // match just because the issue number happens to line up.
+        Manga comic = NewComic("Absolute Superman");
+        Chapter chapter = new(comic, "2", null);
+
+        Assert.False(ComicAcquisition.MatchesIssue(Release("Superman 2 (2026) (Digital).cbz"), chapter));
+        Assert.True(ComicAcquisition.MatchesIssue(Release("Absolute Superman 002 (2026) (Digital).cbz"), chapter));
+    }
+
+    [Fact]
     public void MatchesIssue_NoYearInReleaseOrComic_StillMatchesOnIssueAlone()
     {
         // Most releases/older ComicVine entries won't have a year at all -- the sanity check must

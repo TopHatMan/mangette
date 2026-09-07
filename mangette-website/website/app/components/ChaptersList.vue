@@ -14,7 +14,7 @@
                 :items-per-page="pagination.pageSize"
                 :total="data?.totalCount ?? 0"
                 class="ml-auto"
-                @update:page="(p) => (pagination.pageIndex = p - 1)" />
+                @update:page="(p) => (pagination = { ...pagination, pageIndex: p - 1 })" />
         </div>
 
         <div class="overflow-x-auto">

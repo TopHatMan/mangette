@@ -27,15 +27,22 @@ public static class ComicAcquisition
     public static string BuildQuery(Manga comic) => comic.Name;
 
     /// <summary>
-    /// Does this release's title look like it's the issue the chapter wants? Series get
-    /// relaunched/renumbered often enough (New 52, Rebirth, etc.) that the same series name and
-    /// issue number can legitimately belong to a completely different run -- a broad title-only
-    /// Prowlarr search can't tell those apart, so if the tracked comic has a known start year
-    /// (from ComicVine) and the release title has a parseable year earlier than that, reject it:
-    /// a run can't have published an issue before it started.
+    /// Does this release's title look like it's the issue the chapter wants? Two separate ways a
+    /// broad title-only Prowlarr search can surface a wrong-series release, both checked here:
+    /// (1) indexer full-text search is loose keyword matching, not an exact-title filter, so a
+    /// search for "Absolute Superman" can surface "Superman 2" (shares "Superman" but drops the
+    /// distinguishing "Absolute" prefix) -- reject anything whose title doesn't actually start
+    /// with the series name. (2) series get relaunched/renumbered often enough (New 52, Rebirth,
+    /// etc.) that the same series name and issue number can legitimately belong to a completely
+    /// different run -- if the tracked comic has a known start year (from ComicVine) and the
+    /// release title has a parseable year earlier than that, reject it too: a run can't have
+    /// published an issue before it started.
     /// </summary>
     public static bool MatchesIssue(IndexerRelease release, Chapter chapter)
     {
+        if (!DownloadedChapterMatcher.TitleStartsWithSeries(release.Title, chapter.ParentManga.Name))
+            return false;
+
         if (!DownloadedChapterMatcher.TryParseComicIssueNumber(release.Title, out string issueNumber) ||
             !DownloadedChapterMatcher.ChapterNumbersEqual(issueNumber, chapter.ChapterNumber))
             return false;

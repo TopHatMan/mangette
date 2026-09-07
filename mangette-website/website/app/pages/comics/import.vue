@@ -82,7 +82,7 @@
                             <USelect
                                 v-if="row.matches.length"
                                 v-model="row.selected"
-                                :items="row.matches.map((m) => ({ label: `${m.score}% · ${m.name}`, value: m.comicVineVolumeId }))"
+                                :items="row.matches.map((m) => ({ label: matchLabel(m), value: m.comicVineVolumeId }))"
                                 class="w-full" />
                             <p v-else-if="row.matching" class="text-muted text-sm">Matching…</p>
                             <p v-else-if="row.importing" class="text-muted text-sm">Importing exact match…</p>
@@ -107,7 +107,15 @@
 <script setup lang="ts">
 import { LazyAddComicModal } from '#components';
 
-type Candidate = { name: string; comicVineVolumeId: string; url?: string | null; coverUrl?: string | null; score: number };
+type Candidate = {
+    name: string;
+    comicVineVolumeId: string;
+    url?: string | null;
+    coverUrl?: string | null;
+    score: number;
+    year?: number | null;
+    issueCount: number;
+};
 type Row = {
     folderName: string;
     archiveCount: number;
@@ -136,6 +144,15 @@ const apiError = (e: unknown): string => {
 };
 
 const tab = ref<'import' | 'queue'>('import');
+
+// Same-named ComicVine volumes across decades of relaunches (Batman, Spider-Man, ...) are
+// impossible to tell apart from name text alone -- surface year + issue count so a human can
+// actually pick the right run, same as the score-only label used to hide.
+const matchLabel = (m: Candidate) => {
+    const year = m.year ? ` (${m.year})` : '';
+    const issues = m.issueCount ? ` · ${m.issueCount} issues` : '';
+    return `${Math.round(m.score)}% · ${m.name}${year}${issues}`;
+};
 
 const overlay = useOverlay();
 const addComicModal = overlay.create(LazyAddComicModal);
@@ -207,7 +224,7 @@ const matchOne = async (row: Row, autoImportExact = false) => {
     try {
         const result = await $api('/v2/ComicLibraryImport/Match', {
             method: 'POST',
-            body: { folderName: row.folderName, query },
+            body: { folderName: row.folderName, query, archiveCount: row.archiveCount },
         });
         row.matches = result?.matches ?? [];
         const best = row.matches[0];

@@ -6485,6 +6485,15 @@
           "score": {
             "type": "number",
             "format": "double"
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "issueCount": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -6498,6 +6507,11 @@
           },
           "query": {
             "type": "string",
+            "nullable": true
+          },
+          "archiveCount": {
+            "type": "integer",
+            "format": "int32",
             "nullable": true
           }
         },

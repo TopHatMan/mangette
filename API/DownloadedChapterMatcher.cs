@@ -27,6 +27,7 @@ public static class DownloadedChapterMatcher
     private static readonly Regex BracketBlock = new(@"\[[^\]]*\]|\([^)]*\)|\{[^}]*\}", RegexOptions.Compiled);
     private static readonly Regex TrailingIssueNumber = new(@"#?0*(\d{1,4})(?:\.\d+)?\s*$", RegexOptions.Compiled);
     private static readonly Regex FourDigitYear = new(@"(19|20)\d{2}", RegexOptions.Compiled);
+    private static readonly Regex NonAlphaNumeric = new(@"[^\p{L}\p{N}\s]", RegexOptions.Compiled);
 
     /// <summary>
     /// Comic filenames put the issue number as a bare token after the series name
@@ -71,6 +72,28 @@ public static class DownloadedChapterMatcher
         year = int.Parse(match.Value);
         return true;
     }
+
+    /// <summary>
+    /// Does this release title actually start with the series name, not just share a loose word
+    /// with it? A Prowlarr full-text search for "Absolute Superman" can surface completely
+    /// unrelated hits like "Superman 2" (which shares the word "Superman" but drops the
+    /// distinguishing "Absolute" prefix) -- indexer search is inherently loose keyword matching,
+    /// not an exact-title filter, so this is the strict check on our side that keeps a series
+    /// name's distinguishing prefix from silently being ignored. Punctuation-insensitive
+    /// (e.g. "Spider-Man" vs "Spider Man") since release taggers are inconsistent about it.
+    /// </summary>
+    public static bool TitleStartsWithSeries(string releaseTitle, string seriesName)
+    {
+        if (string.IsNullOrWhiteSpace(releaseTitle) || string.IsNullOrWhiteSpace(seriesName))
+            return false;
+
+        string title = NormalizeForPrefixCompare(releaseTitle);
+        string name = NormalizeForPrefixCompare(seriesName);
+        return name.Length > 0 && title.StartsWith(name, StringComparison.Ordinal);
+    }
+
+    private static string NormalizeForPrefixCompare(string value) =>
+        Regex.Replace(NonAlphaNumeric.Replace(value, " "), @"\s+", " ").Trim().ToLowerInvariant();
 
     public static string NormalizeChapterNumber(string chapterNumber)
     {
