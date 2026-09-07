@@ -82,6 +82,59 @@ public class DownloadedChapterMatcherTest : IDisposable
     }
 
     [Fact]
+    public void MatchArchivesToIssues_MatchesEveryFileInABulkCompleteRunDownload()
+    {
+        // A "complete run" NZB/torrent (all 713 Batman issues in one download) drops hundreds of
+        // archives in one folder -- every one of them should match its own issue, not just the
+        // single issue that originally triggered the search.
+        string[] files =
+        [
+            "Batman 001 (1940) (Digital).cbz", "Batman 002 (1940) (Digital).cbz", "Batman 003 (1940) (Digital).cbz",
+        ];
+        string[] wanted = ["1", "2", "3", "4", "5"];
+
+        (List<(string ChapterNumber, string SourceFile)> matches, List<string> unmatched) =
+            API.DownloadedChapterMatcher.MatchArchivesToIssues(files, wanted);
+
+        Assert.Equal(3, matches.Count);
+        Assert.Empty(unmatched);
+        Assert.Contains(matches, m => m.ChapterNumber == "1" && m.SourceFile == files[0]);
+        Assert.Contains(matches, m => m.ChapterNumber == "2" && m.SourceFile == files[1]);
+        Assert.Contains(matches, m => m.ChapterNumber == "3" && m.SourceFile == files[2]);
+    }
+
+    [Fact]
+    public void MatchArchivesToIssues_ReportsFilesWithNoParseableOrUnwantedIssueAsUnmatched()
+    {
+        string[] files = ["Batman 001 (1940).cbz", "Batman 050 (1940).cbz", "Variant Covers Readme.txt"];
+        string[] wanted = ["1"]; // issue 50 is not wanted (already downloaded, or out of range)
+
+        (List<(string ChapterNumber, string SourceFile)> matches, List<string> unmatched) =
+            API.DownloadedChapterMatcher.MatchArchivesToIssues(files, wanted);
+
+        Assert.Single(matches);
+        Assert.Equal("1", matches[0].ChapterNumber);
+        Assert.Equal(2, unmatched.Count);
+        Assert.Contains(files[1], unmatched);
+        Assert.Contains(files[2], unmatched);
+    }
+
+    [Fact]
+    public void MatchArchivesToIssues_EachWantedIssueIsClaimedByAtMostOneFile()
+    {
+        // Two files that both parse to issue "1" (a duplicate/variant scan) -- only one can claim
+        // the single wanted "1" slot; the second is left unmatched rather than silently overwriting.
+        string[] files = ["Batman 001 (1940).cbz", "Batman 001 (1940) (Variant).cbz"];
+        string[] wanted = ["1"];
+
+        (List<(string ChapterNumber, string SourceFile)> matches, List<string> unmatched) =
+            API.DownloadedChapterMatcher.MatchArchivesToIssues(files, wanted);
+
+        Assert.Single(matches);
+        Assert.Single(unmatched);
+    }
+
+    [Fact]
     public void ChapterNumbersEqual_TreatsPaddingAsSameChapter()
     {
         Assert.True(API.DownloadedChapterMatcher.ChapterNumbersEqual("1", "001"));

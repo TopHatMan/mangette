@@ -11,10 +11,13 @@ namespace API.Workers.PeriodicWorkers;
 
 /// <summary>
 /// Polls every in-flight <see cref="ComicDownloadJob"/> for completion. When a client reports done,
-/// finds the comic archive it produced, moves it into the series' library folder (named per
-/// <see cref="MangetteSettings.ChapterNamingScheme"/>, preserving whatever archive format the release
-/// actually was), and marks the issue downloaded -- the same finish line
-/// <see cref="MangaDownloadWorkers.DownloadChapterFromMangaconnectorWorker"/> reaches for scraped chapters.
+/// finds every comic archive it produced -- one release can satisfy many issues at once (a
+/// "complete run" download with hundreds of archives, not just the single issue that triggered the
+/// search) -- matches each by its own parsed issue number to a wanted chapter of the series, moves
+/// it into the library folder (named per <see cref="MangetteSettings.ChapterNamingScheme"/>,
+/// preserving whatever archive format the release actually was), and marks that issue downloaded --
+/// the same finish line <see cref="MangaDownloadWorkers.DownloadChapterFromMangaconnectorWorker"/>
+/// reaches for scraped chapters.
 /// </summary>
 public class PollComicDownloadJobsWorker(TimeSpan? interval = null, IEnumerable<BaseWorker>? dependsOn = null)
     : BaseWorkerWithContexts(dependsOn), IPeriodic
@@ -100,22 +103,72 @@ public class PollComicDownloadJobsWorker(TimeSpan? interval = null, IEnumerable<
         return refreshLibrary ? [new RefreshLibrariesWorker()] : [];
     }
 
+    /// <summary>
+    /// One grabbed release can contain far more than the single issue that triggered the search --
+    /// a "complete run" NZB/torrent (e.g. all 713 Batman issues in one download) drops hundreds of
+    /// archives in one output folder, not just <see cref="ComicDownloadJob.Chapter"/>'s one. Every
+    /// archive found is matched by its own parsed issue number against every not-yet-downloaded
+    /// chapter of the series, instead of assuming the output folder holds exactly one file for
+    /// exactly the chapter that requested it.
+    /// </summary>
     private async Task<bool> Import(ComicDownloadJob job, string outputPath)
     {
-        Chapter chapter = job.Chapter;
-        string? sourceFile = FindArchiveFile(outputPath);
-        if (sourceFile is null)
-        {
-            job.MarkFailed($"No comic archive found in {outputPath}.");
-            QueueLog.WarnFormat("\"{0}\" completed but no comic archive was found under {1}.", job.ReleaseTitle, outputPath);
-            return false;
-        }
-        if (chapter.ParentManga.LibraryId is null)
+        Chapter primaryChapter = job.Chapter;
+        if (primaryChapter.ParentManga.LibraryId is null)
         {
             job.MarkFailed("Series has no library.");
             return false;
         }
 
+        List<string> sourceFiles = FindArchiveFiles(outputPath);
+        if (sourceFiles.Count == 0)
+        {
+            job.MarkFailed($"No comic archive found in {outputPath}.");
+            QueueLog.WarnFormat("\"{0}\" completed but no comic archive was found under {1}.", job.ReleaseTitle, outputPath);
+            return false;
+        }
+
+        List<Chapter> wanted = await MangaContext.Chapters
+            .Include(c => c.ParentManga)
+            .ThenInclude(m => m.Library)
+            .Where(c => c.ParentMangaId == primaryChapter.ParentMangaId && !c.Downloaded)
+            .ToListAsync(CancellationToken);
+        if (wanted.All(c => c.Key != primaryChapter.Key))
+            wanted.Add(primaryChapter);
+
+        (List<(string ChapterNumber, string SourceFile)> fileMatches, List<string> unmatched) =
+            DownloadedChapterMatcher.MatchArchivesToIssues(
+                sourceFiles.OrderByDescending(f => new FileInfo(f).Length), wanted.Select(c => c.ChapterNumber));
+
+        int imported = 0;
+        foreach ((string chapterNumber, string sourceFile) in fileMatches)
+        {
+            Chapter matched = wanted.First(c => c.ChapterNumber == chapterNumber);
+            if (await ImportOneFile(matched, sourceFile))
+                imported++;
+            else
+                unmatched.Add(sourceFile);
+        }
+
+        if (imported == 0)
+        {
+            job.MarkFailed($"None of the {sourceFiles.Count} archive(s) in {outputPath} matched a wanted issue for {primaryChapter.ParentManga.Name}.");
+            return false;
+        }
+
+        job.MarkImported(outputPath);
+        if (unmatched.Count > 0)
+        {
+            QueueLog.WarnFormat("\"{0}\": {1} of {2} archive(s) under {3} didn't match a wanted issue and were left in place: {4}",
+                job.ReleaseTitle, unmatched.Count, sourceFiles.Count, outputPath, string.Join(", ", unmatched.Select(Path.GetFileName)));
+        }
+        QueueLog.InfoFormat("Imported {0} issue(s) from \"{1}\" for {2}.", imported, job.ReleaseTitle, primaryChapter.ParentManga.Name);
+        return true;
+    }
+
+    /// <summary>Moves one matched archive into place and records it. Returns false (leaving the source file alone) on any I/O failure.</summary>
+    private async Task<bool> ImportOneFile(Chapter chapter, string sourceFile)
+    {
         string destinationFile = Path.Join(chapter.ParentManga.FullDirectoryPath, chapter.GetArchiveFileName(Path.GetExtension(sourceFile)));
         try
         {
@@ -126,12 +179,10 @@ public class PollComicDownloadJobsWorker(TimeSpan? interval = null, IEnumerable<
         }
         catch (Exception ex)
         {
-            job.MarkFailed($"Could not move \"{sourceFile}\" to \"{destinationFile}\": {ex.Message}");
-            QueueLog.Error($"Import of \"{job.ReleaseTitle}\" failed: {ex.Message}", ex);
+            QueueLog.Error($"Could not move \"{sourceFile}\" to \"{destinationFile}\": {ex.Message}", ex);
             return false;
         }
 
-        job.MarkImported(destinationFile);
         chapter.Downloaded = true;
         chapter.FileName = new FileInfo(destinationFile).Name;
 
@@ -150,28 +201,26 @@ public class PollComicDownloadJobsWorker(TimeSpan? interval = null, IEnumerable<
         if (await NotificationsContext.Sync(CancellationToken, GetType(), "Comic issue imported") is { success: false } notificationsResult)
             QueueLog.Error($"Failed to save notification: {notificationsResult.exceptionMessage}");
 
-        QueueLog.InfoFormat("Imported \"{0}\" as {1} #{2}.", job.ReleaseTitle, chapter.ParentManga.Name, chapter.ChapterNumber);
         return true;
     }
 
-    private static string? FindArchiveFile(string outputPath)
+    private static List<string> FindArchiveFiles(string outputPath)
     {
         if (File.Exists(outputPath))
-            return IsComicArchive(outputPath) ? outputPath : null;
+            return IsComicArchive(outputPath) ? [outputPath] : [];
         if (!Directory.Exists(outputPath))
-            return null;
+            return [];
 
         try
         {
             return Directory.EnumerateFiles(outputPath, "*", SearchOption.AllDirectories)
                 .Where(IsComicArchive)
-                .OrderByDescending(f => new FileInfo(f).Length)
-                .FirstOrDefault();
+                .ToList();
         }
         catch (Exception ex)
         {
-            QueueLog.Error($"Could not scan {outputPath} for a comic archive: {ex.Message}", ex);
-            return null;
+            QueueLog.Error($"Could not scan {outputPath} for comic archives: {ex.Message}", ex);
+            return [];
         }
     }
 

@@ -115,6 +115,39 @@ public static class DownloadedChapterMatcher
     public static bool ChapterNumbersEqual(string left, string right) =>
         NormalizeChapterNumber(left).Equals(NormalizeChapterNumber(right), StringComparison.Ordinal);
 
+    /// <summary>
+    /// Matches each source file to at most one of <paramref name="wantedChapterNumbers"/> by parsed
+    /// issue number -- used to reconcile a single grabbed release that turned out to contain
+    /// archives for many issues at once (a "complete run" download with hundreds of files, not just
+    /// the single issue that triggered the search). Each wanted chapter number is claimed by at most
+    /// one file; a file with no parseable issue number, or whose issue number isn't wanted, is
+    /// reported unmatched instead of guessed at.
+    /// </summary>
+    public static (List<(string ChapterNumber, string SourceFile)> Matches, List<string> Unmatched) MatchArchivesToIssues(
+        IEnumerable<string> sourceFiles, IEnumerable<string> wantedChapterNumbers)
+    {
+        List<string> pool = wantedChapterNumbers.ToList();
+        List<(string, string)> matches = [];
+        List<string> unmatched = [];
+        foreach (string file in sourceFiles)
+        {
+            if (!TryParseComicIssueNumber(Path.GetFileName(file), out string issueNumber))
+            {
+                unmatched.Add(file);
+                continue;
+            }
+            int index = pool.FindIndex(c => ChapterNumbersEqual(c, issueNumber));
+            if (index < 0)
+            {
+                unmatched.Add(file);
+                continue;
+            }
+            matches.Add((pool[index], file));
+            pool.RemoveAt(index);
+        }
+        return (matches, unmatched);
+    }
+
     public static bool TryParseArchiveNumbers(string fileName, out string? chapterNumber, out int? volumeNumber)
     {
         chapterNumber = null;
