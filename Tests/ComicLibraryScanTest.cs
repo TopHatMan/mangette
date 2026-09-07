@@ -58,40 +58,70 @@ public class ComicLibraryScanTest : IDisposable
 
     /// <summary>
     /// A hub folder ("Batman") holding loose issues directly in it, alongside per-run subfolders
-    /// that are each their own separate candidate -- confirmed live against a real library. Two
-    /// things must hold: the hub's own archive count must not double-count its subfolders' files,
-    /// and a bare "Annuals"/"Extras" leaf must inherit the series name from its parent run folder.
+    /// that are each their own separate candidate -- confirmed live against a real library. The
+    /// hub's own archive count must not double-count its subfolders' files.
     /// </summary>
     [Fact]
-    public void FindCandidates_HubWithLooseFilesAndAnnualsExtrasSubfolders()
+    public void FindCandidates_HubWithLooseFilesAndPerRunSubfolders()
     {
         Archive("Batman", "Batman - Ch.17.cbz");
         Archive("Batman", "Batman - Ch.30.cbz");
         Archive("Batman", "Volume 01 (1940)", "Batman 001.cbz");
         Archive("Batman", "Volume 01 (1940)", "Batman 002.cbz");
-        Archive("Batman", "Volume 01 (1940)", "Annuals", "Batman Annual 001.cbz");
-        Archive("Batman", "Volume 01 (1940)", "Extras", "Batman Giant-Size 001.cbz");
         Archive("Batman", "Volume 01 (1987)", "Batman v2 001.cbz");
 
         (List<API.ComicScanCandidate> unmapped, _) = API.ComicLibraryImportMatcher.FindCandidates(_root, new HashSet<string>());
 
-        Assert.Equal(5, unmapped.Count);
+        Assert.Equal(3, unmapped.Count);
 
         API.ComicScanCandidate hub = Assert.Single(unmapped, c => c.RelativePath == "Batman");
-        Assert.Equal(2, hub.ArchiveCount); // only its own 2 loose files, not the 5 more belonging to subfolders
+        Assert.Equal(2, hub.ArchiveCount); // only its own 2 loose files, not the 3 more belonging to subfolders
 
         API.ComicScanCandidate v1940 = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Volume 01 (1940)"));
-        Assert.Equal(2, v1940.ArchiveCount); // its own 2 issues, not the annual/extra nested under it
+        Assert.Equal(2, v1940.ArchiveCount);
         Assert.Equal("Batman", v1940.SuggestedQuery);
 
         API.ComicScanCandidate v1987 = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Volume 01 (1987)"));
         Assert.Equal("Batman", v1987.SuggestedQuery); // same base series as 1940 -- year disambiguation happens via Match, not the query text
+    }
 
-        API.ComicScanCandidate annuals = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Annuals"));
-        Assert.Equal("Batman Annual", annuals.SuggestedQuery);
+    /// <summary>
+    /// Kavita's own convention (unlike Komga's "every folder is its own series" default): a bare
+    /// "Annuals"/"Extras" subfolder stays attached to its parent series rather than becoming its
+    /// own separate library entry -- its archives roll up into whichever ancestor folder is
+    /// actually imported, the same way accessory Covers/Variants folders already did.
+    /// </summary>
+    [Fact]
+    public void FindCandidates_BareAnnualsAndExtrasFoldersRollUpIntoParentRun()
+    {
+        Archive("Batman", "Volume 01 (1940)", "Batman 001.cbz");
+        Archive("Batman", "Volume 01 (1940)", "Batman 002.cbz");
+        Archive("Batman", "Volume 01 (1940)", "Annuals", "Batman Annual 001.cbz");
+        Archive("Batman", "Volume 01 (1940)", "Extras", "Batman Giant-Size 001.cbz");
 
-        API.ComicScanCandidate extras = Assert.Single(unmapped, c => c.RelativePath.EndsWith("Extras"));
-        Assert.Equal("Batman Extra", extras.SuggestedQuery);
+        (List<API.ComicScanCandidate> unmapped, _) = API.ComicLibraryImportMatcher.FindCandidates(_root, new HashSet<string>());
+
+        API.ComicScanCandidate v1940 = Assert.Single(unmapped);
+        Assert.EndsWith("Volume 01 (1940)", v1940.RelativePath);
+        Assert.Equal(4, v1940.ArchiveCount); // its own 2 issues plus the annual and extra rolled up into it
+        Assert.DoesNotContain(unmapped, c => c.RelativePath.EndsWith("Annuals"));
+        Assert.DoesNotContain(unmapped, c => c.RelativePath.EndsWith("Extras"));
+    }
+
+    /// <summary>
+    /// A folder that already carries its own substantial title alongside a special-content word
+    /// (a real cataloged collection, not a bare descriptor) still gets its own candidate.
+    /// </summary>
+    [Fact]
+    public void FindCandidates_AnnualsFolderWithItsOwnTitleStaysSeparate()
+    {
+        Archive("Batman", "Batman White Knight (2017-)", "Volume 01 (2017)", "Batman White Knight 01.cbz");
+        Archive("Batman", "Batman White Knight (2017-)", "Volume 01 (2017)", "Batman Annuals 01-28 (1961-2011)", "Batman Annual 01.cbz");
+
+        (List<API.ComicScanCandidate> unmapped, _) = API.ComicLibraryImportMatcher.FindCandidates(_root, new HashSet<string>());
+
+        Assert.Equal(2, unmapped.Count);
+        Assert.Contains(unmapped, c => c.SuggestedQuery == "Batman Annuals 01-28");
     }
 
     [Fact]

@@ -54,6 +54,19 @@ public static class ComicLibraryImportMatcher
         word.EndsWith('s') && !word.EndsWith("ss", StringComparison.OrdinalIgnoreCase) ? word[..^1] : word;
 
     /// <summary>
+    /// Should this folder's archives roll up into its parent's candidate instead of becoming its
+    /// own separate importable series? Two cases: accessory content (Covers/Variants), and a BARE
+    /// special-content descriptor folder ("Annuals", "Extras") with no title of its own -- Kavita's
+    /// own convention keeps Annuals/Specials attached to their parent series (distinguished by a
+    /// filename/metadata marker, not a separate library entry), unlike Komga's "every folder is its
+    /// own series" default. A folder that already carries its own substantial title alongside a
+    /// special-content word (e.g. "Batman Annuals 01-28", a real cataloged collection) is NOT
+    /// bare, so it still gets its own candidate -- only "Annuals" or "Extras" alone rolls up.
+    /// </summary>
+    private static bool ShouldRollUpIntoParent(string folderName) =>
+        IsAccessoryFolder(folderName) || SpecialContentDescriptor.IsMatch(CleanSeriesName(folderName));
+
+    /// <summary>
     /// Builds the search query for one candidate folder from its whole path relative to the
     /// library root, instead of cleaning the leaf folder name in isolation. A leaf that already
     /// carries its own real title text (e.g. "Batman v1", "Batman Annuals 01-28") is used as-is --
@@ -118,7 +131,7 @@ public static class ComicLibraryImportMatcher
         if (!isRoot && LibraryImportMatcher.IsSkippableFolder(name))
             return;
 
-        if (!isRoot && HasDirectArchive(dir) && !IsAccessoryFolder(name))
+        if (!isRoot && HasDirectArchive(dir) && !ShouldRollUpIntoParent(name))
         {
             string relative = NormalizeFolderKey(Path.GetRelativePath(root, dir));
             if (mapped.Contains(relative))
@@ -157,13 +170,14 @@ public static class ComicLibraryImportMatcher
 
     /// <summary>
     /// Counts files under <paramref name="directory"/>, but does NOT descend into a subdirectory
-    /// that is itself a separate importable candidate (has its own direct archive and isn't an
-    /// accessory folder) -- otherwise a hub folder like "Batman" holding "Volume 01 (1940)",
+    /// that is itself a separate importable candidate (has its own direct archive and doesn't roll
+    /// up into its parent) -- otherwise a hub folder like "Batman" holding "Volume 01 (1940)",
     /// "Volume 01 (1987)", etc. as siblings would report every one of their files as its OWN
     /// archive count too, wildly inflating it (confirmed live: a hub with 2 direct loose files and
     /// three separately-listed sub-runs reported 7, not 2). Each file is counted under exactly one
-    /// candidate this way. Accessory folders (Covers/Variants) still roll their files up into the
-    /// parent, since they're deliberately not offered as their own candidate.
+    /// candidate this way. Accessory and bare special-content folders (Covers/Variants,
+    /// Annuals/Extras) still roll their files up into the parent, since they're deliberately not
+    /// offered as their own candidate -- see <see cref="ShouldRollUpIntoParent"/>.
     /// </summary>
     public static (int Archives, int Other) CountFiles(string directory)
     {
@@ -182,7 +196,7 @@ public static class ComicLibraryImportMatcher
                 string subName = Path.GetFileName(sub.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                 if (LibraryImportMatcher.IsSkippableFolder(subName))
                     continue;
-                if (HasDirectArchive(sub) && !IsAccessoryFolder(subName))
+                if (HasDirectArchive(sub) && !ShouldRollUpIntoParent(subName))
                     continue; // counted under its own separate candidate, not rolled up here
                 (int subArchives, int subOther) = CountFiles(sub);
                 archives += subArchives;
