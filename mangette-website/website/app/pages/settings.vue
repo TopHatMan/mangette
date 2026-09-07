@@ -189,9 +189,19 @@
                         <p v-if="testSearchResult" class="text-sm mb-1" :class="testSearchOk ? 'text-success' : 'text-error'">
                             {{ testSearchMessage }}
                         </p>
-                        <div v-if="testSearchResult?.sampleTitles?.length" class="flex flex-col gap-1">
+                        <div v-if="testSearchResult?.sampleTitles?.length" class="flex flex-col gap-1 mb-2">
                             <p v-for="(t, i) in testSearchResult.sampleTitles" :key="i" class="text-muted text-xs truncate">{{ t }}</p>
                         </div>
+                        <p v-if="testSearchResult" class="text-muted text-xs mb-1">
+                            Prowlarr returned {{ testSearchResult.rawResultCount }} raw result(s); {{ testSearchResult.resultCount }} parsed successfully.
+                            <span v-if="testSearchResult.httpStatus">HTTP {{ testSearchResult.httpStatus }}.</span>
+                            <span v-if="testSearchResult.error" class="text-error"> {{ testSearchResult.error }}</span>
+                        </p>
+                        <p v-if="testSearchResult?.requestUrl" class="text-muted text-xs">
+                            Request sent: <code class="break-all">{{ testSearchResult.requestUrl }}</code>
+                            <br />If this shows 0 raw results but Prowlarr's own Search page finds some, paste this URL (with
+                            <code>&amp;apikey=...</code> appended) directly into a browser on the same network as Prowlarr to see its raw response.
+                        </p>
                     </UFormField>
                     <UFormField label="qBittorrent URL" class="sm:col-span-2">
                         <UInput v-model="comic.qBittorrentUrl" class="w-full" placeholder="http://192.168.1.50:8080" />
@@ -438,7 +448,16 @@ const indexersOk = ref(false);
 const comicCategoriesText = ref('');
 const savingCategories = ref(false);
 
-type ProwlarrTestSearchResult = { resultCount: number; categoriesUsed: number[]; indexerIdsUsed: number[]; sampleTitles: string[] };
+type ProwlarrTestSearchResult = {
+    resultCount: number;
+    rawResultCount: number;
+    categoriesUsed: number[];
+    indexerIdsUsed: number[];
+    sampleTitles: string[];
+    requestUrl: string;
+    httpStatus?: number | null;
+    error?: string | null;
+};
 const testSearchQuery = ref('');
 const testingSearch = ref(false);
 const testSearchResult = ref<ProwlarrTestSearchResult | null>(null);

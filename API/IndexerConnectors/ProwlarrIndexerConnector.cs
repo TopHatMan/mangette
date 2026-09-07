@@ -92,15 +92,13 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         return indexers.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    public async Task<IndexerRelease[]> Search(string query, CancellationToken cancellationToken)
+    /// <summary>
+    /// Builds the exact query string <see cref="Search"/> sends to Prowlarr (minus the API key,
+    /// which travels as a header, never in the URL) -- exposed separately so a diagnostic endpoint
+    /// can show a user the literal request without duplicating this logic or needing server logs.
+    /// </summary>
+    public static string BuildSearchUrl(string query)
     {
-        if (string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrUrl) ||
-            string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrApiKey))
-        {
-            Log.Debug("Prowlarr is not configured.");
-            return [];
-        }
-
         // No category filter by default -- matches a plain Prowlarr manual search (blank Categories
         // field), which regularly finds results this used to filter out (see DefaultCategories doc).
         string requestUrl =
@@ -112,6 +110,31 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         // Empty selection = search every indexer Prowlarr has (matches Prowlarr's own default).
         foreach (int id in Mangette.Settings.ComicEnabledIndexerIds)
             requestUrl += $"&indexerIds={id}";
+        return requestUrl;
+    }
+
+    /// <summary>
+    /// Full detail behind one <see cref="Search"/> call -- what <see cref="ProwlarrIndexerConnector.Search"/>
+    /// itself only logs, exposed here so a diagnostic endpoint can hand it straight to a user without
+    /// them needing server log access to tell "Prowlarr returned nothing" apart from "Prowlarr returned
+    /// results Mangette failed to parse".
+    /// </summary>
+    public sealed record SearchDiagnostics(
+        string RequestUrl, int? HttpStatus, string? Error, int RawResultCount, IndexerRelease[] Releases);
+
+    public async Task<IndexerRelease[]> Search(string query, CancellationToken cancellationToken) =>
+        (await SearchWithDiagnostics(query, cancellationToken)).Releases;
+
+    public async Task<SearchDiagnostics> SearchWithDiagnostics(string query, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrUrl) ||
+            string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrApiKey))
+        {
+            Log.Debug("Prowlarr is not configured.");
+            return new SearchDiagnostics("", null, "Prowlarr is not configured.", 0, []);
+        }
+
+        string requestUrl = BuildSearchUrl(query);
 
         // Logged at Info (not Debug) on purpose: this is the single most useful line for diagnosing
         // "Prowlarr finds it manually but Mangette doesn't" -- it shows exactly what was sent, with
@@ -129,19 +152,19 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         catch (Exception ex)
         {
             Log.Error($"Prowlarr search failed for \"{query}\": {ex.Message}", ex);
-            return [];
+            return new SearchDiagnostics(requestUrl, null, ex.Message, 0, []);
         }
 
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
             Log.Error($"Prowlarr rejected the API key ({(int)response.StatusCode}).");
-            return [];
+            return new SearchDiagnostics(requestUrl, (int)response.StatusCode, "Prowlarr rejected the API key.", 0, []);
         }
         if (!response.IsSuccessStatusCode)
         {
             string errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             Log.Error($"Prowlarr search for \"{query}\" returned {(int)response.StatusCode} {response.StatusCode}: {errorBody}");
-            return [];
+            return new SearchDiagnostics(requestUrl, (int)response.StatusCode, errorBody, 0, []);
         }
 
         string body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -153,7 +176,7 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         catch (Exception ex)
         {
             Log.Error($"Could not parse Prowlarr response for \"{query}\": {ex.Message}. Body: {body}", ex);
-            return [];
+            return new SearchDiagnostics(requestUrl, (int)response.StatusCode, $"Could not parse Prowlarr's response: {ex.Message}", 0, []);
         }
 
         List<IndexerRelease> releases = [];
@@ -169,7 +192,7 @@ public class ProwlarrIndexerConnector : IIndexerConnector
             Log.WarnFormat("Prowlarr search \"{0}\": {1} of {2} raw result(s) were missing a title/downloadUrl/protocol and were skipped.", query, skipped, results.Count);
 
         Log.InfoFormat("Prowlarr search \"{0}\" returned {1} release(s) (raw: {2}).", query, releases.Count, results.Count);
-        return releases.ToArray();
+        return new SearchDiagnostics(requestUrl, (int)response.StatusCode, null, results.Count, releases.ToArray());
     }
 
     private static IndexerRelease? ParseRelease(JToken item)

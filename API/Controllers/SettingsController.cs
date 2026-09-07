@@ -494,15 +494,22 @@ public class SettingsController(MangaContext context) : ControllerBase
             return TypedResults.BadRequest("Query is required.");
 
         ProwlarrIndexerConnector connector = new();
-        IndexerRelease[] releases = await connector.Search(query.Trim(), HttpContext.RequestAborted);
+        ProwlarrIndexerConnector.SearchDiagnostics diag = await connector.SearchWithDiagnostics(query.Trim(), HttpContext.RequestAborted);
         return TypedResults.Ok(new ProwlarrTestSearchResult(
-            releases.Length,
+            diag.Releases.Length,
+            diag.RawResultCount,
             Mangette.Settings.ComicSearchCategories,
             Mangette.Settings.ComicEnabledIndexerIds,
-            releases.Take(10).Select(r => $"{r.Title} ({r.IndexerName}, {r.Protocol})").ToList()));
+            diag.Releases.Take(10).Select(r => $"{r.Title} ({r.IndexerName}, {r.Protocol})").ToList(),
+            diag.RequestUrl,
+            diag.HttpStatus,
+            diag.Error));
     }
 
-    public sealed record ProwlarrTestSearchResult(int ResultCount, List<int> CategoriesUsed, List<int> IndexerIdsUsed, List<string> SampleTitles);
+    /// <summary>RequestUrl never includes the API key (it travels as a header) -- safe to display/copy.</summary>
+    public sealed record ProwlarrTestSearchResult(
+        int ResultCount, int RawResultCount, List<int> CategoriesUsed, List<int> IndexerIdsUsed,
+        List<string> SampleTitles, string RequestUrl, int? HttpStatus, string? Error);
 
     /// <summary>Sets the qBittorrent WebUI connection used as the torrent download client for Comics.</summary>
     [HttpPatch("QBittorrent")]

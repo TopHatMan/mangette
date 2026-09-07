@@ -8287,6 +8287,10 @@
             "type": "integer",
             "format": "int32"
           },
+          "rawResultCount": {
+            "type": "integer",
+            "format": "int32"
+          },
           "categoriesUsed": {
             "type": "array",
             "items": {
@@ -8309,9 +8313,23 @@
               "type": "string"
             },
             "nullable": true
+          },
+          "requestUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "httpStatus": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "nullable": true
           }
         },
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "RequestUrl never includes the API key (it travels as a header) -- safe to display/copy."
       },
       "ReleaseProtocol": {
         "enum": [
