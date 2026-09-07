@@ -112,7 +112,13 @@ public class ProwlarrIndexerConnector : IIndexerConnector
         string requestUrl =
             $"{Mangette.Settings.ProwlarrUrl}/api/v1/search" +
             $"?query={HttpUtility.UrlEncode(query)}" +
-            $"&type={HttpUtility.UrlEncode(type)}";
+            $"&type={HttpUtility.UrlEncode(type)}" +
+            // Confirmed live against a real Prowlarr instance: its own web UI always sends limit and
+            // offset, and omitting them here (as this used to) produced 0 raw results from indexers
+            // that returned plenty through the UI -- Prowlarr apparently doesn't default these to
+            // "return everything" the way a REST API normally would. 1000 comfortably covers any
+            // single series' issue backlog without truncating like Prowlarr UI's own limit=100 could.
+            "&limit=1000&offset=0";
         if (Mangette.Settings.ComicSearchCategories is { Count: > 0 } categories)
             requestUrl += $"&categories={string.Join(',', categories)}";
         // Empty selection = search every indexer Prowlarr has (matches Prowlarr's own default).
