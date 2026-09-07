@@ -5256,6 +5256,15 @@
           {
             "name": "query",
             "in": "query",
+            "description": "Free-text query.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Prowlarr search \"type\" override, default \"search\" (what real Comics searches always use).\r\nA confirmed real-world case: a Usenet indexer returned results through Prowlarr's own manual\r\nSearch page but zero through the API with type \"search\" -- this lets that be narrowed down\r\n(try \"book-search\", \"tv-search\", etc.) from the Settings page without a redeploy each time.",
             "schema": {
               "type": "string"
             }

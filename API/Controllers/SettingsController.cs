@@ -481,12 +481,19 @@ public class SettingsController(MangaContext context) : ControllerBase
     /// so you can see -- without digging through server logs -- whether Mangette actually talks to
     /// Prowlarr and which indexers/releases come back, before trusting an "added a comic" search to work.
     /// </summary>
+    /// <param name="query">Free-text query.</param>
+    /// <param name="type">
+    /// Prowlarr search "type" override, default "search" (what real Comics searches always use).
+    /// A confirmed real-world case: a Usenet indexer returned results through Prowlarr's own manual
+    /// Search page but zero through the API with type "search" -- this lets that be narrowed down
+    /// (try "book-search", "tv-search", etc.) from the Settings page without a redeploy each time.
+    /// </param>
     /// <response code="200"></response>
     /// <response code="400">Prowlarr is not configured, unreachable, or rejected the request.</response>
     [HttpGet("Prowlarr/TestSearch")]
     [ProducesResponseType<ProwlarrTestSearchResult>(Status200OK, "application/json")]
     [ProducesResponseType<string>(Status400BadRequest, "text/plain")]
-    public async Task<Results<Ok<ProwlarrTestSearchResult>, BadRequest<string>>> TestProwlarrSearch([FromQuery] string query)
+    public async Task<Results<Ok<ProwlarrTestSearchResult>, BadRequest<string>>> TestProwlarrSearch([FromQuery] string query, [FromQuery] string? type = null)
     {
         if (string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrUrl) || string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrApiKey))
             return TypedResults.BadRequest("Prowlarr URL and API key are required.");
@@ -494,7 +501,8 @@ public class SettingsController(MangaContext context) : ControllerBase
             return TypedResults.BadRequest("Query is required.");
 
         ProwlarrIndexerConnector connector = new();
-        ProwlarrIndexerConnector.SearchDiagnostics diag = await connector.SearchWithDiagnostics(query.Trim(), HttpContext.RequestAborted);
+        ProwlarrIndexerConnector.SearchDiagnostics diag = await connector.SearchWithDiagnostics(
+            query.Trim(), HttpContext.RequestAborted, string.IsNullOrWhiteSpace(type) ? "search" : type.Trim());
         return TypedResults.Ok(new ProwlarrTestSearchResult(
             diag.Releases.Length,
             diag.RawResultCount,

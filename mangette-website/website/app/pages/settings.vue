@@ -184,6 +184,12 @@
                         hint="Runs the exact same Prowlarr search Comics uses, with your current categories/indexer settings above, so you can see directly whether it's reaching Prowlarr and which indexers/releases come back -- no need to dig through server logs.">
                         <div class="flex gap-2 mb-2">
                             <UInput v-model="testSearchQuery" class="w-full" placeholder="e.g. Absolute Superman" @keydown.enter.prevent="testSearch" />
+                            <UInput
+                                v-model="testSearchType"
+                                class="w-40 shrink-0"
+                                placeholder="search"
+                                title="Prowlarr search type -- default 'search'. Try 'book-search', 'tv-search' etc. if an indexer works in Prowlarr's own Search page but returns nothing here."
+                                @keydown.enter.prevent="testSearch" />
                             <UButton variant="outline" :loading="testingSearch" @click="testSearch">Search</UButton>
                         </div>
                         <p v-if="testSearchResult" class="text-sm mb-1" :class="testSearchOk ? 'text-success' : 'text-error'">
@@ -464,6 +470,7 @@ type ProwlarrTestSearchResult = {
     firstSkippedRaw?: string | null;
 };
 const testSearchQuery = ref('');
+const testSearchType = ref('');
 const testingSearch = ref(false);
 const testSearchResult = ref<ProwlarrTestSearchResult | null>(null);
 const testSearchOk = ref(false);
@@ -741,12 +748,13 @@ const testSearch = async () => {
     testingSearch.value = true;
     testSearchResult.value = null;
     try {
-        const result = await $fetch<ProwlarrTestSearchResult>('/v2/Settings/Prowlarr/TestSearch', { query: { query: q } });
+        const type = testSearchType.value.trim();
+        const result = await $fetch<ProwlarrTestSearchResult>('/v2/Settings/Prowlarr/TestSearch', { query: { query: q, ...(type ? { type } : {}) } });
         testSearchResult.value = result;
         testSearchOk.value = true;
         const cats = result.categoriesUsed.length ? result.categoriesUsed.join(', ') : 'none (unrestricted)';
         const idx = result.indexerIdsUsed.length ? `${result.indexerIdsUsed.length} selected indexer(s)` : 'every indexer';
-        testSearchMessage.value = `Found ${result.resultCount} release(s) searching ${idx}, categories: ${cats}.`;
+        testSearchMessage.value = `Found ${result.resultCount} release(s) searching ${idx}, categories: ${cats}, type: ${type || 'search'}.`;
     } catch (e: unknown) {
         testSearchOk.value = false;
         testSearchMessage.value = apiErrorText(e) || 'Search failed.';

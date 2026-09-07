@@ -97,14 +97,22 @@ public class ProwlarrIndexerConnector : IIndexerConnector
     /// which travels as a header, never in the URL) -- exposed separately so a diagnostic endpoint
     /// can show a user the literal request without duplicating this logic or needing server logs.
     /// </summary>
-    public static string BuildSearchUrl(string query)
+    /// <param name="query">Free-text search query.</param>
+    /// <param name="type">
+    /// Prowlarr's search "type" -- a real indexer (confirmed live: NZBgeek, a Usenet indexer) can
+    /// return releases through Prowlarr's own manual Search page yet return zero through this API
+    /// with type "search", so this is overridable per-call purely for the Settings diagnostic tool
+    /// to test alternate values (e.g. "book-search") without a code change + redeploy each time.
+    /// Real (non-diagnostic) searches always use the default "search".
+    /// </param>
+    public static string BuildSearchUrl(string query, string type = "search")
     {
         // No category filter by default -- matches a plain Prowlarr manual search (blank Categories
         // field), which regularly finds results this used to filter out (see DefaultCategories doc).
         string requestUrl =
             $"{Mangette.Settings.ProwlarrUrl}/api/v1/search" +
             $"?query={HttpUtility.UrlEncode(query)}" +
-            $"&type=search";
+            $"&type={HttpUtility.UrlEncode(type)}";
         if (Mangette.Settings.ComicSearchCategories is { Count: > 0 } categories)
             requestUrl += $"&categories={string.Join(',', categories)}";
         // Empty selection = search every indexer Prowlarr has (matches Prowlarr's own default).
@@ -125,7 +133,7 @@ public class ProwlarrIndexerConnector : IIndexerConnector
     public async Task<IndexerRelease[]> Search(string query, CancellationToken cancellationToken) =>
         (await SearchWithDiagnostics(query, cancellationToken)).Releases;
 
-    public async Task<SearchDiagnostics> SearchWithDiagnostics(string query, CancellationToken cancellationToken)
+    public async Task<SearchDiagnostics> SearchWithDiagnostics(string query, CancellationToken cancellationToken, string type = "search")
     {
         if (string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrUrl) ||
             string.IsNullOrWhiteSpace(Mangette.Settings.ProwlarrApiKey))
@@ -134,7 +142,7 @@ public class ProwlarrIndexerConnector : IIndexerConnector
             return new SearchDiagnostics("", null, "Prowlarr is not configured.", 0, []);
         }
 
-        string requestUrl = BuildSearchUrl(query);
+        string requestUrl = BuildSearchUrl(query, type);
 
         // Logged at Info (not Debug) on purpose: this is the single most useful line for diagnosing
         // "Prowlarr finds it manually but Mangette doesn't" -- it shows exactly what was sent, with
