@@ -19,6 +19,33 @@ public class LibraryImportMatcherTest
     }
 
     [Fact]
+    public void ScoreTitle_PenalizesMissingDistinguishingWord()
+    {
+        // "Mighty Morphin Power Rangers-Recharged" is a distinct reboot/spin-off, not just a
+        // formatting variant of the plain ongoing "Mighty Morphin Power Rangers" -- the base
+        // series must not casually out-score (or tie with) a real match on this folder.
+        double baseScore = API.LibraryImportMatcher.ScoreTitle(
+            "Mighty.Morphin.Power.Rangers-Recharged.", "Mighty Morphin Power Rangers");
+        double exactScore = API.LibraryImportMatcher.ScoreTitle(
+            "Mighty.Morphin.Power.Rangers-Recharged.", "Mighty Morphin Power Rangers: Recharged");
+
+        Assert.True(exactScore > baseScore, $"expected exact ({exactScore}) > base ({baseScore})");
+        Assert.True(baseScore < 90, $"expected the base (wrong) series to score below the auto-import threshold, got {baseScore}");
+    }
+
+    [Fact]
+    public void ScoreTitle_FormatDescriptorDoesNotIncurMissingWordPenalty_UnlikeARealDistinguishingWord()
+    {
+        // "TPBs" is a format descriptor (trade paperback collections of the SAME series) and must
+        // not be penalized the way a genuine distinguishing word is -- "Batman Beyond" is a real,
+        // different spin-off series, so it should score lower against plain "Batman" than a same-
+        // length-ish format-descriptor folder does.
+        double tpbScore = API.LibraryImportMatcher.ScoreTitle("Batman TPBs", "Batman");
+        double beyondScore = API.LibraryImportMatcher.ScoreTitle("Batman Beyond", "Batman");
+        Assert.True(tpbScore > beyondScore, $"expected TPBs ({tpbScore}) > Beyond ({beyondScore})");
+    }
+
+    [Fact]
     public void ComicInfo_IncludesSeriesForKomga()
     {
         API.Schema.MangaContext.Manga manga = new(

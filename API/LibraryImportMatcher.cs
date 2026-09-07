@@ -9,6 +9,15 @@ public static class LibraryImportMatcher
     private static readonly Regex JunkTokens = new(
         @"\b(digital|omnibus|complete|scan|scans|rarbg|nyaa)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex WordSplit = new(@"[^\p{L}\p{N}]+", RegexOptions.Compiled);
+
+    // Words that describe a format/collection type rather than a distinguishing part of a title --
+    // excluded only from the missing-word title-match check below, not from CleanFolderQuery's
+    // output (which stays visible as-is in the UI's editable "suggested query" field).
+    private static readonly HashSet<string> NonDistinguishingWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "the", "a", "an", "of", "and", "&", "tpb", "tpbs", "hc", "hardcover", "omnibus", "digital"
+    };
 
     public static string CleanFolderQuery(string folderName)
     {
@@ -31,8 +40,24 @@ public static class LibraryImportMatcher
             return 100;
         if (folder.Equals(title.Trim(), StringComparison.OrdinalIgnoreCase))
             return 99;
-        return NeedlemanWunschStringUtil.CalculateSimilarityPercentage(folder, series);
+
+        double score = NeedlemanWunschStringUtil.CalculateSimilarityPercentage(folder, series);
+
+        // A folder like "Mighty Morphin Power Rangers-Recharged" scoring high against a candidate
+        // titled plain "Mighty Morphin Power Rangers" would silently match/import the wrong (base,
+        // unrelated) series -- character-level edit distance alone can't tell "a reboot/spin-off
+        // dropped a distinguishing word" apart from "a formatting variant of the same title". Any
+        // significant word the folder asks for that the candidate's title doesn't have at all is a
+        // strong signal this candidate is a different work, so it costs real score -- enough that a
+        // genuinely matching, more specific candidate (if ComicVine has it) wins instead.
+        string[] folderWords = SignificantWords(folder);
+        HashSet<string> seriesWords = new(SignificantWords(series), StringComparer.OrdinalIgnoreCase);
+        int missing = folderWords.Count(w => !seriesWords.Contains(w));
+        return Math.Max(0, score - missing * 25);
     }
+
+    private static string[] SignificantWords(string text) =>
+        WordSplit.Split(text).Where(w => w.Length > 0 && !NonDistinguishingWords.Contains(w)).ToArray();
 
     public static bool IsSkippableFolder(string folderName)
     {
