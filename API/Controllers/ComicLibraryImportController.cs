@@ -1,3 +1,5 @@
+using API.Schema.ActionsContext;
+using API.Schema.ActionsContext.Actions;
 using API.Schema.MangaContext;
 using API.Schema.MangaContext.MetadataFetchers;
 using API.Workers.PeriodicWorkers;
@@ -24,7 +26,7 @@ namespace API.Controllers;
 [ApiVersion(2)]
 [ApiController]
 [Route("v{v:apiVersion}/[controller]")]
-public class ComicLibraryImportController(MangaContext context) : ControllerBase
+public class ComicLibraryImportController(MangaContext context, ActionsContext ActionsContext) : ControllerBase
 {
     private readonly ILog Log = LogManager.GetLogger(typeof(ComicLibraryImportController));
 
@@ -171,16 +173,47 @@ public class ComicLibraryImportController(MangaContext context) : ControllerBase
             ComicIssueStart = 1,
             ComicIssueEnd = issueCount > 0 ? issueCount : null
         };
-        comic.SetDirectoryName(request.FolderName);
+        // DirectoryName is left at the constructor's default (CleanNameForWindows(name), e.g.
+        // "Batman (1940)") instead of adopting request.FolderName in place -- Kavita's convention
+        // is a flat "Series Name (Year)" folder directly under the library root, not wherever the
+        // scanned candidate happened to sit nested inside a messy franchise-hub folder. The actual
+        // move happens below, before the Manga row is saved, so a failed move never leaves the
+        // database pointing at a folder that doesn't match reality.
         comic.SetMonitored(true);
 
         string? siteUrl = volume.Value<string>("site_detail_url");
         if (!string.IsNullOrWhiteSpace(siteUrl))
             comic.Links.Add(new Link("ComicVine", siteUrl));
 
+        (bool shouldMove, string oldFullPath, string newFullPath) =
+            ComicLibraryImportMatcher.PlanReorganizeMove(library.BasePath, request.FolderName, comic.DirectoryName);
+        if (shouldMove)
+        {
+            if (Directory.Exists(newFullPath))
+                return TypedResults.BadRequest($"Cannot reorganize into \"{comic.DirectoryName}\": that folder already exists.");
+            if (!Directory.Exists(oldFullPath))
+                return TypedResults.BadRequest($"Folder \"{request.FolderName}\" does not exist under the library.");
+            try
+            {
+                Directory.Move(oldFullPath, newFullPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Could not move \"{oldFullPath}\" to \"{newFullPath}\": {ex.Message}", ex);
+                return TypedResults.BadRequest($"Could not reorganize \"{request.FolderName}\" into \"{comic.DirectoryName}\": {ex.Message}");
+            }
+        }
+
         context.Mangas.Add(comic);
         if (await context.Sync(HttpContext.RequestAborted, GetType(), "Import comic") is { success: false } result)
             return TypedResults.InternalServerError(result.exceptionMessage);
+
+        if (shouldMove)
+        {
+            await ActionsContext.Actions.AddAsync(new DataMovedActionRecord(oldFullPath, newFullPath), HttpContext.RequestAborted);
+            if (await ActionsContext.Sync(HttpContext.RequestAborted, GetType(), "Comic reorganized into Kavita structure") is { success: false } actionsResult)
+                Log.Error($"Failed to save reorganization action record: {actionsResult.exceptionMessage}");
+        }
 
         Mangette.AddWorker(new MaterializeWantedComicIssuesWorker(mangaId: comic.Key));
         Mangette.AddWorker(Mangette.UpdateChaptersDownloadedWorker);

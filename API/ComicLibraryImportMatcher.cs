@@ -18,15 +18,26 @@ public static class ComicLibraryImportMatcher
     private static readonly Regex SortPrefix = new(@"^\d{1,3}[\s._-]+", RegexOptions.Compiled);
 
     /// <summary>
-    /// Folder names that are near-universally accessory content (cover scans, alternate covers)
-    /// rather than a distinct series/run in their own right. Their archives still count toward
-    /// their parent folder's recursive total in Scan; they're just not offered as their own
-    /// importable candidate.
+    /// A real library audit (1,376 folders) showed cover/scan-variant folders spelled a dozen
+    /// different ways -- "covers", "Variant Covers", "c2c scans", "scans with extra covers",
+    /// "scans w. xtra covers", "related variants" -- an exact-match list would need updating for
+    /// every new phrasing. Instead: if every significant word in the folder name is one of these
+    /// accessory-content words (with nothing else, i.e. no real title text mixed in), it's
+    /// accessory content rather than a distinct series/run in its own right. Their archives still
+    /// count toward their parent folder's recursive total in Scan; they're just not offered as
+    /// their own importable candidate.
     /// </summary>
-    private static readonly string[] AccessoryFolderNames = ["covers", "cover", "variant covers", "variants"];
+    private static readonly HashSet<string> AccessoryWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "scan", "scans", "cover", "covers", "variant", "variants", "c2c", "extra", "xtra", "with", "w", "related"
+    };
+    private static readonly Regex WordSplit = new(@"[^\p{L}\p{N}]+", RegexOptions.Compiled);
 
-    public static bool IsAccessoryFolder(string folderName) =>
-        AccessoryFolderNames.Contains(folderName.Trim(), StringComparer.OrdinalIgnoreCase);
+    public static bool IsAccessoryFolder(string folderName)
+    {
+        string[] words = WordSplit.Split(folderName.Trim()).Where(w => w.Length > 0).ToArray();
+        return words.Length > 0 && words.All(AccessoryWords.Contains);
+    }
 
     public static string CleanSeriesName(string folderName)
     {
@@ -43,15 +54,27 @@ public static class ComicLibraryImportMatcher
     /// a bare "Volume 01" (identical, useless query) for two different Batman runs, and a bare
     /// "Annuals" for its annual issues -- neither contains the word "Batman" at all.
     /// </summary>
+    /// <summary>
+    /// Pure wrapper terms -- roll up to the closest real series name with no suffix, since unlike
+    /// Annual/Extra/Special these don't name an actual distinguishable ComicVine content type
+    /// ("Batman Spin-off" isn't a real search target; a real audit showed "Spin-offs+" holding
+    /// entirely different, distinctly-named series like "Doctor Doom (1970-2020)" as its own
+    /// children, not spin-off issues of the parent). Trailing "+" (a real audit convention marking
+    /// "and more") is tolerated on the whole match.
+    /// </summary>
     private static readonly Regex GenericRunDescriptor = new(
-        @"^(?:vol(?:ume)?s?\.?\s*\d*|v\d+|tpbs?|omnibus(?:es)?)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        @"^(?:vol(?:ume)?s?\.?\s*\d*|v\d+|tpbs?|omnibus(?:es)?|trades?|mini-?series|motion\s*comics?|spin-?offs?)\+?$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex SpecialContentDescriptor = new(
-        @"^(?:annuals?|specials?|extras?|giant-?sizes?|one-?shots?)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        @"^(?:annuals?|specials?|extras?|giant-?sizes?|one-?shots?)\+?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>Naive plural-to-singular for the small closed set <see cref="SpecialContentDescriptor"/> matches.</summary>
-    private static string Singularize(string word) =>
-        word.EndsWith('s') && !word.EndsWith("ss", StringComparison.OrdinalIgnoreCase) ? word[..^1] : word;
+    private static string Singularize(string word)
+    {
+        word = word.TrimEnd('+');
+        return word.EndsWith('s') && !word.EndsWith("ss", StringComparison.OrdinalIgnoreCase) ? word[..^1] : word;
+    }
 
     /// <summary>
     /// Should this folder's archives roll up into its parent's candidate instead of becoming its
@@ -213,6 +236,23 @@ public static class ComicLibraryImportMatcher
     /// <summary>Normalizes a relative path's separators so folder keys compare consistently across platforms.</summary>
     public static string NormalizeFolderKey(string name) =>
         name.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+
+    /// <summary>
+    /// Decides whether importing a matched candidate needs to physically move its folder to the
+    /// flat Kavita-style location (<paramref name="targetDirectoryName"/>, the Manga's own
+    /// constructor-derived directory name) instead of leaving it wherever it was found nested
+    /// inside a messy franchise-hub folder (<paramref name="scannedFolderName"/>). Pure path
+    /// arithmetic only -- no filesystem I/O -- so the decision (and the exact paths an actual
+    /// <see cref="Directory.Move"/> would use) is testable without a real library on disk.
+    /// </summary>
+    public static (bool ShouldMove, string OldFullPath, string NewFullPath) PlanReorganizeMove(
+        string libraryBasePath, string scannedFolderName, string targetDirectoryName)
+    {
+        string oldFullPath = Path.GetFullPath(Path.Combine(libraryBasePath, NormalizeFolderKey(scannedFolderName)));
+        string newFullPath = Path.GetFullPath(Path.Combine(libraryBasePath, targetDirectoryName));
+        bool shouldMove = !oldFullPath.Equals(newFullPath, StringComparison.OrdinalIgnoreCase);
+        return (shouldMove, oldFullPath, newFullPath);
+    }
 }
 
 /// <summary>One importable folder found by <see cref="ComicLibraryImportMatcher.FindCandidates"/>.</summary>

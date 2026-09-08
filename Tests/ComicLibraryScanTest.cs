@@ -148,4 +148,38 @@ public class ComicLibraryScanTest : IDisposable
         Assert.Empty(unmapped);
         Assert.Equal(1, mappedCount);
     }
+
+    [Fact]
+    public void PlanReorganizeMove_MovesANestedCandidateToAFlatLibraryRootFolder()
+    {
+        // "Ant-Man (1962-2023)/v1 (001-005+)(2015)" imported and matched against ComicVine's
+        // "Ant-Man" volume (year 1962) should physically relocate to a flat "Ant-Man (1962)"
+        // folder directly under the library root -- Kavita's own convention.
+        (bool shouldMove, string oldFullPath, string newFullPath) = API.ComicLibraryImportMatcher.PlanReorganizeMove(
+            _root, Path.Combine("Ant-Man (1962-2023)", "v1 (001-005+)(2015)"), "Ant-Man (1962)");
+
+        Assert.True(shouldMove);
+        Assert.Equal(Path.GetFullPath(Path.Combine(_root, "Ant-Man (1962-2023)", "v1 (001-005+)(2015)")), oldFullPath);
+        Assert.Equal(Path.GetFullPath(Path.Combine(_root, "Ant-Man (1962)")), newFullPath);
+    }
+
+    [Fact]
+    public void PlanReorganizeMove_NoOpWhenAlreadyFlatAndCorrectlyNamed()
+    {
+        (bool shouldMove, _, _) = API.ComicLibraryImportMatcher.PlanReorganizeMove(_root, "Ant-Man (1962)", "Ant-Man (1962)");
+        Assert.False(shouldMove);
+    }
+
+    [Fact]
+    public void PlanReorganizeMove_TreatsForwardAndBackslashSeparatorsTheSame()
+    {
+        (bool shouldMoveBackslash, string oldA, _) = API.ComicLibraryImportMatcher.PlanReorganizeMove(
+            _root, "Ant-Man (1962-2023)\\v1 (2015)", "Ant-Man (1962)");
+        (bool shouldMoveForwardSlash, string oldB, _) = API.ComicLibraryImportMatcher.PlanReorganizeMove(
+            _root, "Ant-Man (1962-2023)/v1 (2015)", "Ant-Man (1962)");
+
+        Assert.True(shouldMoveBackslash);
+        Assert.True(shouldMoveForwardSlash);
+        Assert.Equal(oldA, oldB);
+    }
 }

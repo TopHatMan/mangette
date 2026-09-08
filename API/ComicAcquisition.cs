@@ -33,11 +33,12 @@ public static class ComicAcquisition
     /// in ComicVine's own data, distinguished only by volume id/year, not by anything in the name
     /// text. Manga.Key derives from Name alone, so adding a second series under an identical name
     /// collides on the primary key -- confirmed live, this previously surfaced as a raw
-    /// "SQLite Error 19: UNIQUE constraint failed" instead of anything actionable. If the plain name
-    /// collides and a year is known (from ComicVine), retry with "{name} ({year})" appended before
-    /// giving up -- the same disambiguator ComicVine's own search UI already shows the user, so this
-    /// resolves the overwhelming majority of real collisions automatically instead of forcing a
-    /// manual rename.
+    /// "SQLite Error 19: UNIQUE constraint failed" instead of anything actionable.
+    /// Prefers "{name} ({year})" whenever a year is known at all (not just on collision) -- this is
+    /// Kavita's own ComicVine-library naming convention (see the folder-org research two rounds
+    /// ago), and disambiguating proactively means most future collisions never happen in the first
+    /// place. Falls back to the bare name only when no year is known. If even the preferred name
+    /// collides (a genuine re-add), returns a friendly error instead of a raw SQLite exception.
     /// </summary>
     public static async Task<(string Name, string? Error)> ResolveNonCollidingName(
         MangaContext context, string name, uint? year, CancellationToken cancellationToken)
@@ -45,18 +46,11 @@ public static class ComicAcquisition
         async Task<bool> Exists(string candidate) =>
             await context.Mangas.AnyAsync(m => m.Key == TokenGen.CreateToken(typeof(Manga), candidate), cancellationToken);
 
-        if (!await Exists(name))
-            return (name, null);
+        string preferred = year is { } y ? $"{name} ({y})" : name;
+        if (!await Exists(preferred))
+            return (preferred, null);
 
-        if (year is { } y)
-        {
-            string withYear = $"{name} ({y})";
-            if (!await Exists(withYear))
-                return (withYear, null);
-            return (name, $"A series named \"{name}\" (and \"{withYear}\") is already in your library. Rename the folder/title to something more distinguishing and try again.");
-        }
-
-        return (name, $"A series named \"{name}\" is already in your library. Rename the folder/title to something more distinguishing and try again.");
+        return (name, $"A series named \"{preferred}\" is already in your library. Rename the folder/title to something more distinguishing and try again.");
     }
 
     /// <summary>
